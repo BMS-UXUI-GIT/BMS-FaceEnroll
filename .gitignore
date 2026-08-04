@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# env ของแต่ละเครื่อง — .env.example เท่านั้นที่ขึ้น git
+.env
+.env.local
+.env.*.local
+
+# logs
+npm-debug.log*
+yarn-error.log*
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,110 @@
+/* FaceCheck Admin theme (light + dark) */
+:root {
+  color-scheme: light; /* ให้ control พื้นฐานของ browser (รายการ dropdown ฯลฯ) เป็นโทนสว่าง */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2359616f' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --sans: 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --bg: #f5f6f9; --surface: #ffffff; --surface-2: #f0f2f6; --surface-3: #e7ebf1;
+  --border: #e6e9ef; --border-strong: #d3dae3;
+  --text: #101521; --text-dim: #59616f; --text-faint: #8b94a2;
+  --ok: #12a150; --ok-soft: #e5f5eb; --warn: #c07908; --warn-soft: #f9f0dc;
+  --danger: #dc2f2f; --danger-soft: #fbe9e9; --info: #3a4fd6; --info-soft: #ecedfb;
+  --accent: #3a4fd6; --accent-strong: #2c3cb0; --accent-soft: #ecedfb; --on-accent: #ffffff;
+  --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.05);
+  --shadow-md: 0 4px 12px rgba(16,24,40,.08);
+  --shadow-lg: 0 16px 40px rgba(16,24,40,.16);
+  /* พาเลตกราฟ categorical (pastel) — แต่ละเวร/หมวดสีต่างกันชัด (ไม่ผูกกับ --accent/--info ที่ชนกัน) */
+  --cat-1:#5b8ff0; --cat-2:#e8a23d; --cat-3:#2fb88a; --cat-4:#a06ef0;
+  --cat-5:#ec6a92; --cat-6:#3bb6cc; --cat-7:#8cbf3f; --cat-8:#ef8a5c;
+  /* สีสถานะกราฟ (pastel) — ตรงเวลา / มาสาย / ออกก่อน */
+  --c-ontime:#57c99a; --c-late:#efc06a; --c-early:#7f9ff0;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; /* รายการ dropdown/scrollbar ของ browser เป็นโทนมืด */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2398a2b2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --bg: #0a0c10; --surface: #12151b; --surface-2: #181c23; --surface-3: #222732;
+  --border: #242a34; --border-strong: #333a46;
+  --text: #e8ebf1; --text-dim: #98a2b2; --text-faint: #68717e;
+  --ok: #3ecb7d; --ok-soft: #0f2d1b; --warn: #eeab3c; --warn-soft: #33260c;
+  --danger: #f4685f; --danger-soft: #38181a; --info: #7c8bff; --info-soft: #1a1f3a;
+  --accent: #6f7dff; --accent-strong: #8b96ff; --accent-soft: #191e39; --on-accent: #080b1e;
+  --shadow: 0 1px 2px rgba(0,0,0,.4); --shadow-md: 0 6px 20px rgba(0,0,0,.4); --shadow-lg: 0 18px 44px rgba(0,0,0,.6);
+  /* พาเลตกราฟ (โทนสว่างขึ้นนิดให้เด่นบนพื้นมืด) */
+  --cat-1:#7ba7f5; --cat-2:#f0b562; --cat-3:#4fd0a4; --cat-4:#b98cf5;
+  --cat-5:#f186a6; --cat-6:#5fc9dd; --cat-7:#a7d45e; --cat-8:#f5a074;
+  --c-ontime:#5fd3a4; --c-late:#f2c877; --c-early:#8fa8f5;
+}
+
+/* เนื้อหาเต็มความกว้างจอเสมอ — จอใหญ่/4K ใช้พื้นที่ให้ครบ (เดิมล็อกไว้ 1400px)
+   การ์ด/กราฟใช้ grid auto-fit จึงเพิ่มคอลัมน์ให้เองเมื่อจอกว้างขึ้น */
+:root { --page-max: 100%; }
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; min-height: 100vh; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 14px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+input, button, select { font-family: var(--sans); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.lift { transition: transform .14s, box-shadow .14s, border-color .14s; }
+.lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.row-hover { transition: background .12s; }
+.row-hover:hover { background: var(--surface-2); }
+
+/* ทุกปุ่มมี feedback: hover เปลี่ยนสี, กดยุบเล็กน้อย, disabled จาง+ห้ามกด, โฟกัสมีขอบ */
+button { transition: filter .12s ease, opacity .12s ease, transform .05s ease; }
+button:not(:disabled):hover { filter: brightness(0.96); }
+:root[data-theme="dark"] button:not(:disabled):hover { filter: brightness(1.18); }
+button:not(:disabled):active { transform: translateY(1px); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ช่องกรอก/dropdown: hover + โฟกัสเห็นชัด */
+input:hover, select:hover { border-color: var(--border-strong); }
+input:focus, select:focus { border-color: var(--accent) !important; }
+:where(button, a, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ไอคอนหมุน (ใช้ตอนกำลังโหลด/รีเฟรช) */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin .7s linear infinite; }
+
+/* หน้าคู่มือ: จอแคบ = สารบัญขึ้นบน เนื้อหาอยู่ล่าง (คอลัมน์เดียว) */
+@media (max-width: 760px) {
+  .help-grid { grid-template-columns: 1fr !important; }
+}
+
+/* จอเล็ก: ซ่อนของรอง + หัวเว็บกระชับ (sidebar เป็น drawer จัดการใน React แล้ว) */
+@media (max-width: 920px) {
+  .hide-sm { display: none !important; }
+  .topbar { padding: 10px 12px !important; gap: 9px !important; }
+  .topbar h1 { font-size: 16px !important; }
+}
+
+/* dropdown แบบ custom (ลูกศรเอง + สีตามธีม) */
+select.nice-select {
+  appearance: none; -webkit-appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding: 8px 30px 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background-color: var(--surface-2);
+  color: var(--text);
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: border-color .12s;
+}
+select.nice-select:hover { border-color: var(--border-strong); }
+/* รายการใน popup — ย้อมสีตามธีม */
+select option { background: var(--surface); color: var(--text); }
+
+@keyframes feedIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }

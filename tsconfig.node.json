@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    // ผลลัพธ์ของ tsc ต้องไม่ตกอยู่ข้าง vite.config.ts — ไม่งั้น vite หยิบ vite.config.js (ตัวเก่า) ไปใช้แทน
+    "outDir": "./node_modules/.tmp",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "strict": true
+  },
+  "include": ["vite.config.ts", "package.json"]
+}
