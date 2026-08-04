@@ -1,16 +1,23 @@
 import type { Role, Session } from './state'
 
-// ── Mock login (dev เท่านั้น) ────────────────────────────────────────────────
-// ใช้ตอนยังไม่มี backend (attendance-api :8300) รันในเครื่อง — ข้ามหน้า login ไปดู UI ได้
+// ── Mock login + ข้อมูลตัวอย่าง ─────────────────────────────────────────────
+// ใช้ตอนยังไม่มี backend (attendance-api :8300) — ข้ามหน้า login ไปดู UI ได้
+// เปิดได้ 2 ทาง:
 //
-// เปิดใช้: สร้างไฟล์ .env.local ที่ root แล้วใส่ VITE_MOCK=1 จากนั้นรัน dev ใหม่
-// ปิด: ลบบรรทัดนั้น (หรือลบไฟล์) — กลับไปต่อ backend จริงเหมือนเดิม 100%
+//   1) VITE_MOCK=1  — ใช้ตอน dev ในเครื่อง (ใส่ใน .env.local)
+//      บังคับคู่กับ import.meta.env.DEV -> เป็น false เสมอตอน `vite build`
+//      bundler จึงตัดทิ้งทั้งก้อน ไม่มีทางหลุดขึ้น production
 //
-// ⚠️ ความปลอดภัย: ทุกจุดที่เรียก mock ถูกครอบด้วย import.meta.env.DEV ซึ่งเป็น false
-// ตอน `vite build` เสมอ — bundler จึงตัดโค้ดก้อนนี้ทิ้งทั้งหมด ไม่มีทางหลุดขึ้น production
-// (ไฟล์นี้แตะเฉพาะฝั่ง frontend ไม่ยิง/ไม่แก้ backend ใดๆ)
+//   2) VITE_DEMO=1  — ใช้ตอน build เว็บ demo ขึ้น GitHub Pages เท่านั้น
+//      อันนี้ "ตั้งใจ" ให้ mock ติดไปกับ bundle เพราะเว็บ demo ต้องเล่นได้โดยไม่มี backend
+//      ตั้งไว้ที่เดียวคือ .github/workflows/deploy-pages.yml
+//      -> `npm run build` ปกติไม่ได้ตั้ง flag นี้ ผลลัพธ์จึงยังสะอาดเหมือนเดิม
+//
+// ⚠️ ห้ามตั้ง VITE_DEMO=1 ตอน build ที่จะเอาขึ้น server จริง — จะทำให้ login ทะลุได้
+// ทั้งสองโหมดทำงานในเบราว์เซอร์ล้วน ไม่ยิง/ไม่แก้/ไม่แตะ backend และไม่มีข้อมูลจริงใดๆ
 
-export const MOCK = import.meta.env.DEV && import.meta.env.VITE_MOCK === '1'
+const DEMO = import.meta.env.VITE_DEMO === '1'
+export const MOCK = (import.meta.env.DEV && import.meta.env.VITE_MOCK === '1') || DEMO
 
 const ROLES: Role[] = ['superadmin', 'bmsadmin', 'admin', 'user']
 

@@ -296,7 +296,8 @@ export function HospitalRequest() {
     setDemoBusy(true)
     try {
       await loginDemo()
-      window.location.assign('/')
+      // BASE_URL = '/' บน server จริง, '/<repo>/' บนเว็บ demo (GitHub Pages)
+      window.location.assign(import.meta.env.BASE_URL)
     } catch (e) {
       setDemoErr(e instanceof Error ? e.message : 'เปิดตัวอย่างไม่สำเร็จ')
       setDemoBusy(false)

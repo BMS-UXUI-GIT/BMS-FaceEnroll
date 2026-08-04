@@ -1,0 +1,62 @@
+# Deploy เว็บ demo ขึ้น GitHub Pages
+#
+# เว็บนี้ใช้ "ข้อมูลตัวอย่าง" ล้วน (VITE_DEMO=1 -> ฝัง src/mockData.ts เข้าไปใน bundle)
+# ทำงานในเบราว์เซอร์อย่างเดียว ไม่เชื่อมต่อ backend และไม่มีข้อมูลจริงใดๆ
+#
+# ⚠️ VITE_DEMO=1 มีที่นี่ที่เดียวเท่านั้น — `npm run build` ปกติไม่ได้ตั้ง
+#    ผลลัพธ์สำหรับ server จริงจึงไม่มี mock ติดไปเหมือนเดิม
+
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # กด deploy เองได้จากแท็บ Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ปล่อยให้ deploy ทีละอัน แต่ไม่ยกเลิกอันที่กำลังรันอยู่
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (โหมด demo)
+        env:
+          VITE_DEMO: '1'
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: ทำ 404.html ให้ deep link ไม่พัง
+        # GitHub Pages ไม่มี server-side routing — เข้า /hospital-request ตรงๆ จะ 404
+        # ให้ 404 เสิร์ฟหน้าเดียวกับ index.html แอปจะอ่าน path เองแล้วแสดงหน้าถูก
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

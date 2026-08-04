@@ -50,7 +50,9 @@ export function App() {
   useEffect(() => { if (!mobile) setMenuOpen(false) }, [mobile])
 
   // ฟอร์มลงทะเบียนโรง (public) — เข้าได้เฉพาะคนที่รู้ URL ตรงนี้ ไม่มีลิงก์จากหน้าไหน
-  const isRequestForm = window.location.pathname === '/hospital-request'
+  // endsWith ไม่ใช่ === เพราะเว็บ demo บน GitHub Pages ถูกวางใต้ subpath
+  // (/BMS-FaceEnroll/hospital-request) — บน server จริงที่ root ผลลัพธ์เหมือนเดิม
+  const isRequestForm = window.location.pathname.replace(/\/$/, '').endsWith('/hospital-request')
 
   // สิทธิ์รายแท็บจาก backend — เมนูย่อยเช็คผ่านแท็บแม่ (NAV_TAB)
   // ประวัติการจัดการมี 2 หน้าใช้สิทธิ์ 'audit' ร่วมกัน: hosp-audit = โรงตัวเอง, sys-audit = ทุกโรง
