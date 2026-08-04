@@ -14,7 +14,7 @@ import { useApp } from '../state'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
 const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-2)' }
+const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
 
 type Subject = { subject_id: string; hcode: string; hospital_name?: string; metadata: Record<string, any>; status: string; face_count: number; updated_at: string | null }
 
@@ -23,7 +23,7 @@ type Tab = 'inv' | 'cov'
 function Tabs({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
   const items: [Tab, string][] = [['inv', 'รายชื่อผู้ลงทะเบียน'], ['cov', 'ยังไม่ลงทะเบียน']]
   return (
-    <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', padding: 4, borderRadius: 11, border: '1px solid var(--border)', width: 'fit-content' }}>
+    <div style={{ display: 'flex', gap: 4, background: 'var(--surface-card)', padding: 4, borderRadius: 11, border: '1px solid var(--border)', width: 'fit-content' }}>
       {items.map(([id, label]) => (
         <button key={id} onClick={() => setTab(id)} style={{ padding: '7px 15px', borderRadius: 8, fontSize: 13, cursor: 'pointer', border: 'none', fontFamily: 'var(--sans)', whiteSpace: 'nowrap', fontWeight: tab === id ? 600 : 500, background: tab === id ? 'var(--surface)' : 'transparent', color: tab === id ? 'var(--text)' : 'var(--text-dim)', boxShadow: tab === id ? 'var(--shadow)' : 'none' }}>{label}</button>
       ))}
@@ -84,7 +84,7 @@ export function Face() {
       {tab === 'inv' && (
         <div style={{ ...card, overflow: 'hidden' }}>
           <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 220, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 220, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-card)' }}>
               <Icon name="search" size={15} color="var(--text-faint)" width={2} />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นด้วย emp_id หรือ ชื่อ…" style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, width: '100%' }} />
             </div>
@@ -103,11 +103,11 @@ export function Face() {
                       <td style={{ ...td, fontWeight: 600 }}>{name(s.metadata)}</td>
                       <td style={td}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-strong)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{s.hcode}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{s.hcode}</span>
                           <span style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{s.hospital_name || '—'}</span>
                         </div>
                       </td>
-                      <td style={td}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: s.status === 'active' ? 'var(--ok)' : 'var(--text-dim)', background: s.status === 'active' ? 'var(--ok-soft)' : 'var(--surface-3)' }}>{s.status === 'active' ? 'ใช้งาน' : 'ปิด'}</span></td>
+                      <td style={td}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: s.status === 'active' ? 'var(--ok)' : 'var(--text-dim)', background: s.status === 'active' ? 'var(--ok-light)' : 'var(--surface-gray)' }}>{s.status === 'active' ? 'ใช้งาน' : 'ปิด'}</span></td>
                       <td style={{ ...td, fontFamily: 'var(--mono)', fontWeight: 600, color: s.face_count >= 3 ? 'var(--ok)' : 'var(--warn)' }}>{s.face_count} {s.face_count < 3 && <span style={{ fontSize: 11, fontWeight: 400 }}>ไม่ครบ</span>}</td>
                       <td style={{ ...td, fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{s.updated_at?.slice(0, 10) ?? '—'}</td>
                       {canEdit && (
@@ -161,7 +161,7 @@ export function Face() {
                         <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(covJoin.page * PAGE_SIZE + i + 1)}</td>
                         <td style={{ ...td, padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{n.emp_id}</td>
                         <td style={{ ...td, fontWeight: 600 }}>{n.name}</td>
-                        <td style={{ ...td, padding: '11px 20px', textAlign: 'right' }}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-soft)' }}>ยังไม่ลงทะเบียน</span></td>
+                        <td style={{ ...td, padding: '11px 20px', textAlign: 'right' }}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-light)' }}>ยังไม่ลงทะเบียน</span></td>
                       </tr>
                     ))}
                     {covJoin.data && covRows.length === 0 && <tr><td colSpan={4} style={{ ...td, padding: '18px 20px', color: covDeb ? 'var(--text-faint)' : 'var(--ok)', textAlign: 'center' }}>{covDeb ? 'ไม่พบที่ตรงกับคำค้น' : 'ลงทะเบียนครบ 🎉'}</td></tr>}

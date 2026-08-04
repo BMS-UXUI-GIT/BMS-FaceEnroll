@@ -12,7 +12,7 @@ import { useApp } from '../state'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const th: React.CSSProperties = { padding: '8px 10px', fontWeight: 600 }
 const td: React.CSSProperties = { padding: '8px 10px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.3px', background: 'var(--surface-2)' }
+const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.3px', background: 'var(--surface-card)' }
 
 type Daily = {
   rows: { emp: string; name: string; dept?: string; date: string; in: string; out: string; shift: string; status: string }[]
@@ -72,7 +72,7 @@ function ExpBtn({ label, tone, onClick, disabled, busy }: {
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
       style={{
         display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 13px',
-        borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)',
+        borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-card)', color: 'var(--text)',
         fontFamily: 'var(--sans)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.55 : 1, whiteSpace: 'nowrap',
       }}>
       {busy ? 'กำลังส่งออก…' : label}
@@ -219,7 +219,7 @@ export function ReportsHub() {
                     textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '13px 18px',
                     border: 'none', borderTop: i > 0 ? '1px solid var(--border)' : 'none', cursor: 'pointer',
                     fontFamily: 'var(--sans)', fontSize: 13,
-                    background: on ? 'var(--surface-2)' : 'transparent',
+                    background: on ? 'var(--surface-card)' : 'transparent',
                     color: on ? 'var(--text)' : 'var(--text-dim)', fontWeight: on ? 700 : 500,
                     boxShadow: on ? 'inset 3px 0 0 var(--accent)' : 'none',
                   }}>

@@ -25,7 +25,7 @@ export class ErrorBoundary extends React.Component<
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>หน้านี้มีข้อผิดพลาด</div>
         <div style={{ fontSize: 12, color: 'var(--text-faint)', fontFamily: 'var(--mono)', marginBottom: 16, wordBreak: 'break-all' }}>{String(this.state.error)}</div>
         <button onClick={() => this.setState({ error: null })}
-          style={{ fontSize: 13, fontWeight: 600, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer' }}>
+          style={{ fontSize: 13, fontWeight: 600, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>
           ลองใหม่
         </button>
       </div>

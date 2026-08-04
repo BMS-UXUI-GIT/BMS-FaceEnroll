@@ -3,7 +3,7 @@
 export const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 export const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
 export const td: React.CSSProperties = { padding: '11px 12px' }
-export const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-2)' }
+export const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
 
 export type Flag = { value: boolean; override: boolean }
 export type Tenant = {
@@ -29,7 +29,7 @@ export const HEALTH_TH: Record<string, { label: string; color: string }> = {
 export const notifyBadges = () => window.dispatchEvent(new Event('fh-badges'))
 
 export function Pill({ label, tone, override, onClick, disabled }: { label: string; tone: 'ok' | 'off'; override?: boolean; onClick: () => void; disabled?: boolean }) {
-  const c = tone === 'ok' ? { bg: 'var(--ok-soft)', color: 'var(--ok)', border: 'var(--ok)' } : { bg: 'var(--surface-2)', color: 'var(--text-dim)', border: 'var(--border)' }
+  const c = tone === 'ok' ? { bg: 'var(--ok-light)', color: 'var(--ok)', border: 'var(--ok)' } : { bg: 'var(--surface-card)', color: 'var(--text-dim)', border: 'var(--border)' }
   return (
     <button onClick={onClick} disabled={disabled} title={override ? 'ตั้งเฉพาะโรงนี้ (ต่างจากค่ากลาง)' : 'ใช้ค่ากลาง'}
       style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'var(--sans)', minWidth: 52, whiteSpace: 'nowrap', background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>

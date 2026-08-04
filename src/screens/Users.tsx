@@ -12,7 +12,7 @@ import { SearchSelect } from '../components/SearchSelect'
 // จัดการผู้ใช้และสิทธิ์ (superadmin เท่านั้น) — สร้างบัญชี ตั้งบทบาท เลือกแท็บที่เห็นรายคน
 
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const field: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
+const field: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
 
 type User = { username: string; display_name: string; role: string; hcodes: string[]; tabs: string[] | null; effective_tabs: string[]; active: boolean; last_login_at: string | null }
 type UsersRes = { users: User[]; roles: string[]; all_tabs: string[]; role_default_tabs: Record<string, string[]>; role_tabs: Record<string, string[]> }
@@ -44,8 +44,8 @@ function PermCard({ tab, on, busy, onClick }: { tab: string; on: boolean; busy: 
       <span style={{
         flex: 'none', width: 16, height: 16, borderRadius: 5, fontSize: 10.5, fontWeight: 800,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: `1px solid ${on ? 'transparent' : 'var(--border-strong)'}`,
-        background: on ? hi : 'transparent', color: 'var(--on-accent)',
+        border: `1px solid ${on ? 'transparent' : 'var(--border)'}`,
+        background: on ? hi : 'transparent', color: 'var(--bg)',
       }}>{on ? '✓' : ''}</span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: on ? hi : 'var(--text)' }}>{info.name}</span>
       <Info text={info.tip} size={13} />
@@ -165,7 +165,7 @@ export function Users({ me }: { me: string }) {
           </select>
           <Pager page={paged.page} total={paged.total} onPage={paged.setPage} />
         </div>
-        <button onClick={() => { setErr(null); setNu((s) => ({ ...s, password: genPassword() })); setShowNew(true) }} style={{ fontSize: 12, fontWeight: 600, padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer' }}>
+        <button onClick={() => { setErr(null); setNu((s) => ({ ...s, password: genPassword() })); setShowNew(true) }} style={{ fontSize: 12, fontWeight: 600, padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>
           + เพิ่มผู้ใช้
         </button>
       </div>
@@ -177,15 +177,15 @@ export function Users({ me }: { me: string }) {
           <div key={u.username} style={{ borderTop: '1px solid var(--border)' }}>
             <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>{nf(paged.offset + i + 1)}</span>
-              <div style={{ width: 34, height: 34, flex: 'none', borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12.5 }}>
+              <div style={{ width: 34, height: 34, flex: 'none', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12.5 }}>
                 {(u.display_name || u.username).slice(0, 2).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontWeight: 700, fontSize: 13.5 }}>{u.display_name || u.username}</span>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-faint)' }}>@{u.username}</span>
-                  {u.username === me && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--ok-soft)', color: 'var(--ok)' }}>คุณ</span>}
-                  {!u.active && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--danger-soft)', color: 'var(--danger)' }}>ปิดใช้งาน</span>}
+                  {u.username === me && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--ok-light)', color: 'var(--ok)' }}>คุณ</span>}
+                  {!u.active && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--danger-light)', color: 'var(--danger)' }}>ปิดใช้งาน</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>
                   {ROLE_TH[u.role] ?? u.role} · โรง: {u.hcodes.includes('*') ? 'ทุกโรง' : u.hcodes.join(', ') || '—'}
@@ -193,7 +193,7 @@ export function Users({ me }: { me: string }) {
                 </div>
               </div>
               {u.role !== 'superadmin' && (
-                <button onClick={() => setEditing(editing === u.username ? null : u.username)} style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: editing === u.username ? 'var(--accent-soft)' : 'var(--surface)', color: editing === u.username ? 'var(--accent-strong)' : 'var(--text-dim)', cursor: 'pointer' }}>
+                <button onClick={() => setEditing(editing === u.username ? null : u.username)} style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: editing === u.username ? 'var(--accent-light)' : 'var(--surface)', color: editing === u.username ? 'var(--accent-active)' : 'var(--text-dim)', cursor: 'pointer' }}>
                   {editing === u.username ? 'ปิด' : 'สิทธิ์'}
                 </button>
               )}
@@ -222,11 +222,11 @@ export function Users({ me }: { me: string }) {
                     disabled={busy || u.hcodes.includes('*')} style={{
                       fontSize: 11.5, fontWeight: 700, padding: '6px 12px', borderRadius: 16, cursor: u.hcodes.includes('*') ? 'default' : 'pointer', fontFamily: 'var(--sans)',
                       border: `1px solid ${u.hcodes.includes('*') ? 'var(--accent)' : 'var(--border)'}`,
-                      background: u.hcodes.includes('*') ? 'var(--accent-soft)' : 'var(--surface)',
-                      color: u.hcodes.includes('*') ? 'var(--accent-strong)' : 'var(--text-faint)',
+                      background: u.hcodes.includes('*') ? 'var(--accent-light)' : 'var(--surface)',
+                      color: u.hcodes.includes('*') ? 'var(--accent-active)' : 'var(--text-faint)',
                     }}>{u.hcodes.includes('*') ? '✓ ' : ''}ทุกโรงพยาบาล</button>
                   {!u.hcodes.includes('*') && u.hcodes.map((h) => (
-                    <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, padding: '5px 8px 5px 11px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                    <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, padding: '5px 8px 5px 11px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface-card)' }}>
                       {hospName(h)} <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-faint)' }}>{h}</span>
                       <button onClick={() => patch(u.username, { hcodes: u.hcodes.filter((x) => x !== h) })} disabled={busy} title="เอาโรงนี้ออก"
                         style={{ border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
@@ -291,7 +291,7 @@ export function Users({ me }: { me: string }) {
 
     {/* popup เพิ่มผู้ใช้ */}
     {showNew && (
-      <div onClick={() => setShowNew(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={() => setShowNew(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 420, overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontWeight: 700, fontSize: 14.5 }}>เพิ่มผู้ใช้</span>
@@ -337,7 +337,7 @@ export function Users({ me }: { me: string }) {
           <div style={{ padding: '13px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <button onClick={() => setShowNew(false)} style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>ยกเลิก</button>
             <button onClick={create} disabled={busy || !nu.username.trim() || nu.password.trim().length < 6 || ((nu.role === 'admin' || nu.role === 'user') && nu.hcodes.length === 0)}
-              style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer' }}>
+              style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>
               {busy ? 'กำลังสร้าง…' : 'สร้างบัญชี'}
             </button>
           </div>
@@ -347,22 +347,22 @@ export function Users({ me }: { me: string }) {
 
     {/* popup หลังสร้างสำเร็จ — รหัสผ่านโชว์ครั้งเดียว ให้ copy ส่งผู้ใช้ */}
     {created && (
-      <div onClick={() => setCreated(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={() => setCreated(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 420, overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14.5, color: 'var(--ok)' }}>✓ {created.reset ? 'รีเซ็ตรหัสผ่านแล้ว' : 'สร้างบัญชีแล้ว'}</div>
           <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>อีเมล</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.username}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, padding: '9px 12px', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.username}</div>
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>รหัสผ่าน</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 17, fontWeight: 700, letterSpacing: '2px', padding: '9px 12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.password}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 17, fontWeight: 700, letterSpacing: '2px', padding: '9px 12px', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.password}</div>
             <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>รหัสผ่านแสดงครั้งเดียว — คัดลอกส่งให้ผู้ใช้เก็บไว้ก่อนปิดหน้าต่างนี้</div>
           </div>
           <div style={{ padding: '13px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <button onClick={() => { navigator.clipboard?.writeText(`${created.username}\n${created.password}`).then(() => setCopied(true)).catch(() => {}) }}
-              style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: copied ? 'var(--ok-soft)' : 'var(--surface)', color: copied ? 'var(--ok)' : 'var(--text-dim)', cursor: 'pointer' }}>
+              style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: copied ? 'var(--ok-light)' : 'var(--surface)', color: copied ? 'var(--ok)' : 'var(--text-dim)', cursor: 'pointer' }}>
               {copied ? '✓ คัดลอกแล้ว' : 'คัดลอกอีเมล + รหัส'}
             </button>
-            <button onClick={() => setCreated(null)} style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer' }}>ปิด</button>
+            <button onClick={() => setCreated(null)} style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>ปิด</button>
           </div>
         </div>
       </div>

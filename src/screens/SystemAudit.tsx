@@ -12,7 +12,7 @@ import { card, td, th, theadTr } from './tenantsCommon'
 
 type AuditRow = { ts: string; actor: string; role: string; action: string; target: string; detail: string; ip: string }
 
-const inputSt: React.CSSProperties = { padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 12.5, outline: 'none' }
+const inputSt: React.CSSProperties = { padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 12.5, outline: 'none' }
 
 export function SystemAudit() {
   const PAGE = 20

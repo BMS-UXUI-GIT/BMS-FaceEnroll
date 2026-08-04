@@ -64,7 +64,7 @@ export function SearchInput({ value, onChange, placeholder, width = 200 }: {
   value: string; onChange: (v: string) => void; placeholder: string; width?: number
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)' }}>
       <Icon name="search" size={14} color="var(--text-faint)" width={1.8} />
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, fontFamily: 'var(--sans)', color: 'var(--text)', width }} />

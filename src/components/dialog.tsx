@@ -76,7 +76,7 @@ export function DialogHost() {
   const danger = req.kind === 'confirm' && o.danger
   return (
     <div onClick={cancel} onKeyDown={(e) => e.key === 'Escape' && cancel()}
-      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 380, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px 0', fontWeight: 700, fontSize: 14.5 }}>
           {o.title ?? (req.kind === 'confirm' ? 'ยืนยันการทำรายการ' : 'แจ้งเตือน')}
@@ -91,7 +91,7 @@ export function DialogHost() {
                 onKeyDown={(e) => e.key === 'Enter' && ok()}
                 style={{
                   width: '100%', padding: '10px 12px', border: `1px solid ${err ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 9,
-                  background: 'var(--surface-2)', color: 'var(--text)', fontSize: 13.5, outline: 'none',
+                  background: 'var(--surface-card)', color: 'var(--text)', fontSize: 13.5, outline: 'none',
                   fontFamily: o.mono ? 'var(--mono)' : 'var(--sans)', letterSpacing: o.mono ? '1px' : undefined,
                 }} />
               {err && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 5 }}>{err}</div>}
@@ -106,7 +106,7 @@ export function DialogHost() {
           )}
           <button onClick={ok} autoFocus={req.kind !== 'prompt'} style={{
             ...btnBase, fontWeight: 700, border: 'none',
-            background: danger ? 'var(--danger)' : 'var(--accent)', color: danger ? '#fff' : 'var(--on-accent)',
+            background: danger ? 'var(--danger)' : 'var(--accent)', color: danger ? 'var(--bg)' : 'var(--bg)',
           }}>
             {o.confirmText ?? (req.kind === 'confirm' ? 'ยืนยัน' : 'ตกลง')}
           </button>

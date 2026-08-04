@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapShell, mapBtn } from './MapShell'
+import { cssVar } from '../tokens'
 
 // แผนที่เลือกจุด + รัศมี (geofence) — จิ้มบนแผนที่ = ย้ายหมุด, วงกลม = พื้นที่ที่ลงเวลาได้
 // ใช้ OpenStreetMap + วาดหมุดเป็น circleMarker
@@ -62,7 +63,7 @@ export function GeoPicker({ lat, lng, radiusM, disabled, onPick }: {
     pinRef.current = L.marker([lat, lng], { icon: PIN, interactive: false }).addTo(map)
     if (radiusM > 0) {
       circleRef.current = L.circle([lat, lng], {
-        radius: radiusM, color: '#3a4fd6', weight: 1.5, fillColor: '#3a4fd6', fillOpacity: 0.12,
+        radius: radiusM, color: cssVar('--accent'), weight: 1.5, fillColor: cssVar('--accent'), fillOpacity: 0.12,
       }).addTo(map)
       // ซูมให้เห็นทั้งวง (เฉพาะตอนวงหลุดจอ)
       const b = circleRef.current.getBounds()

@@ -20,9 +20,9 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: 40, height: 22, borderRadius: 20, border: 'none', cursor: disabled ? 'default' : 'pointer', position: 'relative', flex: 'none',
-      background: on ? 'var(--ok)' : 'var(--surface-3)', transition: 'background .15s', opacity: disabled ? 0.6 : 1,
+      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s', opacity: disabled ? 0.6 : 1,
     }}>
-      <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s' }} />
+      <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg)', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s' }} />
     </button>
   )
 }
@@ -117,13 +117,13 @@ export function Locations() {
           <div style={card}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>จุดลงเวลา <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>({locations.length})</span></h2>
-              {!readOnly && <button onClick={() => setEditing({ idx: -1, loc: { name: `จุดที่ ${locations.length + 1}`, lat: 0, lng: 0, radius_m: 5 } })} style={{ ...btn, color: 'var(--accent-strong)', borderColor: 'var(--accent)' }}>+ เพิ่มจุด</button>}
+              {!readOnly && <button onClick={() => setEditing({ idx: -1, loc: { name: `จุดที่ ${locations.length + 1}`, lat: 0, lng: 0, radius_m: 5 } })} style={{ ...btn, color: 'var(--accent-active)', borderColor: 'var(--accent)' }}>+ เพิ่มจุด</button>}
             </div>
 
             {locations.length === 0 ? (
               <div style={{ padding: '34px 20px', textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>
                 ยังไม่มีจุดลงเวลา<br />
-                {!readOnly && <button onClick={() => setEditing({ idx: -1, loc: { name: 'จุดที่ 1', lat: 0, lng: 0, radius_m: 5 } })} style={{ ...btn, color: 'var(--accent-strong)', borderColor: 'var(--accent)', marginTop: 12 }}>+ เพิ่มจุดแรก</button>}
+                {!readOnly && <button onClick={() => setEditing({ idx: -1, loc: { name: 'จุดที่ 1', lat: 0, lng: 0, radius_m: 5 } })} style={{ ...btn, color: 'var(--accent-active)', borderColor: 'var(--accent)', marginTop: 12 }}>+ เพิ่มจุดแรก</button>}
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>

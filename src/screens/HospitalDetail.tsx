@@ -19,7 +19,7 @@ type Detail = {
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '9px 12px' }}>
+    <div style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '9px 12px' }}>
       <div style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{label}</div>
       <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2, wordBreak: 'break-word' }}>{value || '—'}</div>
     </div>
@@ -70,7 +70,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
   const hb = HEALTH_TH[t?.health ?? 'ok']
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 780, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -112,7 +112,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}>
                     โหมดทดสอบ
                     <span title="แสดงอย่างเดียว — โหมดทดสอบตั้งผ่านระบบ (deploy) · เปิด = ลงเวลาผ่านทุกขั้นแต่ไม่บันทึกฐานโรงจริง"
-                      style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: t.dry_run.value ? 'var(--danger-soft)' : 'var(--ok-soft)', color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)', border: `1px solid ${t.dry_run.value ? 'var(--danger)' : 'var(--ok)'}` }}>
+                      style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: t.dry_run.value ? 'var(--danger-light)' : 'var(--ok-light)', color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)', border: `1px solid ${t.dry_run.value ? 'var(--danger)' : 'var(--ok)'}` }}>
                       {t.dry_run.value ? 'ทดสอบ' : 'ใช้จริง'}{t.dry_run.override ? ' •' : ''}
                     </span>
                   </span>
@@ -138,7 +138,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>การใช้งาน</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 10 }}>
                   {([['พนักงานทั้งหมด', d!.usage.active_staff], ['ลงทะเบียนหน้าแล้ว', d!.usage.enrolled], ['ลงเวลาวันนี้', d!.usage.punched_today]] as const).map(([l, v]) => (
-                    <div key={l} style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                    <div key={l} style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
                       <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--mono)' }}>{v ?? '—'}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{l}</div>
                     </div>
@@ -174,10 +174,10 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>โน้ตภายใน <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— ทีมดูแลเห็นเท่านั้น โรงไม่เห็น</span></div>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="เช่น โทรคุยแล้ว สนใจเปิดใช้งานจริง รอใบเสนอราคา…"
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none', resize: 'vertical' }} />
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none', resize: 'vertical' }} />
                 <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={() => saveMeta({ note })} disabled={busy || note === (t.note ?? '')}
-                    style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', cursor: 'pointer', opacity: note === (t.note ?? '') ? 0.5 : 1 }}>
+                    style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer', opacity: note === (t.note ?? '') ? 0.5 : 1 }}>
                     {busy ? 'กำลังบันทึก…' : 'บันทึกโน้ต'}
                   </button>
                 </div>

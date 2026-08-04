@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DialogHost } from './components/dialog'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { Sidebar } from './components/Sidebar'
+import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/Topbar'
 import { useMedia } from './hooks'
 import { HospitalRequest } from './screens/HospitalRequest'
@@ -31,7 +31,7 @@ function DemoBanner() {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 9, padding: '9px 16px', marginBottom: 16,
-      borderRadius: 11, background: 'var(--warn-soft)', border: '1px solid var(--warn)',
+      borderRadius: 11, background: 'var(--warn-light)', border: '1px solid var(--warn)',
       color: 'var(--warn)', fontSize: 12.5, fontWeight: 600,
     }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
@@ -96,15 +96,30 @@ export function App() {
     }
   })()
 
+  // โครงหน้าตาม Figma (screen 227:6394):
+  //   พื้นหลังไล่สีฟ้า (ตั้งใน theme.css) → เว้นขอบ --shell-gap → การ์ดขาวใบเดียว r-xl
+  //   ในการ์ด: Topbar เต็มความกว้าง แล้ว Sidebar + เนื้อหาอยู่ใต้ ใช้พื้นผิวเดียวกัน
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-      <Sidebar mobile={mobile} open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <div style={{
+      height: '100vh', width: '100%', overflow: 'hidden',
+      padding: mobile ? 0 : 'var(--shell-gap)',
+      display: 'flex',
+    }}>
+      <div style={{
+        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
+        background: 'var(--bg)',
+        borderRadius: mobile ? 0 : 'var(--r-xl)',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <Topbar onMenu={mobile ? () => setMenuOpen(true) : undefined} />
-        <main style={{ flex: 1, overflowY: 'auto', padding: mobile ? 14 : 24 }}>
-          {isDemo && <DemoBanner />}
-          <ErrorBoundary resetKey={`${effNav}:${currentHcode}`}>{screen}</ErrorBoundary>
-        </main>
+        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+          <Sidebar mobile={mobile} open={menuOpen} onClose={() => setMenuOpen(false)} />
+          <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, padding: mobile ? 'var(--sp-3)' : 'var(--sp-6)' }}>
+            {isDemo && <DemoBanner />}
+            <ErrorBoundary resetKey={`${effNav}:${currentHcode}`}>{screen}</ErrorBoundary>
+          </main>
+        </div>
       </div>
       <DialogHost />
     </div>

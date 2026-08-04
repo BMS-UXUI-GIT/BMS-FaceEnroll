@@ -13,7 +13,7 @@ type Hosp = { hcode: string; name: string }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const field: React.CSSProperties = {
   width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11,
-  background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
+  background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
 }
 const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 7 }
 const req = <span style={{ color: 'var(--danger)' }}> *</span>
@@ -68,7 +68,7 @@ function FieldError({ show, text }: { show: boolean; text: string }) {
 function UseCodeBtn({ q, onPick }: { q: string; onPick: (h: Hosp) => void }) {
   if (!/^\d{4,6}$/.test(q.trim())) return null
   return (
-    <button onClick={() => onPick({ hcode: q.trim(), name: '' })} style={{ marginTop: 9, fontSize: 12.5, fontWeight: 600, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent-strong)', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
+    <button onClick={() => onPick({ hcode: q.trim(), name: '' })} style={{ marginTop: 9, fontSize: 12.5, fontWeight: 600, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
       ใช้รหัสหน่วยงาน “{q.trim()}” นี้
     </button>
   )
@@ -102,11 +102,11 @@ function PdpaSection({ n, title, children }: { n: string; title: string; childre
 function PdpaModal({ onClose }: { onClose: () => void }) {
   const dim: React.CSSProperties = { margin: 0, color: 'var(--text-dim)', fontSize: 13.5, lineHeight: 1.65 }
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, borderRadius: 18, boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent-strong)', fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
               <Svg d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} size={12} sw={2} />PDPA · พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล
             </div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-.3px' }}>นโยบายความเป็นส่วนตัว</h2>
@@ -123,13 +123,13 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
           <PdpaSection n="02" title="ข้อมูลที่เราเก็บ">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {PDPA_DATA_ITEMS.map((d) => (
-                <div key={d.title} style={{ padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
+                <div key={d.title} style={{ padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-card)' }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600 }}>{d.title}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>{d.sub}</div>
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, padding: '12px 14px', border: '1px solid var(--warn)', borderRadius: 11, background: 'var(--warn-soft)' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, padding: '12px 14px', border: '1px solid var(--warn)', borderRadius: 11, background: 'var(--warn-light)' }}>
               <span style={{ color: 'var(--warn)', flex: 'none', marginTop: 1 }}><Svg d={['M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4M12 17h.01']} size={17} sw={2} /></span>
               <div style={{ fontSize: 12.5, color: 'var(--text-dim)', lineHeight: 1.6 }}><b style={{ color: 'var(--text)' }}>ข้อมูลใบหน้าเป็นข้อมูลอ่อนไหว</b> — ระบบเก็บเป็น <b>ค่าทางคณิตศาสตร์ (face template)</b> ที่ไม่สามารถแปลงกลับเป็นรูปถ่ายได้ ไม่ใช่ภาพถ่ายดิบ และประมวลผลภายใต้ความยินยอมโดยชัดแจ้ง</div>
             </div>
@@ -174,7 +174,7 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ padding: '13px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>เข้าใจแล้ว</button>
+          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>เข้าใจแล้ว</button>
         </div>
       </div>
     </div>
@@ -184,7 +184,7 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
 // จอตัวอย่างฝั่งซ้าย (mock ประกอบการขาย — ไม่ใช่ข้อมูลจริง)
 function BrowserBar({ label }: { label: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 13px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 13px', borderBottom: '1px solid var(--border)', background: 'var(--surface-card)' }}>
       {['#e5654a', '#e6b23c', '#3fb463'].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />)}
       <span style={{ fontSize: 10.5, fontFamily: 'var(--mono)', color: 'var(--text-faint)', marginLeft: 6 }}>{label}</span>
     </div>
@@ -204,7 +204,7 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
               <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--text-faint)' }}>มอนิเตอร์</div>
               <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.2px' }}>Dashboard</div>
             </div>
-            <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6 }}>สำนักงานทดสอบ · 99999</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--surface-card)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6 }}>สำนักงานทดสอบ · 99999</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
             {PREVIEW_KPIS.map((k) => (
@@ -222,17 +222,17 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
 
       {/* มือถือ */}
       <div style={{ width: 158, flex: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 24, boxShadow: 'var(--shadow-md)', padding: 9 }}>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 17, overflow: 'hidden', background: 'var(--surface-2)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '7px 0 4px' }}><span style={{ width: 38, height: 4, borderRadius: 3, background: 'var(--border-strong)' }} /></div>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 17, overflow: 'hidden', background: 'var(--surface-card)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '7px 0 4px' }}><span style={{ width: 38, height: 4, borderRadius: 3, background: 'var(--border)' }} /></div>
           <div style={{ padding: '8px 12px 16px', textAlign: 'center' }}>
             <div style={{ fontSize: 10.5, color: 'var(--text-faint)', marginBottom: 12 }}>แอปพนักงาน · ลงเวลาเข้า</div>
             <div style={{ position: 'relative', width: 96, height: 96, margin: '0 auto 12px' }}>
               <div className="spin" style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px dashed var(--accent)', opacity: .5, animationDuration: '8s' }} />
-              <div style={{ position: 'absolute', inset: 11, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-strong)' }}>
+              <div style={{ position: 'absolute', inset: 11, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-active)' }}>
                 <Svg d={['M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M5.5 20a6.5 6.5 0 0 1 13 0']} size={40} sw={1.6} />
               </div>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--ok)', background: 'var(--ok-soft)', padding: '3px 9px', borderRadius: 20 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--ok)', background: 'var(--ok-light)', padding: '3px 9px', borderRadius: 20 }}>
               <Svg d={CHECK} size={12} sw={3} />ยืนยันตัวตนสำเร็จ
             </div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 8 }}>match 0.94 · 07:58 น.</div>
@@ -248,7 +248,7 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
             <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11.5, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-faint)' }}>{r.time}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 7px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-soft)', whiteSpace: 'nowrap' }}>{r.tag}</span>
+              <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 7px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-light)', whiteSpace: 'nowrap' }}>{r.tag}</span>
             </div>
           ))}
         </div>
@@ -257,8 +257,8 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
       {/* จุดลงเวลา map */}
       <div style={{ flex: 'none', width: 240, alignSelf: 'stretch', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-md)', overflow: 'hidden' }}>
         <BrowserBar label="จุดลงเวลา · GPS" />
-        <div style={{ position: 'relative', height: '100%', minHeight: 130, background: 'repeating-linear-gradient(0deg,var(--surface-2),var(--surface-2) 22px,var(--surface-3) 22px,var(--surface-3) 23px),repeating-linear-gradient(90deg,var(--surface-2),var(--surface-2) 22px,var(--surface-3) 22px,var(--surface-3) 23px)' }}>
-          <div style={{ position: 'absolute', top: '52%', left: '50%', transform: 'translate(-50%,-50%)', width: 80, height: 80, borderRadius: '50%', background: 'rgba(91,83,224,.15)', border: '1px solid rgba(91,83,224,.4)' }} />
+        <div style={{ position: 'relative', height: '100%', minHeight: 130, background: 'repeating-linear-gradient(0deg,var(--surface-card),var(--surface-card) 22px,var(--surface-gray) 22px,var(--surface-gray) 23px),repeating-linear-gradient(90deg,var(--surface-card),var(--surface-card) 22px,var(--surface-gray) 22px,var(--surface-gray) 23px)' }}>
+          <div style={{ position: 'absolute', top: '52%', left: '50%', transform: 'translate(-50%,-50%)', width: 80, height: 80, borderRadius: '50%', background: 'var(--accent-light)', border: '1px solid rgba(91,83,224,.4)' }} />
           <div style={{ position: 'absolute', top: '52%', left: '50%', transform: 'translate(-50%,-100%)' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="#dc2f2f" stroke="#fff" strokeWidth="1.5"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z" /><circle cx="12" cy="9" r="2.5" fill="#fff" stroke="none" /></svg>
           </div>
@@ -379,10 +379,10 @@ export function HospitalRequest() {
   return (
     <div style={{ zoom, minHeight: `${100 / zoom}vh`, width: '100%', background: 'var(--bg)', color: 'var(--text)' }}>
       <style>{`
-        .reg-scroll{scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent}
+        .reg-scroll{scrollbar-width:thin;scrollbar-color:var(--border) transparent}
         .reg-scroll::-webkit-scrollbar{height:6px}
         .reg-scroll::-webkit-scrollbar-track{background:transparent}
-        .reg-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px}
+        .reg-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
         .reg-scroll::-webkit-scrollbar-thumb:hover{background:var(--text-faint)}
         /* จอกว้าง: แนะนำระบบซ้าย ฟอร์มขวา (ฟอร์ม sticky) / จอแคบ: ฟอร์มขึ้นก่อนเสมอ */
         .reg-main{display:grid;grid-template-columns:minmax(0,1fr) 480px;gap:40px;align-items:start}
@@ -400,17 +400,17 @@ export function HospitalRequest() {
         .reg-glow{position:absolute;top:-46px;left:-38px;right:-38px;height:min(75%,430px);border-radius:36px;pointer-events:none;filter:blur(16px);background:radial-gradient(60% 60% at 50% 32%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 72%);animation:regBreathe 5.5s ease-in-out infinite}
         @keyframes regBreathe{0%,100%{opacity:.45}50%{opacity:1}}
         /* CTA เข้าดูแดชบอร์ดจริง — ต่อเนื่องจากภาพจำลอง (คลิกทั้งใบ) */
-        .reg-demo{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;width:100%;max-width:520px;text-align:left;margin-top:16px;padding:15px 17px;border-radius:16px;cursor:pointer;font-family:var(--sans);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 34%,var(--border));background:linear-gradient(115deg, var(--accent-soft), color-mix(in srgb, var(--surface) 92%, transparent) 60%);box-shadow:var(--shadow-sm);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+        .reg-demo{position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;width:100%;max-width:520px;text-align:left;margin-top:16px;padding:15px 17px;border-radius:16px;cursor:pointer;font-family:var(--sans);color:var(--text);border:1px solid color-mix(in srgb,var(--accent) 34%,var(--border));background:linear-gradient(115deg, var(--accent-light), color-mix(in srgb, var(--surface) 92%, transparent) 60%);box-shadow:var(--shadow-sm);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
         .reg-demo::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(115deg, transparent 30%, color-mix(in srgb, var(--accent) 12%, transparent));transition:opacity .18s ease}
         .reg-demo:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--accent)}
         .reg-demo:hover::after{opacity:1}
         .reg-demo:active{transform:translateY(0)}
         .reg-demo:disabled{cursor:default;opacity:.7;transform:none;box-shadow:var(--shadow-sm)}
-        .reg-demo-icon{flex:none;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--on-accent);box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 40%,transparent)}
-        .reg-demo-live{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;letter-spacing:.6px;color:var(--ok);background:var(--ok-soft);padding:2px 8px 2px 7px;border-radius:20px}
+        .reg-demo-icon{flex:none;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--bg);box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 40%,transparent)}
+        .reg-demo-live{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;letter-spacing:.6px;color:var(--ok);background:var(--ok-light);padding:2px 8px 2px 7px;border-radius:20px}
         .reg-demo-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 70%,transparent);animation:regPing 1.6s ease-out infinite}
         @keyframes regPing{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 70%,transparent)}70%,100%{box-shadow:0 0 0 6px transparent}}
-        .reg-demo-go{position:relative;flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--accent-strong)}
+        .reg-demo-go{position:relative;flex:none;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--accent-active)}
         .reg-demo:hover .reg-demo-arrow{transform:translateX(4px)}
         .reg-demo-arrow{transition:transform .18s ease}
         @media (max-width:440px){.reg-demo-label{display:none}}
@@ -436,7 +436,7 @@ export function HospitalRequest() {
 
         {/* ซ้าย: แนะนำระบบ */}
         <div className="reg-intro-col" style={{ minWidth: 0, paddingTop: 8, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent-strong)', fontSize: 12, fontWeight: 600, marginBottom: 18 }}>
+          <div style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 12, fontWeight: 600, marginBottom: 18 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />สำหรับโรงพยาบาลและหน่วยงานสาธารณสุข
           </div>
           <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(16px, 1.8vw, 19px)', lineHeight: 1.4, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '-.2px' }}>ลงเวลาด้วยการสแกนใบหน้า เชื่อมตรงเข้า HOSxP</h1>
@@ -484,7 +484,7 @@ export function HospitalRequest() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: '16px 22px', marginTop: 14, maxWidth: 520 }}>
             {FEATURES.map((f) => (
               <div key={f.title} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                <span style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Svg d={f.d} />
                 </span>
                 <div style={{ minWidth: 0 }}>
@@ -501,17 +501,17 @@ export function HospitalRequest() {
           <div aria-hidden className="reg-glow" />
           <div style={{ position: 'relative' }}>
           {done ? (
-            <div style={{ ...card, borderRadius: 20, border: '1px solid color-mix(in srgb, var(--ok) 40%, var(--border))', boxShadow: 'var(--shadow-lg), 0 0 0 5px var(--ok-soft)', padding: '36px 30px', textAlign: 'center', animation: 'feedIn .3s ease' }}>
-              <div style={{ width: 60, height: 60, margin: '0 auto 18px', borderRadius: 16, background: 'var(--ok-soft)', color: 'var(--ok)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ ...card, borderRadius: 20, border: '1px solid color-mix(in srgb, var(--ok) 40%, var(--border))', boxShadow: 'var(--shadow-lg), 0 0 0 5px var(--ok-light)', padding: '36px 30px', textAlign: 'center', animation: 'feedIn .3s ease' }}>
+              <div style={{ width: 60, height: 60, margin: '0 auto 18px', borderRadius: 16, background: 'var(--ok-light)', color: 'var(--ok)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Svg d={CHECK} size={30} sw={2.4} />
               </div>
               <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700 }}>ส่งคำขอเรียบร้อยแล้ว</h2>
               <p style={{ margin: '0 auto 20px', fontSize: 13.5, color: 'var(--text-dim)', maxWidth: 340 }}>
                 คำขอของ <b>{picked?.name || `หน่วยงาน ${picked?.hcode}`}</b> อยู่ระหว่างตรวจสอบ เจ้าหน้าที่จะติดต่อกลับตามเบอร์/อีเมลที่ให้ไว้ — กรุณาบันทึกหมายเลขคำขอไว้อ้างอิง
               </p>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 24 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderRadius: 11, background: 'var(--surface-card)', border: '1px solid var(--border)', marginBottom: 24 }}>
                 <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>หมายเลขคำขอ</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 600, color: 'var(--accent-strong)' }}>{reqId}</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 600, color: 'var(--accent-active)' }}>{reqId}</span>
               </div>
               <div>
                 <button onClick={reset} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>ยื่นคำขอใหม่</button>
@@ -522,13 +522,13 @@ export function HospitalRequest() {
               <div style={{
                 ...card, borderRadius: 20, overflow: 'hidden',
                 border: '1px solid color-mix(in srgb, var(--accent) 40%, var(--border))',
-                boxShadow: 'var(--shadow-lg), 0 0 0 5px var(--accent-soft)',
+                boxShadow: 'var(--shadow-lg), 0 0 0 5px var(--accent-light)',
               }}>
                 {/* แถบสีบนสุด — จุดสังเกตว่านี่คือการ์ดลงทะเบียน */}
-                <div style={{ height: 5, background: 'linear-gradient(90deg, var(--accent), var(--accent-strong))' }} />
-                <div style={{ padding: '20px 26px 18px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--accent-soft), transparent)' }}>
+                <div style={{ height: 5, background: 'linear-gradient(90deg, var(--accent), var(--accent-active))' }} />
+                <div style={{ padding: '20px 26px 18px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--accent-light), transparent)' }}>
                   <div style={{ marginBottom: 10 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 20, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 11.5, fontWeight: 700, letterSpacing: '.3px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 20, background: 'var(--accent)', color: 'var(--bg)', fontSize: 11.5, fontWeight: 700, letterSpacing: '.3px' }}>
                       <Svg d={['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z']} size={12} sw={2.2} />แบบฟอร์มลงทะเบียน
                     </span>
                   </div>
@@ -541,14 +541,14 @@ export function HospitalRequest() {
                   <div>
                     <label style={lbl}>หน่วยงาน / โรงพยาบาลของท่าน{req}</label>
                     {picked ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', border: '1px solid var(--accent)', borderRadius: 11, background: 'var(--accent-soft)' }}>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 700, color: 'var(--accent-strong)' }}>{picked.hcode}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', border: '1px solid var(--accent)', borderRadius: 11, background: 'var(--accent-light)' }}>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 700, color: 'var(--accent-active)' }}>{picked.hcode}</span>
                         <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{picked.name || 'กรอกรหัสเอง'}</span>
                         <button onClick={() => { setPicked(null); setQ('') }} style={{ fontSize: 12, border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>เปลี่ยน</button>
                       </div>
                     ) : (
                       <>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-card)' }}>
                           <Icon name="search" size={16} color="var(--text-faint)" width={2} />
                           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นด้วยรหัสหน่วยงาน (hcode) หรือชื่อ…"
                             style={{ flex: 1, border: 'none', background: 'transparent', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none', padding: '11px 0' }} />
@@ -570,7 +570,7 @@ export function HospitalRequest() {
                             ) : (
                               results.map((h) => (
                                 <button key={h.hcode} onClick={() => setPicked(h)} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', padding: '10px 13px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', fontSize: 13 }}>
-                                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: 'var(--accent-strong)', background: 'var(--accent-soft)', borderRadius: 7, padding: '3px 8px', minWidth: 52, textAlign: 'center' }}>{h.hcode}</span>
+                                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', borderRadius: 7, padding: '3px 8px', minWidth: 52, textAlign: 'center' }}>{h.hcode}</span>
                                   <span style={{ color: 'var(--text)' }}>{h.name || '(ไม่มีชื่อ)'}</span>
                                 </button>
                               ))
@@ -591,16 +591,16 @@ export function HospitalRequest() {
                           <button key={v} onClick={() => setType(v)} style={{
                             textAlign: 'left', padding: '13px 15px', borderRadius: 12, cursor: 'pointer', fontFamily: 'var(--sans)',
                             border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                            background: on ? 'var(--accent-soft)' : 'var(--surface-2)',
+                            background: on ? 'var(--accent-light)' : 'var(--surface-card)',
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                               <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t}</span>
                               {on ? (
-                                <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--on-accent)' }}>
+                                <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bg)' }}>
                                   <Svg d={CHECK} size={10} sw={4} />
                                 </span>
                               ) : (
-                                <span style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border-strong)' }} />
+                                <span style={{ width: 16, height: 16, borderRadius: '50%', border: '1.5px solid var(--border)' }} />
                               )}
                             </div>
                             <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 3 }}>{sub}</div>
@@ -631,13 +631,13 @@ export function HospitalRequest() {
                   </div>
 
                   {/* PDPA consent */}
-                  <div onClick={() => setConsent((v) => !v)} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: '12px 13px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <div onClick={() => setConsent((v) => !v)} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: '12px 13px', borderRadius: 11, background: 'var(--surface-card)', border: '1px solid var(--border)' }}>
                     {consent ? (
-                      <span style={{ width: 19, height: 19, flex: 'none', borderRadius: 6, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1, color: 'var(--on-accent)' }}>
+                      <span style={{ width: 19, height: 19, flex: 'none', borderRadius: 6, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1, color: 'var(--bg)' }}>
                         <Svg d={CHECK} size={12} sw={4} />
                       </span>
                     ) : (
-                      <span style={{ width: 19, height: 19, flex: 'none', borderRadius: 6, border: '1.5px solid var(--border-strong)', marginTop: 1 }} />
+                      <span style={{ width: 19, height: 19, flex: 'none', borderRadius: 6, border: '1.5px solid var(--border)', marginTop: 1 }} />
                     )}
                     <span style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.55 }}>
                       ยินยอมให้จัดเก็บและประมวลผลข้อมูลติดต่อเพื่อการพิจารณาคำขอ ตาม{' '}
@@ -648,14 +648,14 @@ export function HospitalRequest() {
                     </span>
                   </div>
 
-                  {err && <div style={{ fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>}
+                  {err && <div style={{ fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>}
 
                   {consent ? (
-                    <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', opacity: busy ? .75 : 1 }}>
+                    <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', opacity: busy ? .75 : 1 }}>
                       {busy ? 'กำลังส่งคำขอ…' : 'ส่งคำขอลงทะเบียน'}
                     </button>
                   ) : (
-                    <button disabled title="กรุณายอมรับนโยบายความเป็นส่วนตัวก่อน" style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--surface-3)', color: 'var(--text-faint)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'not-allowed' }}>
+                    <button disabled title="กรุณายอมรับนโยบายความเป็นส่วนตัวก่อน" style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--surface-gray)', color: 'var(--text-faint)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'not-allowed' }}>
                       ส่งคำขอลงทะเบียน
                     </button>
                   )}
@@ -677,7 +677,7 @@ export function HospitalRequest() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 11, padding: '2px 18px 16px' }}>
                     {STEPS.map((s) => (
                       <div key={s.n} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                        <span style={{ width: 22, height: 22, flex: 'none', borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.n}</span>
+                        <span style={{ width: 22, height: 22, flex: 'none', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.n}</span>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600 }}>{s.title}</div>
                           <div style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{s.sub}</div>

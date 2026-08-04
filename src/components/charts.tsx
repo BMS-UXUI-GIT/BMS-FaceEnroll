@@ -19,7 +19,7 @@ export function StackedBars({ data, height = 150, unit = 'คน' }: {
       </div>
       <div style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}>
         <div style={{ minWidth: Math.max(0, data.length * 26) }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6, height, borderLeft: '1px solid var(--border-strong)', borderBottom: '1px solid var(--border-strong)', padding: '0 6px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6, height, borderLeft: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0 6px' }}>
             {data.map((d, i) => (
               <div key={i} title={`${d.label} · ${totals[i]} ${unit}`} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'flex-end', height: '100%' }}>
                 <div style={{ width: '100%', maxWidth: 30, display: 'flex', flexDirection: 'column-reverse', borderRadius: '4px 4px 0 0', overflow: 'hidden' }}>
@@ -56,7 +56,7 @@ export function Donut({ segs, centerLabel, centerValue, size = 120 }: {
         acc += s.v
         return `${s.color} ${from.toFixed(2)}% ${((acc / total) * 100).toFixed(2)}%`
       }).join(', ')
-    : 'var(--surface-3) 0 100%'
+    : 'var(--surface-gray) 0 100%'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', width: '100%' }}>
       <div style={{ position: 'relative', width: size, height: size, flex: 'none', borderRadius: '50%', background: `conic-gradient(${stops})` }}>
@@ -99,11 +99,11 @@ export function TrendLine({ points, color = 'var(--accent)', height = 210 }: {
       {ticks.map((t, i) => (
         <g key={i}>
           {/* เส้นฐาน (0) ทึบ ที่เหลือเป็นเส้นประ */}
-          <line x1={padL} y1={y(t)} x2={W} y2={y(t)} stroke={t === 0 ? 'var(--border-strong)' : 'var(--border)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '3 4'} />
+          <line x1={padL} y1={y(t)} x2={W} y2={y(t)} stroke={t === 0 ? 'var(--border)' : 'var(--border)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '3 4'} />
           <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={9} fill="var(--text-faint)">{fmtNum(t)}</text>
         </g>
       ))}
-      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="var(--border-strong)" strokeWidth={1} />
+      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
       {n > 1 && <polygon points={`${line} ${x(n - 1)},${y(0)} ${x(0)},${y(0)}`} fill={color} opacity={0.1} />}
       {n > 0 && <polyline points={line} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />}
       {points.map((p, i) => (
@@ -136,7 +136,7 @@ export function MeterRow({ label, value, pct, color, dot }: {
         <span style={{ color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
         <span style={{ fontFamily: 'var(--mono)', fontWeight: 600, whiteSpace: 'nowrap' }}>{value}</span>
       </div>
-      <div style={{ height: 7, borderRadius: 5, background: 'var(--surface-3)', overflow: 'hidden' }}>
+      <div style={{ height: 7, borderRadius: 5, background: 'var(--surface-gray)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, pct))}%`, background: color, borderRadius: 5, transition: 'width .3s' }} />
       </div>
     </div>

@@ -105,7 +105,7 @@ export function PlatformOverview() {
               return (
                 <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-dim)', width: 105, flex: 'none' }}>{b.label}</span>
-                  <div style={{ flex: 1, height: 8, borderRadius: 5, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <div style={{ flex: 1, height: 8, borderRadius: 5, background: 'var(--surface-card)', overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: b.color, transition: 'width .3s' }} />
                   </div>
                   <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text-dim)', width: 56, textAlign: 'right' }}>{nf(n)} โรง</span>
@@ -133,7 +133,7 @@ export function PlatformOverview() {
 
         {/* ต้องติดตาม */}
         <div style={{ ...card, overflow: 'hidden' }}>
-          <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', background: 'var(--danger-soft)' }}>
+          <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', background: 'var(--danger-light)' }}>
             <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></div>
             <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>ทดลองใช้ใกล้หมดอายุ / หมดอายุแล้ว — ติดต่อโรงเพื่อต่ออายุหรือเปิดใช้งานจริง</div>
           </div>

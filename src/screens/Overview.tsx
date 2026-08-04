@@ -96,13 +96,13 @@ export function Overview() {
   // หลายวัน = ตัวเลขเป็น "ครั้ง" (คน-วัน / รอบเวร) ไม่ใช่ "คน" — ไม่งั้นอ่านว่ามีคนมากกว่าพนักงานทั้งโรง
   const u = multiDay ? 'ครั้ง' : 'คน'
   const KPIS = [
-    { v: ana?.total_staff, unit: 'คน', label: 'พนักงานทั้งหมด', sub: 'ในระบบทั้งหมด', c: 'var(--info)', soft: 'var(--info-soft)', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', tip: 'พนักงานสถานะทำงานอยู่ (active) ทั้งหมดของโรงพยาบาลใน HOSxP' },
-    { v: s?.punched, unit: u, label: isToday ? 'ลงเวลาวันนี้' : 'ลงเวลาในช่วงที่เลือก', sub: multiDay ? 'นับเป็น คน-วัน' : 'คนที่มีบันทึกลงเวลา', c: 'var(--ok)', soft: 'var(--ok-soft)', icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3', tip: 'จำนวนครั้ง(คน-วัน)ที่มีบันทึกลงเวลา เข้าหรือออก อย่างน้อย 1 ครั้ง — เลือกหลายวัน คนเดิมของแต่ละวันจะนับแยกกัน' },
-    { v: s?.done, unit: u, label: 'ครบเข้า-ออกเวร', sub: s ? `ยังไม่ออกเวร ${s.open}` : '', c: 'var(--accent)', soft: 'var(--accent-soft)', icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', tip: 'รอบเวรที่มีทั้งลงเวลาเข้าและออกครบ (ควบเวรนับแยกรอบ)' },
-    { v: s?.late, unit: u, label: 'สาย', sub: 'เข้าเวรหลังเวลาเริ่ม', c: 'var(--warn)', soft: 'var(--warn-soft)', icon: 'M12 22a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v4l2.5 1.5', tip: 'ลงเวลาเข้าหลังเวลาเริ่มเวรที่กำหนดใน emp_shift ของโรงพยาบาล' },
-    { v: s?.early, unit: u, label: 'ออกก่อนเวลา', sub: 'ออกเวรก่อนเวลาเลิก', c: 'var(--accent)', soft: 'var(--accent-soft)', icon: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', tip: 'ลงเวลาออกก่อนเวลาเลิกเวรที่กำหนดใน emp_shift' },
-    { v: s?.out_area, unit: u, label: 'นอกพื้นที่', sub: 'สแกนนอกจุดที่กำหนด', c: 'var(--danger)', soft: 'var(--danger-soft)', icon: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', tip: 'สแกนลงเวลานอกรัศมีของทุกจุดที่ตั้งไว้ในแท็บ "จุดลงเวลา" (นับเฉพาะที่มีพิกัด GPS)' },
-    { v: recon?.match_no_punch.count, unit: 'คน', label: 'สแกนแต่ไม่ลงเวลา', sub: `สแกนเจอตัวแต่ไม่มีบันทึก · ${isToday ? 'วันนี้' : thShort(to)}`, c: 'var(--danger)', soft: 'var(--danger-soft)', icon: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01', tip: 'ระบบสแกนหน้าเจอตัวแล้ว แต่ไม่มีบันทึกลงเวลาในระบบโรงพยาบาล (เน็ตหลุด / ไม่กดยืนยัน) — ดูวันสุดท้ายของช่วง' },
+    { v: ana?.total_staff, unit: 'คน', label: 'พนักงานทั้งหมด', sub: 'ในระบบทั้งหมด', c: 'var(--info)', soft: 'var(--info-light)', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', tip: 'พนักงานสถานะทำงานอยู่ (active) ทั้งหมดของโรงพยาบาลใน HOSxP' },
+    { v: s?.punched, unit: u, label: isToday ? 'ลงเวลาวันนี้' : 'ลงเวลาในช่วงที่เลือก', sub: multiDay ? 'นับเป็น คน-วัน' : 'คนที่มีบันทึกลงเวลา', c: 'var(--ok)', soft: 'var(--ok-light)', icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3', tip: 'จำนวนครั้ง(คน-วัน)ที่มีบันทึกลงเวลา เข้าหรือออก อย่างน้อย 1 ครั้ง — เลือกหลายวัน คนเดิมของแต่ละวันจะนับแยกกัน' },
+    { v: s?.done, unit: u, label: 'ครบเข้า-ออกเวร', sub: s ? `ยังไม่ออกเวร ${s.open}` : '', c: 'var(--accent)', soft: 'var(--accent-light)', icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', tip: 'รอบเวรที่มีทั้งลงเวลาเข้าและออกครบ (ควบเวรนับแยกรอบ)' },
+    { v: s?.late, unit: u, label: 'สาย', sub: 'เข้าเวรหลังเวลาเริ่ม', c: 'var(--warn)', soft: 'var(--warn-light)', icon: 'M12 22a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v4l2.5 1.5', tip: 'ลงเวลาเข้าหลังเวลาเริ่มเวรที่กำหนดใน emp_shift ของโรงพยาบาล' },
+    { v: s?.early, unit: u, label: 'ออกก่อนเวลา', sub: 'ออกเวรก่อนเวลาเลิก', c: 'var(--accent)', soft: 'var(--accent-light)', icon: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', tip: 'ลงเวลาออกก่อนเวลาเลิกเวรที่กำหนดใน emp_shift' },
+    { v: s?.out_area, unit: u, label: 'นอกพื้นที่', sub: 'สแกนนอกจุดที่กำหนด', c: 'var(--danger)', soft: 'var(--danger-light)', icon: 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', tip: 'สแกนลงเวลานอกรัศมีของทุกจุดที่ตั้งไว้ในแท็บ "จุดลงเวลา" (นับเฉพาะที่มีพิกัด GPS)' },
+    { v: recon?.match_no_punch.count, unit: 'คน', label: 'สแกนแต่ไม่ลงเวลา', sub: `สแกนเจอตัวแต่ไม่มีบันทึก · ${isToday ? 'วันนี้' : thShort(to)}`, c: 'var(--danger)', soft: 'var(--danger-light)', icon: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01', tip: 'ระบบสแกนหน้าเจอตัวแล้ว แต่ไม่มีบันทึกลงเวลาในระบบโรงพยาบาล (เน็ตหลุด / ไม่กดยืนยัน) — ดูวันสุดท้ายของช่วง' },
   ]
 
   // แถบเตือนเวลาทดลองใช้ (admin โรงเห็นเอง ไม่ต้องถาม super)
@@ -124,9 +124,9 @@ export function Overview() {
   const bars = (ana?.days ?? []).map((d) => ({
     label: dm(d.date),
     segs: [
-      { v: d.on_time, color: 'var(--c-ontime)', label: 'ตรงเวลา' },
-      { v: d.late, color: 'var(--c-late)', label: 'มาสาย' },
-      { v: d.early, color: 'var(--c-early)', label: 'ออกก่อน' },
+      { v: d.on_time, color: 'var(--ok)', label: 'ตรงเวลา' },
+      { v: d.late, color: 'var(--warn)', label: 'มาสาย' },
+      { v: d.early, color: 'var(--accent)', label: 'ออกก่อน' },
     ],
   }))
   const shiftSegs = (ana?.shifts ?? []).filter((x) => x.name !== '—').map((x, i) => ({
@@ -194,7 +194,7 @@ export function Overview() {
         {/* การ์ดสามใบถูกยืดสูงเท่ากัน — เนื้อหาข้างในต้องยืด/กึ่งกลางตาม ไม่งั้นเหลือพื้นว่างใต้กราฟ */}
         <div style={{ ...card, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>สถิติการเข้า-ออกงาน (รายวัน)</h2>
-          {legend([{ color: 'var(--c-ontime)', label: 'ตรงเวลา' }, { color: 'var(--c-late)', label: 'มาสาย' }, { color: 'var(--c-early)', label: 'ออกก่อน' }])}
+          {legend([{ color: 'var(--ok)', label: 'ตรงเวลา' }, { color: 'var(--warn)', label: 'มาสาย' }, { color: 'var(--accent)', label: 'ออกก่อน' }])}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             {ana ? <StackedBars data={bars} height={170} /> : <Loading />}
           </div>
@@ -209,7 +209,7 @@ export function Overview() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>แนวโน้มการมาสาย (นาที)</h2>
             {ana && ana.avg_late_min > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: 'var(--accent-soft)', color: 'var(--accent-strong)' }}>เฉลี่ย {nf(ana.avg_late_min)} นาที</span>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)' }}>เฉลี่ย {nf(ana.avg_late_min)} นาที</span>
             )}
           </div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
@@ -224,7 +224,7 @@ export function Overview() {
           <div style={{ padding: '15px 18px 11px', fontSize: 14, fontWeight: 700 }}>สรุปการมาสาย (Top 5) <span style={{ fontWeight: 500, color: 'var(--text-faint)', fontSize: 11.5 }}>· {dayLabel}</span></div>
           <div style={{ overflowX: 'auto', flex: 1 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 420 }}>
-              <thead><tr style={{ textAlign: 'left', color: 'var(--text-faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', background: 'var(--surface-2)' }}>
+              <thead><tr style={{ textAlign: 'left', color: 'var(--text-faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', background: 'var(--surface-card)' }}>
                 <th style={{ padding: '8px 18px', fontWeight: 600 }}>ลำดับ</th><th style={{ padding: '8px 8px', fontWeight: 600 }}>ชื่อ</th><th style={{ padding: '8px 8px', fontWeight: 600 }}>แผนก</th><th style={{ padding: '8px 8px', fontWeight: 600, textAlign: 'center' }}>ครั้ง</th><th style={{ padding: '8px 18px', fontWeight: 600, textAlign: 'center' }}>เฉลี่ย (นาที)</th>
               </tr></thead>
               <tbody>
@@ -281,7 +281,7 @@ export function Overview() {
               <div key={`${r.emp}:${r.date}:${r.seq ?? 0}`} style={{ display: 'flex', gap: 12, padding: '12px 20px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.late ? 'var(--warn)' : 'var(--ok)', flex: 'none' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name} {r.late && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--warn-soft)', color: 'var(--warn)' }}>สาย</span>}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name} {r.late && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 5, background: 'var(--warn-light)', color: 'var(--warn)' }}>สาย</span>}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>#{r.emp}{r.dept ? ` · ${r.dept}` : ''}{r.shift !== '—' ? ` · เวร ${r.shift}` : ''}{multiDay ? ` · ${thShort(r.date)}` : ''}</div>
                 </div>
                 <div style={{ textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12.5 }}>
@@ -301,7 +301,7 @@ export function Overview() {
             {notifs.map((n) => (
               <div key={n.title} onClick={n.nav} className={n.nav ? 'row-hover' : undefined}
                 style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 11, alignItems: 'flex-start', cursor: n.nav ? 'pointer' : 'default' }}>
-                <span style={{ width: 28, height: 28, flex: 'none', borderRadius: 8, background: n.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: 28, height: 28, flex: 'none', borderRadius: 8, background: n.color, color: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={n.icon} /></svg>
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>

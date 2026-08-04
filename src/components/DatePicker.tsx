@@ -55,9 +55,16 @@ function usePanel() {
   return { open, setOpen, btnRef, panelRef, pos, openPanel }
 }
 
+// trigger แบบข้อความล้วน — Figma ชิป "ช่วงวันที่" โชว์ค่าเป็น 14/500 ไม่มีกรอบ
+const bareTriggerSt: React.CSSProperties = {
+  border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+  fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 500, lineHeight: '20px',
+  color: 'var(--text-faint)', whiteSpace: 'nowrap',
+}
+
 const triggerSt: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7, padding: '8px 11px', minHeight: 36,
-  border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)',
+  border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)',
   fontFamily: 'var(--sans)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
 }
 const panelSt = (pos: { top: number; left: number; up: boolean }): React.CSSProperties => ({
@@ -71,11 +78,12 @@ const navBtn: React.CSSProperties = {
   color: 'var(--text-dim)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontFamily: 'var(--sans)',
 }
 
-export function DatePicker({ value, onChange, min, max }: {
+export function DatePicker({ value, onChange, min, max, bare }: {
   value: string            // "YYYY-MM-DD"
   onChange: (v: string) => void
   min?: string
   max?: string
+  bare?: boolean           // ข้อความล้วน ไม่มีกรอบ/ไอคอน (ฝังในชิปตัวกรองตาม Figma)
 }) {
   const { open, setOpen, btnRef, panelRef, pos, openPanel } = usePanel()
   const sel = parseISO(value) ?? parseISO(max) ?? [new Date().getFullYear(), new Date().getMonth(), new Date().getDate()]!
@@ -99,8 +107,9 @@ export function DatePicker({ value, onChange, min, max }: {
 
   return (
     <>
-      <button type="button" ref={btnRef} onClick={() => (open ? setOpen(false) : show())} style={triggerSt}>
-        {calIcon}{thShort(value)}
+      <button type="button" ref={btnRef} onClick={() => (open ? setOpen(false) : show())}
+        style={bare ? bareTriggerSt : triggerSt}>
+        {!bare && calIcon}{thShort(value)}
       </button>
       {open && createPortal(
         <div ref={panelRef} style={panelSt(pos)}>
@@ -125,11 +134,11 @@ export function DatePicker({ value, onChange, min, max }: {
                     height: 32, borderRadius: 8, fontFamily: 'var(--sans)', fontSize: 12.5, cursor: dis ? 'default' : 'pointer',
                     border: s === todayISO && !isSel ? '1px solid var(--accent)' : '1px solid transparent',
                     background: isSel ? 'var(--accent)' : 'transparent',
-                    color: isSel ? 'var(--on-accent)' : dis ? 'var(--text-faint)' : 'var(--text)',
+                    color: isSel ? 'var(--bg)' : dis ? 'var(--text-faint)' : 'var(--text)',
                     fontWeight: isSel || s === todayISO ? 700 : 500,
                     opacity: dis ? 0.4 : 1,
                   }}
-                  onMouseEnter={(e) => { if (!dis && !isSel) e.currentTarget.style.background = 'var(--surface-2)' }}
+                  onMouseEnter={(e) => { if (!dis && !isSel) e.currentTarget.style.background = 'var(--surface-card)' }}
                   onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.background = 'transparent' }}>
                   {d}
                 </button>
@@ -138,7 +147,7 @@ export function DatePicker({ value, onChange, min, max }: {
           </div>
           {(!max || todayISO <= max) && (
             <button type="button" onClick={() => { onChange(todayISO); setOpen(false) }}
-              style={{ marginTop: 8, width: '100%', padding: '7px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ marginTop: 8, width: '100%', padding: '7px 0', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-card)', color: 'var(--text-dim)', fontFamily: 'var(--sans)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               วันนี้
             </button>
           )}
@@ -185,8 +194,8 @@ export function MonthPicker({ value, onChange, max }: {
                   style={{
                     padding: '9px 0', borderRadius: 8, border: '1px solid transparent', fontFamily: 'var(--sans)', fontSize: 12.5,
                     cursor: dis ? 'default' : 'pointer',
-                    background: isSel ? 'var(--accent)' : 'var(--surface-2)',
-                    color: isSel ? 'var(--on-accent)' : dis ? 'var(--text-faint)' : 'var(--text)',
+                    background: isSel ? 'var(--accent)' : 'var(--surface-card)',
+                    color: isSel ? 'var(--bg)' : dis ? 'var(--text-faint)' : 'var(--text)',
                     fontWeight: isSel ? 700 : 500, opacity: dis ? 0.45 : 1,
                   }}>
                   {m}

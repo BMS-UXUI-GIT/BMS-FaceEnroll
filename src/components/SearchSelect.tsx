@@ -10,7 +10,7 @@ const caret = (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: 0.6 }}><path d="m6 9 6 6 6-6" /></svg>
 )
 
-export function SearchSelect({ options, value, onChange, multi, values, onToggle, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, width, maxTriggerWidth, disabled, allowCustom, onSearch }: {
+export function SearchSelect({ options, value, onChange, multi, values, onToggle, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, hideCaret, width, maxTriggerWidth, disabled, allowCustom, onSearch }: {
   options: SelectOpt[]
   value?: string
   onChange?: (v: string) => void
@@ -20,6 +20,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
   placeholder?: string
   searchPlaceholder?: string
   bare?: boolean             // trigger โปร่ง ไม่มีกรอบ (ฝังใน pill เดิมได้)
+  hideCaret?: boolean        // ซ่อนลูกศรลง (Figma ชิปตัวกรองไม่มีลูกศร)
   width?: number | string
   maxTriggerWidth?: number
   disabled?: boolean
@@ -108,7 +109,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
     ? { display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: 0, minWidth: 0, width }
     : {
         display: 'flex', alignItems: 'center', gap: 8, width: width ?? '100%', minHeight: 36, padding: '6px 11px',
-        border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)',
+        border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)',
         fontFamily: 'var(--sans)', fontSize: 13, cursor: disabled ? 'default' : 'pointer', textAlign: 'left', opacity: disabled ? 0.6 : 1,
       }
 
@@ -120,7 +121,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
           <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
             {[...(selected as SelectOpt[]).map((o) => ({ key: o.value, text: o.sub ? `${o.sub} ${o.label}` : o.label })), ...extraVals.map((v) => ({ key: v, text: v }))]
               .map((c) => (
-                <span key={c.key} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-soft)', color: 'var(--accent-strong)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
+                <span key={c.key} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-light)', color: 'var(--accent-active)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
               ))}
           </span>
         ) : (
@@ -128,7 +129,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
             {multi ? placeholder : (selected as SelectOpt | undefined)?.label ?? placeholder}
           </span>
         )}
-        {caret}
+        {!hideCaret && caret}
       </button>
 
       {open && createPortal(
@@ -141,7 +142,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
           <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
             <input
               autoFocus value={q} onChange={(e) => { setQ(e.target.value); setAct(0) }} onKeyDown={onKey} placeholder={searchPlaceholder}
-              style={{ width: '100%', padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }}
+              style={{ width: '100%', padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }}
             />
           </div>
           <div style={{ overflowY: 'auto', maxHeight: 272, padding: 4 }}>
@@ -156,11 +157,11 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
               return (
                 <button type="button" key={`${o.value}:${i}`} onClick={() => pick(o.value)} onMouseEnter={() => setAct(i)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8,
-                  border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)', background: i === act ? 'var(--surface-2)' : 'transparent', color: 'var(--text)',
+                  border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)', background: i === act ? 'var(--surface-card)' : 'transparent', color: 'var(--text)',
                 }}>
-                  {o.sub && <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-strong)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{o.sub}</span>}
+                  {o.sub && <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{o.sub}</span>}
                   <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: on ? 700 : 500 }}>{o.label}</span>
-                  {on && <span style={{ color: 'var(--accent-strong)', fontWeight: 700, flex: 'none' }}>✓</span>}
+                  {on && <span style={{ color: 'var(--accent-active)', fontWeight: 700, flex: 'none' }}>✓</span>}
                 </button>
               )
             })}

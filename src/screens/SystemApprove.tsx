@@ -35,7 +35,7 @@ export function SystemApprove() {
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>คำขอรออนุมัติ</h2>
-          {pending.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--warn)', color: '#fff', borderRadius: 20, padding: '1px 9px' }}>{pending.length}</span>}
+          {pending.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--warn)', color: 'var(--bg)', borderRadius: 20, padding: '1px 9px' }}>{pending.length}</span>}
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>อนุมัติทดลองใช้ = เปิด 60 วันนับจากวันนี้ · ใช้งานจริง = เปิดถาวร</span>
         </div>
 
@@ -46,7 +46,7 @@ export function SystemApprove() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 13.5 }}>{t.name || '—'}</span>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)' }}>{t.hcode}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 8px', borderRadius: 5, background: t.request_type === 'demo' ? 'var(--info-soft)' : 'var(--accent-soft)', color: t.request_type === 'demo' ? 'var(--info)' : 'var(--accent-strong)' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 8px', borderRadius: 5, background: t.request_type === 'demo' ? 'var(--info-light)' : 'var(--accent-light)', color: t.request_type === 'demo' ? 'var(--info)' : 'var(--accent-active)' }}>
                   {t.request_type === 'demo' ? 'ขอทดลองใช้' : 'ขอใช้งานจริง'}
                 </span>
               </div>
@@ -58,7 +58,7 @@ export function SystemApprove() {
             <button onClick={() => act(`ap:${t.hcode}`, `/admin/tenants/${t.hcode}/approve`, { demo_days: 60 },
               t.request_type === 'demo' ? `อนุมัติ ${t.name} แบบทดลองใช้ 60 วัน?` : `อนุมัติ ${t.name} ใช้งานจริง?`)}
               disabled={!!busy}
-              style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--ok)', color: '#fff', cursor: 'pointer' }}>
+              style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--ok)', color: 'var(--bg)', cursor: 'pointer' }}>
               {busy === `ap:${t.hcode}` ? 'กำลังอนุมัติ…' : t.request_type === 'demo' ? 'อนุมัติ (60 วัน)' : 'อนุมัติ'}
             </button>
             <button onClick={async () => {

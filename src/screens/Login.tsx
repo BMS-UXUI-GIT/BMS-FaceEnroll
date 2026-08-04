@@ -33,7 +33,7 @@ function clearRemembered() {
 
 const field: React.CSSProperties = {
   width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 10,
-  background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
+  background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
 }
 const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 6 }
 
@@ -159,7 +159,7 @@ export function Login() {
           <h1 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>เข้าสู่ระบบ</h1>
           <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-dim)' }}>มอนิเตอร์ระบบสแกนหน้า–ลงเวลา รพ.</p>
 
-          <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20 }}>
             <button onClick={() => { setTab('admin'); setNotice(null); persist({ tab: 'admin' }) }} style={segBtn(tab === 'admin')}>ผู้ดูแลระบบ</button>
             <button onClick={() => { setTab('user'); setErr(null); persist({ tab: 'user' }) }} style={segBtn(tab === 'user')}>HOSxP</button>
           </div>
@@ -183,13 +183,13 @@ export function Login() {
               </div>
 
               {err && (
-                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>
+                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>
               )}
 
               {rememberRow}
 
               <button type="submit" disabled={busy} style={{
-                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)',
+                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
                 fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1,
               }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
             </form>
@@ -199,7 +199,7 @@ export function Login() {
               {hosp ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
                   <div style={{ ...field, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-strong)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{hosp.hcode}</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{hosp.hcode}</span>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hosp.name || '(ไม่มีชื่อ)'}</span>
                     <button type="button" onClick={() => { setHosp(null); setHq('') }} style={{ border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1, flex: 'none' }}>×</button>
                   </div>
@@ -212,9 +212,9 @@ export function Login() {
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
                       {hres.map((h) => (
                         <button key={h.hcode} type="button" onClick={() => { setHosp(h); setHres([]); persist({ hosp: h }) }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--text)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-card)' }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-strong)', background: 'var(--accent-soft)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{h.hcode}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{h.hcode}</span>
                           <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name || '(ไม่มีชื่อ)'}</span>
                         </button>
                       ))}
@@ -239,13 +239,13 @@ export function Login() {
               </div>
 
               {notice && (
-                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{notice}</div>
+                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{notice}</div>
               )}
 
               {rememberRow}
 
               <button type="submit" disabled={busy || !hosp || !uu.trim() || !up.trim()} style={{
-                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--on-accent)',
+                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
                 fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
                 opacity: busy || !hosp || !uu.trim() || !up.trim() ? 0.55 : 1,
               }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>

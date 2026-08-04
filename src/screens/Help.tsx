@@ -10,7 +10,7 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', gap: 14, marginBottom: 4 }}>
-      <div style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--mono)' }}>{n}</div>
+      <div style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--mono)' }}>{n}</div>
       <div style={{ flex: 1, minWidth: 0, paddingBottom: 20, borderLeft: 'none' }}>
         <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, marginTop: 3 }}>{title}</div>
         <div style={{ fontSize: 13.5, color: 'var(--text-dim)', lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
@@ -19,11 +19,11 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   )
 }
 const Code = ({ children }: { children: React.ReactNode }) => (
-  <code style={{ fontFamily: 'var(--mono)', fontSize: 12.5, background: 'var(--surface-3)', padding: '2px 7px', borderRadius: 6, color: 'var(--text)', wordBreak: 'break-all' }}>{children}</code>
+  <code style={{ fontFamily: 'var(--mono)', fontSize: 12.5, background: 'var(--surface-gray)', padding: '2px 7px', borderRadius: 6, color: 'var(--text)', wordBreak: 'break-all' }}>{children}</code>
 )
 function Note({ tone = 'info', children }: { tone?: 'info' | 'warn'; children: React.ReactNode }) {
   const c = tone === 'warn' ? 'var(--warn)' : 'var(--accent)'
-  const bg = tone === 'warn' ? 'var(--warn-soft)' : 'var(--accent-soft)'
+  const bg = tone === 'warn' ? 'var(--warn-light)' : 'var(--accent-light)'
   return (
     <div style={{ display: 'flex', gap: 9, padding: '11px 14px', borderRadius: 10, background: bg, border: `1px solid ${c}`, fontSize: 12.5, color: 'var(--text)', lineHeight: 1.6, margin: '2px 0' }}>
       <span style={{ flex: 'none', color: c, fontWeight: 700 }}>{tone === 'warn' ? '⚠️' : 'ℹ️'}</span>
@@ -116,8 +116,8 @@ export function Help() {
               <button key={t.id} onClick={() => setSel(t.id)} className="row-hover" style={{
                 display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 16px', cursor: 'pointer',
                 border: 'none', borderLeft: `3px solid ${on ? 'var(--accent)' : 'transparent'}`,
-                background: on ? 'var(--accent-soft)' : 'transparent', fontFamily: 'var(--sans)',
-                color: on ? 'var(--accent-strong)' : 'var(--text-dim)', fontSize: 13, fontWeight: on ? 700 : 500,
+                background: on ? 'var(--accent-light)' : 'transparent', fontFamily: 'var(--sans)',
+                color: on ? 'var(--accent-active)' : 'var(--text-dim)', fontSize: 13, fontWeight: on ? 700 : 500,
               }}>
                 <span style={{ fontSize: 16, flex: 'none' }}>{t.icon}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>

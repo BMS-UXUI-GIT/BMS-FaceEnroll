@@ -31,7 +31,7 @@ export function MapShell({ height, onResize, children, overlay }: {
 
   return (
     <div style={big
-      ? { position: 'fixed', inset: 0, zIndex: 350, background: 'rgba(0,0,0,.55)', padding: 16, display: 'flex' }
+      ? { position: 'fixed', inset: 0, zIndex: 350, background: 'var(--overlay)', padding: 16, display: 'flex' }
       : { position: 'relative', zIndex: 0 }}>
       <div style={{ position: 'relative', ...(big ? { flex: 1, minWidth: 0 } : { height }) }}>
         {children}

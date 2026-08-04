@@ -7,7 +7,7 @@ import { RefreshButton } from '../components/RefreshButton'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
 const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-2)' }
+const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
 
 type HospCheck = { hcode: string; name: string; ok: boolean; latency_ms: number; error: string }
 type Health = {
@@ -83,7 +83,7 @@ export function Health() {
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>การเชื่อมต่อรายโรงพยาบาล</h2>
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>ระบบของแต่ละโรงอยู่คนละเซิร์ฟเวอร์ — ทดสอบดึงข้อมูลจริงทีละโรง</span>
-          {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-soft)', borderRadius: 20, padding: '2px 10px' }}>ต่อไม่ได้ {downCount} โรง</span>}
+          {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', borderRadius: 20, padding: '2px 10px' }}>ต่อไม่ได้ {downCount} โรง</span>}
           <div style={{ marginLeft: 'auto' }}><Pager page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
         </div>
         <div style={{ overflowX: 'auto' }}>

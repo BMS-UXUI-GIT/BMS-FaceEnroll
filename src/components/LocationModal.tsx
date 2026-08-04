@@ -6,7 +6,7 @@ import { Icon } from '../icons'
 
 export type GeoLoc = { name: string; lat: number; lng: number; radius_m: number }
 
-const input: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
+const input: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
 const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }
 
 export function LocationModal({ initial, disabled, onSave, onClose }: {
@@ -55,7 +55,7 @@ export function LocationModal({ initial, disabled, onSave, onClose }: {
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
           <span style={{ fontWeight: 700, fontSize: 14.5 }}>{disabled ? 'ดูจุดลงเวลา' : hasPoint ? 'แก้ไขจุดลงเวลา' : 'เพิ่มจุดลงเวลา'}</span>
@@ -82,7 +82,7 @@ export function LocationModal({ initial, disabled, onSave, onClose }: {
                   <Icon name="search" size={13} width={1.8} />{busy === 'search' ? 'กำลังค้น…' : 'ค้นหา'}
                 </button>
               </div>
-              <button onClick={useMyLocation} disabled={busy === 'geo'} style={{ ...btn, color: 'var(--accent-strong)', borderColor: 'var(--accent)' }}>
+              <button onClick={useMyLocation} disabled={busy === 'geo'} style={{ ...btn, color: 'var(--accent-active)', borderColor: 'var(--accent)' }}>
                 📍 {busy === 'geo' ? 'กำลังหา…' : 'ใช้ตำแหน่งปัจจุบัน'}
               </button>
             </div>
@@ -96,7 +96,7 @@ export function LocationModal({ initial, disabled, onSave, onClose }: {
         <div style={{ padding: '13px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, position: 'sticky', bottom: 0, background: 'var(--surface)', zIndex: 1 }}>
           <button onClick={onClose} style={btn}>{disabled ? 'ปิด' : 'ยกเลิก'}</button>
           {!disabled && (
-            <button onClick={save} disabled={!hasPoint} style={{ ...btn, background: hasPoint ? 'var(--accent)' : 'var(--surface-3)', color: hasPoint ? '#fff' : 'var(--text-faint)', borderColor: 'transparent', cursor: hasPoint ? 'pointer' : 'default' }}>
+            <button onClick={save} disabled={!hasPoint} style={{ ...btn, background: hasPoint ? 'var(--accent)' : 'var(--surface-gray)', color: hasPoint ? 'var(--bg)' : 'var(--text-faint)', borderColor: 'transparent', cursor: hasPoint ? 'pointer' : 'default' }}>
               บันทึกจุด
             </button>
           )}

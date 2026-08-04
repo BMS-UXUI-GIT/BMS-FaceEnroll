@@ -13,7 +13,7 @@ import { useApp } from '../state'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const th: React.CSSProperties = { padding: '10px 8px', fontWeight: 600 }
 const td: React.CSSProperties = { padding: '11px 8px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-2)' }
+const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
 
 type Emp = { emp: string; name: string; dept: string; position: string; phone: string; start_date: string; emp_type: string }
 type EmpList = { count: number; total: number; rows: Emp[] }
@@ -60,15 +60,15 @@ function totalHours(tin: string, tout: string): string {
 // badge สถานะรายวัน (ซ้อนกันได้ เช่น สาย + ออกก่อน)
 function StatusBadges({ r }: { r: HistRow }) {
   const items: [boolean, string, string, string][] = [
-    [r.late, r.late_min > 0 ? `มาสาย ${nf(r.late_min)} นาที` : 'มาสาย', 'var(--warn)', 'var(--warn-soft)'],
-    [r.early, r.early_min > 0 ? `ออกก่อน ${nf(r.early_min)} นาที` : 'ออกก่อน', 'var(--accent)', 'var(--accent-soft)'],
-    [r.no_out, 'ลืมลงเวลาออก', 'var(--info)', 'var(--info-soft)'],
+    [r.late, r.late_min > 0 ? `มาสาย ${nf(r.late_min)} นาที` : 'มาสาย', 'var(--warn)', 'var(--warn-light)'],
+    [r.early, r.early_min > 0 ? `ออกก่อน ${nf(r.early_min)} นาที` : 'ออกก่อน', 'var(--accent)', 'var(--accent-light)'],
+    [r.no_out, 'ลืมลงเวลาออก', 'var(--info)', 'var(--info-light)'],
   ]
   const on = items.filter(([v]) => v)
   const pill = (label: string, color: string, bg: string) => (
     <span key={label} style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color, background: bg, whiteSpace: 'nowrap' }}>{label}</span>
   )
-  if (on.length === 0) return pill('ปกติ', 'var(--ok)', 'var(--ok-soft)')
+  if (on.length === 0) return pill('ปกติ', 'var(--ok)', 'var(--ok-light)')
   return (
     <span style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       {on.map(([, label, color, bg]) => pill(label, color, bg))}
@@ -79,7 +79,7 @@ function StatusBadges({ r }: { r: HistRow }) {
 function Avatar({ name, size, fontSize }: { name: string; size: number; fontSize: number }) {
   return (
     <span style={{
-      width: size, height: size, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)',
+      width: size, height: size, borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)',
       fontSize, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none',
     }}>{initials(name)}</span>
   )
@@ -215,7 +215,7 @@ export function ReportPerson() {
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {/* โปรไฟล์ */}
         <div style={{ ...card, width: 300, flex: 'none', padding: '22px 20px', textAlign: 'center' }}>
-          <div style={{ width: 76, height: 76, margin: '0 auto 12px', borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700 }}>{initials(sel.name)}</div>
+          <div style={{ width: 76, height: 76, margin: '0 auto 12px', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700 }}>{initials(sel.name)}</div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>{blank(sel.name)}</div>
           <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2, fontFamily: 'var(--mono)' }}>{blank(sel.emp)} · <span style={{ fontFamily: 'var(--sans)' }}>{deptTxt(sel.dept)}</span></div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 1 }}>{blank(sel.position)}</div>

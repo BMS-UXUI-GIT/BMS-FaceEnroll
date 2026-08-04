@@ -12,7 +12,7 @@ import { useApp } from '../state'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
 const th: React.CSSProperties = { padding: '9px 8px', fontWeight: 600 }
 const td: React.CSSProperties = { padding: '10px 8px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', background: 'var(--surface-2)' }
+const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', background: 'var(--surface-card)' }
 
 type Analytics = {
   late_total: number   // จำนวนจริงทั้งหมด (late_rows โดนตัดที่ 300 แถว)
@@ -178,7 +178,7 @@ export function ReportLate() {
           csvTitle="รายงานออกก่อนเวลา" emptyText="ไม่มีคนออกก่อนเวลาในช่วงที่เลือก" />
       </div>
 
-      <div style={{ border: '1px dashed var(--border-strong)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-dim)', background: 'var(--surface)' }}>
+      <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-dim)', background: 'var(--surface)' }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
           <circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" />
         </svg>

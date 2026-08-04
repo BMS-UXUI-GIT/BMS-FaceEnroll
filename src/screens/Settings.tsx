@@ -11,7 +11,7 @@ type Pol = Record<string, any>
 
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', overflow: 'hidden' }
 const rowSt: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, padding: '13px 20px', borderTop: '1px solid var(--border)', minHeight: 58 }
-const numInput: React.CSSProperties = { width: 96, padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--mono)', fontSize: 13.5, outline: 'none', textAlign: 'right' }
+const numInput: React.CSSProperties = { width: 96, padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--mono)', fontSize: 13.5, outline: 'none', textAlign: 'right' }
 const textInput: React.CSSProperties = { ...numInput, width: 240, fontFamily: 'var(--sans)', textAlign: 'left' }
 
 const LIVENESS_TYPES = ['random', 'blink', 'smile', 'left', 'right']
@@ -21,9 +21,9 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: 40, height: 22, borderRadius: 20, border: 'none', cursor: disabled ? 'default' : 'pointer', position: 'relative', flex: 'none',
-      background: on ? 'var(--ok)' : 'var(--surface-3)', transition: 'background .15s', opacity: disabled ? 0.6 : 1,
+      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s', opacity: disabled ? 0.6 : 1,
     }}>
-      <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s' }} />
+      <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg)', boxShadow: '0 1px 3px rgba(0,0,0,.25)', transition: 'left .15s' }} />
     </button>
   )
 }
@@ -65,9 +65,9 @@ function TextField({ value, placeholder, disabled, onCommit }: { value: string; 
 function Section({ title, sub, icon, children }: { title: string; sub?: string; icon?: string; children: React.ReactNode }) {
   return (
     <div style={card}>
-      <div style={{ padding: '15px 20px 13px', display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface-2)' }}>
+      <div style={{ padding: '15px 20px 13px', display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface-card)' }}>
         {icon && (
-          <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'var(--accent-soft)', color: 'var(--accent-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{icon}</div>
+          <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{icon}</div>
         )}
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>{title}</div>
@@ -94,12 +94,12 @@ function NotiChannel({ icon, name, desc, on, onToggle, disabled, onHelp, childre
           {desc && <div style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{desc}</div>}
         </div>
         {onHelp && (
-          <button onClick={onHelp} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent-strong)', cursor: 'pointer', whiteSpace: 'nowrap' }}>📖 คู่มือ</button>
+          <button onClick={onHelp} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', whiteSpace: 'nowrap' }}>📖 คู่มือ</button>
         )}
         <Toggle on={on} disabled={disabled} onClick={onToggle} />
       </div>
       {on && children && (
-        <div style={{ padding: '4px 20px 16px 58px', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ padding: '4px 20px 16px 58px', background: 'var(--surface-card)', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {children}
         </div>
       )}

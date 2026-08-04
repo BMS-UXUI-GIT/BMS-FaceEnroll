@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapShell, mapBtn } from './MapShell'
+import { cssVar } from '../tokens'
 
 // แผนที่ดูจุดสแกน (read-only) — วงรัศมี = จุดลงเวลาที่กำหนด, หมุด = จุดที่สแกนจริง
 // เขียว = ในพื้นที่, แดง = นอกพื้นที่
@@ -45,7 +46,7 @@ export function ScanMap({ fences, points, height = 300 }: { fences: Fence[]; poi
     const bounds = L.latLngBounds([])
 
     for (const f of fences) {
-      const c = L.circle([f.lat, f.lng], { radius: f.radius_m, color: '#3a4fd6', weight: 1.5, fillColor: '#3a4fd6', fillOpacity: 0.1 }).addTo(map)
+      const c = L.circle([f.lat, f.lng], { radius: f.radius_m, color: cssVar('--accent'), weight: 1.5, fillColor: cssVar('--accent'), fillOpacity: 0.1 }).addTo(map)
       const pin = L.marker([f.lat, f.lng], { icon: PIN }).addTo(map)
       if (f.name) pin.bindTooltip(f.name)
       layers.push(c, pin)
@@ -55,8 +56,8 @@ export function ScanMap({ fences, points, height = 300 }: { fences: Fence[]; poi
       const inside = fences.length === 0
         || fences.some((f) => distM(p.lat, p.lng, f.lat, f.lng) <= f.radius_m)
       const m = L.circleMarker([p.lat, p.lng], {
-        radius: 9, color: '#fff', weight: 2.5,
-        fillColor: inside ? '#1fa464' : '#d64545', fillOpacity: 1,
+        radius: 9, color: cssVar('--bg'), weight: 2.5,
+        fillColor: cssVar(inside ? '--ok' : '--danger'), fillOpacity: 1,
       }).addTo(map)
       const near = fences.length
         ? Math.round(Math.min(...fences.map((f) => distM(p.lat, p.lng, f.lat, f.lng))))

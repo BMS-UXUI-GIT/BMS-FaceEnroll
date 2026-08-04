@@ -108,7 +108,7 @@ export function SystemHospitals() {
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>โรงพยาบาลที่เปิดใช้งาน</h2>
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>คลิกชื่อโรงดูรายละเอียด<Info text="คลิกชื่อโรง = รายละเอียด ผู้ติดต่อ โน้ต ผู้ใช้ + ตั้งค่าความปลอดภัยรายโรง (โหมดทดสอบ/ตรวจตัวตน/ตรวจสิทธิ์)" /></span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)' }}>
               <Icon name="search" size={14} color="var(--text-faint)" width={1.8} />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นรหัส / ชื่อโรง / จังหวัด…"
                 style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 12.5, fontFamily: 'var(--sans)', color: 'var(--text)', width: 190 }} />
@@ -147,7 +147,7 @@ export function SystemHospitals() {
                   <td style={td}>
                     {t.request_type === 'demo' ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: t.demo_expired ? 'var(--danger)' : 'var(--info)', background: t.demo_expired ? 'var(--danger-soft)' : 'var(--info-soft)' }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: t.demo_expired ? 'var(--danger)' : 'var(--info)', background: t.demo_expired ? 'var(--danger-light)' : 'var(--info-light)' }}>
                           {t.demo_expired ? 'หมดอายุทดลอง' : 'ทดลองใช้'}
                         </span>
                         <span style={{ fontSize: 11.5, color: 'var(--text-dim)', fontFamily: 'var(--mono)' }}>
@@ -169,7 +169,7 @@ export function SystemHospitals() {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: 'var(--accent-strong)', background: 'var(--accent-soft)' }}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: 'var(--accent-active)', background: 'var(--accent-light)' }}>
                           {t.prod_expires_at ? `ใช้งานจริง ถึง ${thDate(t.prod_expires_at)}` : 'ใช้งานจริง'}
                         </span>
                         <ExpiryChip date={t.prod_expires_at} />
@@ -179,7 +179,7 @@ export function SystemHospitals() {
                   <td style={td}>{hs(t.hcode)}</td>
                   <td style={{ ...td, padding: '11px 20px', textAlign: 'right' }}>
                     <button onClick={() => act(`ac:${t.hcode}`, `/admin/tenants/${t.hcode}/active`, { active: !t.active })} disabled={!!busy} title="เปิด/พัก การใช้งานของโรงนี้"
-                      style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'var(--sans)', minWidth: 62, background: t.active ? 'var(--ok-soft)' : 'var(--danger-soft)', color: t.active ? 'var(--ok)' : 'var(--danger)', border: `1px solid ${t.active ? 'var(--ok)' : 'var(--danger)'}` }}>
+                      style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'var(--sans)', minWidth: 62, background: t.active ? 'var(--ok-light)' : 'var(--danger-light)', color: t.active ? 'var(--ok)' : 'var(--danger)', border: `1px solid ${t.active ? 'var(--ok)' : 'var(--danger)'}` }}>
                       {busy === `ac:${t.hcode}` ? '…' : t.active ? 'ใช้งาน' : 'พัก'}
                     </button>
                   </td>
