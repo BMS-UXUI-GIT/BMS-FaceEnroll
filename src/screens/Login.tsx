@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useScreenZoom } from '../hooks'
 import { Icon } from '../icons'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // หน้า login มี 2 แท็บ:
 //   ผู้ดูแลระบบ = บัญชี dashboard (app_user)
@@ -147,7 +148,7 @@ export function Login() {
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26, justifyContent: 'center' }}>
           <div style={{ width: 42, height: 42, flex: 'none', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <img src="/logo.png" alt="" width={42} height={42} style={{ display: 'block' }} />
+            <img src={asset("/logo.png")} alt="" width={42} height={42} style={{ display: 'block' }} />
           </div>
           <div>
             <div style={{ fontWeight: 500, fontSize: 19, letterSpacing: '-.3px' }}>FaceCheck Admin</div>

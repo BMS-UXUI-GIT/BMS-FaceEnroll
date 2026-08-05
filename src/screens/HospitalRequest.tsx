@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useScreenZoom } from '../hooks'
 import { Icon } from '../icons'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // ฟอร์มลงทะเบียนโรงพยาบาล (public) — ดีไซน์ FaceCheck: ซ้ายแนะนำระบบ / ขวาฟอร์ม
 // ยื่นแล้วเข้าคิว "รออนุมัติ" ในจัดการระบบของ super
@@ -420,7 +421,7 @@ export function HospitalRequest() {
       <header style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1 }}>
           <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <img src="/logo.png" alt="" width={36} height={36} style={{ display: 'block' }} />
+            <img src={asset("/logo.png")} alt="" width={36} height={36} style={{ display: 'block' }} />
           </div>
           <div>
             <div style={{ fontWeight: 500, fontSize: 15, letterSpacing: '-.2px' }}>FaceCheck</div>

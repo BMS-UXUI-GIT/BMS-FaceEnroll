@@ -17,6 +17,7 @@ import { exportCSV, exportPDF, exportXLSX, printTable, type Table } from '../uti
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // รายงาน — Figma node 114:36843
 //   การ์ดหัวเรื่อง: ชิปช่วงวัน/เวร/แผนก · การ์ดจำนวนเทมเพลต · ภาพประกอบ
@@ -240,7 +241,7 @@ export function ReportsHub() {
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {/* ภาพประกอบส่งออกไฟล์ (Figma node 114:36843) */}
-        <img src="/hero-report.svg" alt="" aria-hidden width={230} height={230}
+        <img src={asset("/hero-report.svg")} alt="" aria-hidden width={230} height={230}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 8, bottom: -12 }} />
 

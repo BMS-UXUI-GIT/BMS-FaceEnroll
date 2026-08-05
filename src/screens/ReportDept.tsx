@@ -16,6 +16,7 @@ import { PAGE_SIZE, usePaged } from '../components/Pager'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // รายแผนก — Figma node 114:28921
 //   การ์ดหัวเรื่อง (พื้นไล่สีฟ้า + ภาพประกอบทีมแพทย์) + การ์ดสรุป 5 ใบ + ปุ่มรีเฟรช/เลือกแผนก
@@ -114,7 +115,7 @@ export function ReportDept() {
       {/* ---------- การ์ดหัวเรื่อง (Figma Frame 93) ---------- */}
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {/* ภาพประกอบทีมแพทย์ (Figma image 10) — 328x328 ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
-        <img src="/hero-dept.png" alt="" aria-hidden width={328} height={328}
+        <img src={asset("/hero-dept.png")} alt="" aria-hidden width={328} height={328}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 8, top: 0 }} />
 

@@ -13,6 +13,7 @@ import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // ลงทะเบียนใบหน้า — Figma node 207:39928 (Enroll Registry)
 //   การ์ดหัวเรื่อง (ไล่สีฟ้า→ขาว) + การ์ดตัวเลข 4 ใบ + แถบเตือน
@@ -149,7 +150,7 @@ export function Face() {
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {/* ภาพประกอบพยาบาล (Figma node 220:5938) — 256x256 ชิดขวา 24
             เยื้องลงนอกการ์ด 64 แล้วถูก crop ด้วย overflow-hidden ของการ์ดตามดีไซน์ */}
-        <img src="/hero-face.svg" alt="" aria-hidden width={256} height={256}
+        <img src={asset("/hero-face.svg")} alt="" aria-hidden width={256} height={256}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 'var(--sp-6)', bottom: -64 }} />
 

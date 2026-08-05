@@ -3,6 +3,7 @@ import { TEXT } from '../typography'
 import { useApp } from '../state'
 import { Button } from './inputs/Button'
 import { ProfileMenu } from './ProfileMenu'
+import { asset } from '../assets'
 
 // แถบบนสุด — Figma node 227:6401 ("Group 18")
 // สเปกจริง: 1408x112 · พื้นขาว · มุมบน [24,24,0,0] (มุมมาจากการ์ดแม่ใน App.tsx)
@@ -32,7 +33,7 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
           icon={<Icon name="menu" size={18} width={2} />} />
       )}
 
-      <img src="/logo.png" alt="" width={40} height={40}
+      <img src={asset("/logo.png")} alt="" width={40} height={40}
         style={{ display: 'block', flex: 'none', borderRadius: 'var(--r-lg)' }} />
 
       <div style={{ minWidth: 0, flex: 1 }}>

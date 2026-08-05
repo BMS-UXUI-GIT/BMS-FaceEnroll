@@ -14,6 +14,7 @@ import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // รายเวร — Figma node 114:29745
 //   การ์ดหัวเรื่อง (ภาพประกอบ 3 เวร) + การ์ดสรุปเวรละใบ + ชิปเลือกเดือน
@@ -95,7 +96,7 @@ export function ReportShift() {
       {/* ---------- การ์ดหัวเรื่อง (Figma Frame 128:3610) ---------- */}
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {/* ภาพประกอบ 3 เวร (Figma node 114:30977) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
-        <img src="/hero-shift.svg" alt="" aria-hidden width={397} height={251}
+        <img src={asset("/hero-shift.svg")} alt="" aria-hidden width={397} height={251}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 0, bottom: 0 }} />
 

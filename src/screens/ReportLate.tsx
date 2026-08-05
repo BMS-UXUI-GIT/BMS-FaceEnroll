@@ -17,6 +17,7 @@ import { PAGE_SIZE } from '../components/Pager'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // การมาสาย / ออกก่อน — Figma node 114:33516
 //   การ์ดหัวเรื่อง: ชิปช่วงวัน/เวร/แผนก · การ์ดสรุป 2 ใบ · แถบเกณฑ์ · ภาพประกอบ
@@ -240,7 +241,7 @@ export function ReportLate() {
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {/* ภาพประกอบ (Figma node 114:33516) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
-        <img src="/hero-late.svg" alt="" aria-hidden width={356} height={232}
+        <img src={asset("/hero-late.svg")} alt="" aria-hidden width={356} height={232}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 0, bottom: 0 }} />
 

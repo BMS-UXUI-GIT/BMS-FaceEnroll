@@ -18,6 +18,7 @@ import { useApp } from '../state'
 import { IssueBadges } from './attendance/IssueBadges'
 import { EmployeeModal } from './attendance/EmployeeModal'
 import type { Daily, DailyRow } from './attendance/types'
+import { asset } from '../assets'
 
 // หน้าลงเวลา — ตาม Figma node 227:6394
 //   การ์ดหัวเรื่อง (ไล่สี surface-blue → ขาว, r-xl) + การ์ดตัวเลข 4 ใบ
@@ -125,7 +126,7 @@ export function Attendance() {
       <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-t from-hero from-0% to-bg to-65%">
         {/* ภาพประกอบ export จาก Figma (node I227:7677;227:9723) — 298x298 ชิดขวา
             ยึดจากขอบล่างแล้วเยื้องลงไปนอกการ์ด ส่วนที่เกินถูก crop ด้วย overflow:hidden */}
-        <img src="/hero-attendance.svg" alt="" aria-hidden width={298} height={298}
+        <img src={asset("/hero-attendance.svg")} alt="" aria-hidden width={298} height={298}
           className="hide-sm absolute right-0 -bottom-24 pointer-events-none select-none" />
 
         <div className="relative flex items-start justify-between gap-4 flex-wrap">

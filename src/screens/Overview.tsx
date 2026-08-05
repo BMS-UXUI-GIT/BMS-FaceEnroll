@@ -18,6 +18,7 @@ import { PlatformPanels, PlatformStats, usePlatformOverview } from './PlatformOv
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // หน้าหลัก — Figma node 13:2973
 //   แท็บ ภาพรวม / การเข้า-ออกงานล่าสุด · ชิปช่วงวัน-เวร-แผนก
@@ -260,7 +261,7 @@ export function Overview() {
         {tab === 'system' && <Clouds />}
         {/* ภาพประกอบ — สลับตามแท็บ (Figma node 43:13821 / 43:14979) */}
         {/* แท็บภาพรวมระบบไม่มีภาพประกอบ (หัวเรื่องเตี้ย ภาพจะไปทับปุ่ม) */}
-        {tab !== 'system' && <img src={tab === 'recent' ? '/hero-scan.svg' : '/hero-dash.svg'} alt="" aria-hidden
+        {tab !== 'system' && <img src={asset(tab === 'recent' ? '/hero-scan.svg' : '/hero-dash.svg')} alt="" aria-hidden
           width={tab === 'recent' ? 343 : 480} height={176}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 0, bottom: 0 }} />}
@@ -298,7 +299,7 @@ export function Overview() {
           <div className="relative mt-4 flex items-end gap-2">
             <div style={{ flex: 1, minWidth: 0 }}><PlatformStats d={platF.data} loading={platF.loading} /></div>
             {/* ล้นออกนอกขอบล่าง/ขวาของหัวเรื่อง (การ์ดตัด overflow อยู่แล้ว) */}
-            <img src="/hero-hospital.svg" alt="" aria-hidden width={360} height={360}
+            <img src={asset("/hero-hospital.svg")} alt="" aria-hidden width={360} height={360}
               className="hide-sm pointer-events-none select-none"
               style={{ flex: 'none', marginBottom: -64, marginRight: 'calc(var(--sp-6) * -1)' }} />
           </div>

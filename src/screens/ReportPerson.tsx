@@ -21,6 +21,7 @@ import { Pagination } from '../components/data-display/Pagination'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { asset } from '../assets'
 
 // รายบุคคล — Figma node 66:16084 (รายชื่อ) + 66:20837 (รายละเอียดรายคน)
 //   list   : การ์ดหัวเรื่อง + การ์ดจำนวนพนักงาน + ค้นหา/กรองแผนก + ตารางพร้อมสถานะวันนี้
@@ -318,7 +319,7 @@ export function ReportPerson() {
           {/* ภาพประกอบทีมพนักงาน (Figma node I66:18673;66:18975) — 309x297
               Figma วางที่ x 773 บนการ์ดกว้าง 1098 = ห่างขอบขวา 16 (ยึดขวาไว้ให้การ์ดยืดได้)
               การ์ดสูง 195 ส่วนที่เกินถูก crop ด้วย overflow-hidden ตามดีไซน์ */}
-          <img src="/hero-person.svg" alt="" aria-hidden width={309} height={297}
+          <img src={asset("/hero-person.svg")} alt="" aria-hidden width={309} height={297}
             className="hide-sm pointer-events-none select-none"
             style={{ position: 'absolute', right: 16, top: 24 }} />
 
