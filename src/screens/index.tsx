@@ -11,8 +11,8 @@ export function Placeholder({ title, phase, note }: { title: string; phase: stri
         <div style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="system" size={22} width={2} />
         </div>
-        <div style={{ fontSize: 17, fontWeight: 700 }}>{title}</div>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '3px 10px', borderRadius: 20 }}>{phase}</div>
+        <div style={{ fontSize: 17, fontWeight: 500 }}>{title}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '3px 10px', borderRadius: 20 }}>{phase}</div>
         <div style={{ fontSize: 13, color: 'var(--text-dim)', maxWidth: 520, lineHeight: 1.6 }}>{note}</div>
       </div>
     </div>

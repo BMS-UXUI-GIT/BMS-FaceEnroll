@@ -45,7 +45,7 @@ function reportHTML(t: Table, sub: string): string {
   const th = t.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')
   const trs = t.rows.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(String(c ?? ''))}</td>`).join('')}</tr>`).join('')
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t.title)}</title><style>
-    body{font-family:'IBM Plex Sans Thai','Sarabun',system-ui,sans-serif;color:#101521;margin:28px;font-size:13px}
+    body{font-family:'Noto Sans Thai Looped',system-ui,sans-serif;color:#101521;margin:28px;font-size:13px}
     h1{font-size:17px;margin:0 0 2px} .sub{color:#59616f;font-size:11.5px;margin:0 0 14px}
     table{width:100%;border-collapse:collapse;font-size:12px}
     th{background:#f0f2f6;text-align:left;padding:7px 9px;border:1px solid #d3dae3;font-size:10.5px}

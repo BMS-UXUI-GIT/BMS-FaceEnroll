@@ -15,6 +15,6 @@ export function IssueBadges({ r }: { r: IssueLike }) {
     r.out_area === true && <StatusBadge key="out" status="outarea" label={r.dist_m != null ? `นอกพื้นที่ ${fmtDist(r.dist_m)}` : 'นอกพื้นที่'} />,
   ].filter(Boolean)
 
-  if (on.length === 0) return <StatusBadge status="ontime" label="ปกติ" />
-  return <span style={{ display: 'inline-flex', gap: 'var(--sp-1)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>{on}</span>
+  if (on.length === 0) return <StatusBadge status="ontime" />
+  return <span style={{ display: 'flex', gap: 'var(--sp-1)', flexWrap: 'nowrap', justifyContent: 'center' }}>{on}</span>
 }

@@ -60,6 +60,7 @@
 
   /* === Table / Control (Figma: table 66:23558, Pagination 90:2074) === */
   --table-head-bg: #F5F7FA;   /* = surface-card */
+  --table-head-dark: #33415C; /* หัวตารางแบบเข้ม (Figma หน้ารายงาน) */
   --table-row-text: #333847;  /* ข้อความในแถว (Figma ใช้ค่านี้ ไม่ใช่ text-primary) */
   --control-border: #E5E7EB;  /* ขอบปุ่ม prev/next ของ Pagination */
 
@@ -87,8 +88,9 @@
   --r-full: 999px;
 
   /* === Typography === */
-  --sans: 'Google Sans', 'Inter', system-ui, sans-serif;
-  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Noto Sans Thai Looped', system-ui, sans-serif;
+  /* ตัวเลขทุกจุดใช้ Nunito (สั่งเปลี่ยนจาก monospace) — var(--mono) ยังชื่อเดิมเพื่อไม่ต้องแก้ทุกไฟล์ */
+  --mono: 'Nunito', var(--sans);
 
   /* === Chart Palette (from Figma secondary/status) === */
   --cat-1: #5682E9;
@@ -119,6 +121,7 @@
   /* === Layout === */
   --page-max: 100%;
   --sidebar-w: 262px;  /* Figma: Sidebar 262px fixed */
+  --topbar-h: 80px;    /* ความสูง Topbar — ใช้เว้น paddingTop ให้ content เลื่อนลอดใต้ header กระจก */
   --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) */
 
   /* ลูกศร dropdown — ใช้สี --text-dim (#667385) */
@@ -136,14 +139,157 @@ body {
 }
 input, button, select { font-family: var(--sans); }
 
+/* ซ่อน scrollbar แต่ยังเลื่อนได้ (เช่น sidebar) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--surface-gray); border-radius: var(--r-md); border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 .lift { transition: transform .14s, box-shadow .14s, border-color .14s; }
 .lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--accent); }
-.row-hover { transition: background .12s; }
+/* แถวตาราง: พื้นขาว → hover เป็น surface-card (#F5F7FA) · กดค้างเข้มขึ้นอีกขั้น */
+.row-hover { background: var(--bg); transition: background .12s; }
 .row-hover:hover { background: var(--surface-card); }
+.row-hover:active { background: var(--accent-light); }
+
+/* ── แถบตัวกรอง (Figma หน้าลงเวลา node 227:7677) ─────────────────────────
+   ช่องค้นหา + ชิปทุกใบใช้พื้น/รัศมีชุดเดียวกัน ต่างกันแค่ state
+   default → hover → focus-within (คีย์บอร์ด) → open/selected           */
+.chip, .searchbox {
+  background: var(--surface-alt);
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.chip:hover, .searchbox:hover { background: var(--surface-card); }
+.chip:focus-visible,
+.chip:focus-within, .searchbox:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+  outline: none;
+}
+/* dropdown เปิดอยู่ = ชิปติดสีเน้น (ดูจาก aria-expanded ของ trigger ข้างใน) */
+.chip:has(button[aria-expanded='true']) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+.chip:active { transform: translateY(1px); }
+
+/* ชิปแบบมีเส้นขอบ — วางบนพื้นเทาแล้วยังเห็นขอบเขตชัด */
+.chip-outline { border-color: var(--control-border); }
+
+/* chip choice (ชิปเลือก/ไม่เลือก — "เฉพาะรายงานผิดปกติ") */
+.chip-choice[aria-pressed='true'] {
+  background: var(--warn-light);
+  border-color: var(--warn);
+}
+.chip-choice[aria-pressed='true']:hover { background: color-mix(in srgb, var(--warn) 18%, transparent); }
+
+/* ── DatePicker (react-aria-components — ไม่มีสไตล์มาให้ ต้องเขียนเองทั้งหมด) ──
+   locale 'th-TH-u-ca-buddhist' ทำให้หัวปฏิทิน/ชื่อวันเป็นไทย + ปี พ.ศ. ให้เอง  */
+.dp-trigger {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 11px; min-height: 36px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface-card); color: var(--text);
+  font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+}
+.dp-trigger:hover { background: var(--surface); }
+/* ข้อความล้วน — Figma ชิป "ช่วงวันที่" โชว์ค่าเป็น 14/500 ไม่มีกรอบ */
+.dp-trigger-bare {
+  border: none; background: transparent; padding: 0; cursor: pointer;
+  font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 20px;
+  color: var(--text-faint); white-space: nowrap;
+}
+
+.dp-popover {
+  width: 284px; z-index: 300;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+}
+.dp-dialog { padding: 12px; outline: none; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dp-title { margin: 0; font-size: 13.5px; font-weight: 500; }
+.dp-nav {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-dim); cursor: pointer; font-size: 14px; line-height: 1; font-family: var(--sans);
+}
+.dp-nav[data-disabled] { opacity: .4; cursor: default; }
+
+/* border-spacing 0 เพื่อให้แถบช่วงที่เลือกต่อกันเป็นผืนเดียว ไม่ขาดเป็นช่วงๆ */
+.dp-grid { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.dp-wd { width: 34px; font-size: 10.5px; font-weight: 500; color: var(--text-faint); padding: 4px 0; }
+.dp-cell {
+  width: 34px; height: 34px; border-radius: 8px; font-size: 12.5px; font-weight: 500;
+  text-align: center; vertical-align: middle; cursor: pointer; outline: none;
+  border: 1px solid transparent; transition: background .1s ease;
+}
+.dp-cell[data-hovered] { background: var(--surface-card); }
+.dp-cell[data-today] { border-color: var(--accent); font-weight: 500; }
+.dp-cell[data-selected] { background: var(--accent); color: var(--bg); font-weight: 500; border-color: transparent; }
+.dp-cell[data-disabled], .dp-cell[data-outside-month] { opacity: .4; cursor: default; }
+.dp-cell[data-focus-visible] { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* เลือกเป็นช่วง (RangeCalendar): วันระหว่างกลางเป็นพื้นฟ้าจาง หัว-ท้ายเป็นสีเต็ม */
+.dp-cell[data-selected] { background: var(--accent-light); color: var(--text); font-weight: 500; border-radius: 0; }
+.dp-cell[data-selection-start], .dp-cell[data-selection-end] {
+  background: var(--accent); color: var(--bg); font-weight: 500;
+}
+.dp-cell[data-selection-start] { border-radius: 8px 0 0 8px; }
+.dp-cell[data-selection-end] { border-radius: 0 8px 8px 0; }
+.dp-cell[data-selection-start][data-selection-end] { border-radius: 8px; }
+/* ปฏิทินวันเดียว (Calendar ธรรมดา) ไม่มี selection-start/end -> คืนสีเต็มให้เหมือนเดิม */
+.dp-popover:not(.dp-popover-range) .dp-cell[data-selected] {
+  background: var(--accent); color: var(--bg); font-weight: 500; border-radius: 8px;
+}
+
+/* ปฏิทินช่วง = 2 เดือนเรียงกัน */
+.dp-popover-range { width: auto; }
+.dp-months { display: flex; gap: 16px; }
+.dp-presets { display: flex; gap: 6px; margin-top: 8px; }
+.dp-presets .dp-today { margin-top: 0; }
+
+.dp-today {
+  margin-top: 8px; width: 100%; padding: 7px 0; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-card); color: var(--text-dim);
+  font-family: var(--sans); font-size: 12px; font-weight: 500; cursor: pointer;
+}
+
+/* ตารางที่อยู่ในกรอบมน — โค้งมุมล่างของแถวสุดท้ายให้พอดีขอบกรอบ
+   (ใช้แทน overflow:hidden ที่กรอบ เพราะ overflow ทำให้ sticky header ตาย) */
+.table-rounded tbody tr:last-child td { border-bottom: none; }
+.table-rounded tbody tr:last-child td:first-child { border-bottom-left-radius: var(--r-lg); }
+.table-rounded tbody tr:last-child td:last-child { border-bottom-right-radius: var(--r-lg); }
+
+/* ── Button component ────────────────────────────────────────────────────
+   สีของทุก variant อยู่ที่นี่ (ไม่ใช่ inline style ในไฟล์ .tsx)
+   เพราะ inline style ชนะ CSS class เสมอ ใส่แล้ว :hover จะไม่ทำงาน       */
+.btn { border: 1px solid transparent; transition: background .12s ease, color .12s ease; }
+
+.btn-primary { background: var(--accent-active); color: var(--bg); }
+.btn-primary:not(:disabled):hover { background: color-mix(in srgb, var(--accent-active) 88%, black); }
+
+.btn-secondary { background: var(--bg); color: var(--text-dark); border-color: var(--control-border); }
+.btn-secondary:not(:disabled):hover { background: var(--surface-card); }
+
+.btn-ghost { background: transparent; color: var(--accent-active); }
+.btn-ghost:not(:disabled):hover { background: var(--accent-light); }
+
+.btn-ghost-danger { background: transparent; color: var(--danger); }
+.btn-ghost-danger:not(:disabled):hover { background: var(--danger-light); }
+
+.btn-soft { background: var(--surface-alt); color: var(--text-dark); }
+.btn-soft:not(:disabled):hover { background: var(--surface-card); }
+
+.btn-outline-accent { background: var(--bg); color: var(--accent); border-color: var(--accent); }
+.btn-outline-accent:not(:disabled):hover { background: var(--accent-light); }
+
+.btn-accent-soft { background: var(--accent-light); color: var(--accent); }
+.btn-accent-soft:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 
 /* ทุกปุ่มมี feedback: hover เปลี่ยนสี, กดยุบเล็กน้อย, disabled จาง+ห้ามกด, โฟกัสมีขอบ */
 button { transition: filter .12s ease, opacity .12s ease, transform .05s ease; }
@@ -159,6 +305,67 @@ input:focus, select:focus { border-color: var(--accent) !important; }
 /* ไอคอนหมุน (ใช้ตอนกำลังโหลด/รีเฟรช) */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin .7s linear infinite; }
+
+/* เปลี่ยนหน้า — จางเข้า + ลอยขึ้นเบา ๆ ทีละบล็อก
+   .8s + ปลายโค้งแบนมาก: ช่วงท้ายเคลื่อนช้าจนแทบไม่เห็นจังหวะหยุด = ลื่นและนิ่ง
+   opacity เต็มที่ 60% ของช่วง ที่เหลือปล่อยให้เลื่อนเข้าที่เงียบ ๆ */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(14px); }
+  60%  { opacity: 1; }                 /* ให้สีเต็มก่อนหยุดขยับ ปลายทางเลยดูนิ่ง ไม่ใช่ "หยุดกึก" */
+  to   { opacity: 1; transform: none; }
+}
+/* ไล่ทีละบล็อกจากบนลงล่าง (การ์ดหัวเรื่อง → แถวตัวกรอง → แผงเนื้อหา)
+   ตัวกล่องนอกไม่ขยับ ปล่อยให้ลูกแต่ละชิ้นเข้าเอง เลยรู้สึกว่า "ทยอยมา" ไม่ใช่ทั้งหน้าวืดพร้อมกัน
+   :not(.float-bottom) — ตัวลอยใช้ transform จัดกึ่งกลางอยู่แล้ว ถ้าอนิเมทจะเด้งออกนอกที่ */
+.page-in > * > *:not(.float-bottom) {
+  animation: pageIn .8s cubic-bezier(.16, .84, .28, 1) both;   /* ยาวขึ้น + ปลายแบนมาก = จอดนิ่ม */
+  will-change: opacity, transform;   /* ให้ compositor ทำ ไม่ทำให้ตัวหนังสือกระตุก */
+}
+.page-in > * > *:nth-child(1) { animation-delay: 0ms; }
+.page-in > * > *:nth-child(2) { animation-delay: 90ms; }
+.page-in > * > *:nth-child(3) { animation-delay: 180ms; }
+.page-in > * > *:nth-child(4) { animation-delay: 270ms; }
+.page-in > * > *:nth-child(n+5) { animation-delay: 360ms; }
+@media (prefers-reduced-motion: reduce) { .page-in > * > * { animation: none; } }
+
+/* สลับแท็บในหน้าเดียว — สั้นกว่า .page-in เพราะโครงหน้าไม่ได้เปลี่ยน แค่เนื้อในสลับ
+   ใช้คู่กับ key={tab} ใน React: เปลี่ยนแท็บ = node ใหม่ = อนิเมชันเล่นซ้ำ */
+@keyframes tabIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.tab-in { animation: tabIn .45s cubic-bezier(.16, .84, .28, 1) both; will-change: opacity, transform; }
+.tab-in-late { animation-delay: 70ms; }   /* แผงเนื้อหาตามหลังหัวเรื่องนิดนึง */
+@media (prefers-reduced-motion: reduce) { .tab-in { animation: none; } }
+
+/* เมฆพื้นหลังการ์ดหัวเรื่อง — ลอยช้า ๆ สลับไปมา (ใช้ scale แยกจาก transform เลยไม่ตีกัน)
+   ระยะเวลา/ดีเลย์ตั้งรายตัวใน React จะได้ไม่ลอยพร้อมกันเป็นแถว */
+@keyframes cloudFloat {
+  from { transform: translate3d(-34px, 4px, 0); }
+  to   { transform: translate3d(34px, -12px, 0); }
+}
+.cloud { animation: cloudFloat 15s ease-in-out infinite alternate; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .cloud { animation: none; } }
+
+/* โครงร่างระหว่างโหลด (skeleton) — บล็อกเทาวูบเบา ๆ ไม่กระพริบแรงจนกวนตา */
+@keyframes skelPulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.skel { background: var(--surface-card); border-radius: var(--r-md); animation: skelPulse 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+/* แถบลอยล่างจอ (เช่น โปรไฟล์พนักงานแบบย่อ) — กึ่งกลางของพื้นที่เนื้อหา ไม่นับ Sidebar
+   fixed -> % คิดจาก viewport จึงต้องบวกครึ่งความกว้าง Sidebar เอง */
+.float-bottom {
+  position: fixed; z-index: 25;
+  bottom: calc(var(--shell-gap) + var(--sp-6));
+  left: calc(50% + var(--sidebar-w) / 2);
+  transform: translateX(-50%);
+  max-width: calc(100vw - var(--sidebar-w) - var(--sp-6) * 2);
+}
+@media (max-width: 920px) {
+  .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(100vw - var(--sp-6)); }
+}
+
+/* การ์ดสรุปแถวละ 4 ใบ (จอแคบลดเป็น 2 แล้ว 1) */
+.stat-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .stat-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .stat-grid-4 { grid-template-columns: 1fr; } }
 
 /* หน้าคู่มือ: จอแคบ = สารบัญขึ้นบน เนื้อหาอยู่ล่าง (คอลัมน์เดียว) */
 @media (max-width: 760px) {
@@ -192,5 +399,6 @@ select option { background: var(--bg); color: var(--text); }
 
 @keyframes feedIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes toastUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }

@@ -10,9 +10,9 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', gap: 14, marginBottom: 4 }}>
-      <div style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, fontFamily: 'var(--mono)' }}>{n}</div>
+      <div style={{ flex: 'none', width: 30, height: 30, borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 14, fontFamily: 'var(--mono)' }}>{n}</div>
       <div style={{ flex: 1, minWidth: 0, paddingBottom: 20, borderLeft: 'none' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8, marginTop: 3 }}>{title}</div>
+        <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 8, marginTop: 3 }}>{title}</div>
         <div style={{ fontSize: 13.5, color: 'var(--text-dim)', lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 6 }}>{children}</div>
       </div>
     </div>
@@ -26,13 +26,13 @@ function Note({ tone = 'info', children }: { tone?: 'info' | 'warn'; children: R
   const bg = tone === 'warn' ? 'var(--warn-light)' : 'var(--accent-light)'
   return (
     <div style={{ display: 'flex', gap: 9, padding: '11px 14px', borderRadius: 10, background: bg, border: `1px solid ${c}`, fontSize: 12.5, color: 'var(--text)', lineHeight: 1.6, margin: '2px 0' }}>
-      <span style={{ flex: 'none', color: c, fontWeight: 700 }}>{tone === 'warn' ? '⚠️' : 'ℹ️'}</span>
+      <span style={{ flex: 'none', color: c, fontWeight: 500 }}>{tone === 'warn' ? '⚠️' : 'ℹ️'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   )
 }
 const H = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.6px', margin: '18px 0 12px' }}>{children}</div>
+  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.6px', margin: '18px 0 12px' }}>{children}</div>
 )
 
 // ---------- หัวข้อ: ตั้งค่าแจ้งเตือนผ่าน Telegram ----------
@@ -99,9 +99,9 @@ export function Help() {
   return (
     <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700 }}>คู่มือการใช้งาน</h1>
+        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 500 }}>คู่มือการใช้งาน</h1>
         <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>เลือกหัวข้อที่ต้องการจากเมนูด้านซ้าย</span>
-        <button onClick={() => setNav('settings')} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>
+        <button onClick={() => setNav('settings')} style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 500, padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>
           ← กลับหน้าตั้งค่า
         </button>
       </div>
@@ -109,7 +109,7 @@ export function Help() {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 240px) minmax(0, 1fr)', gap: 16, alignItems: 'start' }} className="help-grid">
         {/* สารบัญหัวข้อ */}
         <div style={{ ...card, overflow: 'hidden', position: 'sticky', top: 0 }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.6px' }}>หัวข้อ</div>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, fontWeight: 500, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.6px' }}>หัวข้อ</div>
           {TOPICS.map((t) => {
             const on = t.id === sel
             return (
@@ -117,7 +117,7 @@ export function Help() {
                 display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '12px 16px', cursor: 'pointer',
                 border: 'none', borderLeft: `3px solid ${on ? 'var(--accent)' : 'transparent'}`,
                 background: on ? 'var(--accent-light)' : 'transparent', fontFamily: 'var(--sans)',
-                color: on ? 'var(--accent-active)' : 'var(--text-dim)', fontSize: 13, fontWeight: on ? 700 : 500,
+                color: on ? 'var(--accent-active)' : 'var(--text-dim)', fontSize: 13, fontWeight: on ? 500 : 500,
               }}>
                 <span style={{ fontSize: 16, flex: 'none' }}>{t.icon}</span>
                 <span style={{ flex: 1, minWidth: 0 }}>{t.title}</span>
@@ -130,7 +130,7 @@ export function Help() {
         <div style={{ ...card, padding: '22px 26px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 24 }}>{topic.icon}</span>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{topic.title}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{topic.title}</h2>
           </div>
           {topic.body}
         </div>

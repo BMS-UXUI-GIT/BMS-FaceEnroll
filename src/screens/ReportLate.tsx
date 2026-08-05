@@ -1,105 +1,177 @@
-import { useEffect, useMemo, useState } from 'react'
-import { nf, useFetch } from '../hooks'
-import { filterQS, isoAddDays, localISO, ShiftDeptFilters, useAttFilterOptions } from '../components/AttFilters'
-import { DatePicker, thShort } from '../components/DatePicker'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { clock, nf, useFetch } from '../hooks'
+import { filterQS, isoAddDays, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { thShort } from '../components/DatePicker'
+import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { PickHospital } from '../components/PickHospital'
-import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
-import { exportCSV, type Table } from '../utils/exportx'
-import { Pager, PAGE_SIZE } from '../components/Pager'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { SearchSelect } from '../components/SearchSelect'
+import { SearchInput } from '../components/inputs/SearchInput'
+import { Button } from '../components/inputs/Button'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { Avatar } from '../components/data-display/Avatar'
+import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
+import { StatCard } from '../components/data-display/StatCard'
+import { Pagination } from '../components/data-display/Pagination'
+import { PAGE_SIZE } from '../components/Pager'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 import { useApp } from '../state'
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '9px 8px', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '10px 8px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.4px', background: 'var(--surface-card)' }
+// การมาสาย / ออกก่อน — Figma node 114:33516
+//   การ์ดหัวเรื่อง: ชิปช่วงวัน/เวร/แผนก · การ์ดสรุป 2 ใบ · แถบเกณฑ์ · ภาพประกอบ
+//   2 แผงคู่: รายชื่อพนักงานที่มาสาย / ที่ออกก่อนเวลา (การ์ดต่อคน ไม่ใช่ตาราง)
+//
+// แบ่งหน้าฝั่งเซิร์ฟเวอร์ — analytics ครั้งเดียวคืนทั้งสองฝั่ง แยก offset กันด้วย late_offset/early_offset
 
 type Analytics = {
-  late_total: number   // จำนวนจริงทั้งหมด (late_rows โดนตัดที่ 300 แถว)
+  late_total: number   // จำนวนจริงทั้งหมด (late_rows โดนตัดตาม limit)
   early_total: number
   late_rows: { emp: string; name: string; dept: string; date: string; shift: string; in: string; min: number }[]
   early_rows: { emp: string; name: string; dept: string; date: string; shift: string; out: string; min: number }[]
 }
 
-// แถวแสดงผลร่วมของ 2 การ์ด (time = เวลาเข้า/ออก แล้วแต่ฝั่ง)
-type IssueRow = { name: string; dept: string; date: string; shift: string; time: string; min: number }
+/** แถวแสดงผลร่วมของ 2 แผง (time = เวลาเข้า/ออก แล้วแต่ฝั่ง) */
+type IssueRow = { emp: string; name: string; dept: string; date: string; shift: string; time: string; min: number }
+
+// Topbar เป็นแถบกระจกลอยทับ (App.tsx) — เลื่อนอัตโนมัติต้องเผื่อความสูงนี้
+const TOPBAR = 80
 
 const deptName = (d?: string) => (d && d.trim() !== '' ? d : 'ไม่ระบุแผนก')
-const dash = (v?: string) => (v && v.trim() !== '' ? v : '—')
 
-function IssueCard({ title, dayLabel, color, rows, total, timeHead, minHead, multiDay, ready, loading, csvTitle, emptyText, page, onPage }: {
-  title: string
-  dayLabel: string
+// ป้ายเวรมุมขวาล่างของรูป — ไอคอนเดียวกับ ShiftBadge (เช้า/บ่าย/ดึก)
+const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
+
+function AvatarWithShift({ name, seed, shift, size = 40 }: { name: string; seed: string; shift: string; size?: number }) {
+  const kind = shiftKindOf(shift)
+  return (
+    <span style={{ position: 'relative', flex: 'none', lineHeight: 0 }} title={shift || undefined}>
+      <Avatar name={name} seed={seed} size={size} />
+      <span aria-hidden style={{
+        position: 'absolute', right: -2, bottom: -2,
+        width: 18, height: 18, borderRadius: 'var(--r-full)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: `var(--shift-${kind}-icon)`, color: 'var(--bg)',
+        border: '2px solid var(--bg)', boxSizing: 'content-box',
+      }}>
+        <Icon name={SHIFT_ICON[kind]} size={11} width={2.2} />
+      </span>
+    </span>
+  )
+}
+
+/** ช่องข้อมูลท้ายการ์ด (ป้ายเล็กบน + ค่าตัวหนาล่าง) — Figma มีเส้นคั่นซ้ายทุกช่อง */
+function Cell({ label, value, unit, color }: { label: string; value: string; unit: string; color?: string }) {
+  return (
+    <div style={{
+      minWidth: 108, flex: 'none',
+      padding: 'var(--sp-1) var(--sp-3)', borderLeft: '1px solid var(--control-border)',
+    }}>
+      <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)' }}>
+        <span style={{ ...TEXT.h3, color: color ?? 'var(--text)' }}>{value}</span>
+        <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{unit}</span>
+      </div>
+    </div>
+  )
+}
+
+/** การ์ด 1 คน — รูป + ชื่อ/แผนก + เวลา + จำนวนนาที (Figma "พนักงานที่มาสาย") */
+function IssueItem({ r, timeLabel, minLabel, color, showDate }: {
+  r: IssueRow
+  timeLabel: string
+  minLabel: string
   color: string
+  showDate: boolean
+}) {
+  return (
+    <div className="row-hover" style={{
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+      padding: 'var(--sp-2) var(--sp-3)',
+      border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
+    }}>
+      <AvatarWithShift name={r.name} seed={r.emp} shift={r.shift} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...TEXT.bodyMed, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+        <div style={{ ...TEXT.sm, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {deptName(r.dept)}{showDate ? ` · ${thShort(r.date)}` : ''}
+        </div>
+      </div>
+      <Cell label={timeLabel} value={clock(r.time).replace(' น.', '')} unit="น." />
+      <Cell label={minLabel} value={nf(r.min)} unit="นาที" color={color} />
+    </div>
+  )
+}
+
+/** โชว์ทีละ 10 คน — backend บางตัว (และ mock) ไม่สนใจ limit/offset ที่ส่งไป
+    ถ้ามาเกินหน้าละ 10 ก็ตัดเองฝั่งหน้าเว็บ ไม่งั้นรายชื่อยาวทั้งหน้า */
+const pageSlice = (rows: IssueRow[], page: number) =>
+  (rows.length > PAGE_SIZE ? rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE) : rows)
+
+/** โครงร่างระหว่างโหลด — การ์ดสูงเท่าของจริง รายการจึงไม่กระโดดตอนเปลี่ยนหน้า */
+function IssueSkeleton({ count }: { count: number }) {
+  return (
+    <div aria-busy="true" aria-label="กำลังโหลดรายชื่อ" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+          padding: 'var(--sp-2) var(--sp-3)',
+          border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
+        }}>
+          <span className="skel" style={{ width: 40, height: 40, borderRadius: 'var(--r-full)', flex: 'none' }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="skel" style={{ width: '45%', height: 14 }} />
+            <span className="skel" style={{ width: '30%', height: 12 }} />
+          </div>
+          {[0, 1].map((c) => (
+            <div key={c} style={{ minWidth: 108, flex: 'none', padding: 'var(--sp-1) var(--sp-3)', borderLeft: '1px solid var(--control-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className="skel" style={{ width: 48, height: 12 }} />
+              <span className="skel" style={{ width: 70, height: 18 }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function IssueList({ rows: allRows, total, page, onPage, timeLabel, minLabel, color, showDate, loading, empty }: {
   rows: IssueRow[]
-  total: number // จำนวนจริงทั้งหมด (rows = เฉพาะหน้าที่ขอ)
-  timeHead: string
-  minHead: string
-  multiDay: boolean
-  ready: boolean
-  loading: boolean
-  csvTitle: string
-  emptyText: string
+  total: number
   page: number
   onPage: (p: number) => void
+  timeLabel: string
+  minLabel: string
+  color: string
+  showDate: boolean
+  loading: boolean
+  empty: string
 }) {
-  const cols = multiDay ? 7 : 6
-  const doCSV = () => {
-    const t: Table = {
-      title: csvTitle,
-      headers: ['วันที่', 'ชื่อ-สกุล', 'แผนก', 'เวร', timeHead, `${minHead} (นาที)`],
-      rows: rows.map((r) => [r.date, r.name, deptName(r.dept), dash(r.shift), dash(r.time), r.min]),
-    }
-    exportCSV(t)
+  const rows = pageSlice(allRows, page)
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  // เปลี่ยนหน้าแล้วเลื่อนกลับไปแถวแรก — ไม่งั้นกดหน้าถัดไปทั้งที่มองอยู่ท้ายรายการ แล้วงงว่าอยู่ตรงไหน
+  const goPage = (p: number) => {
+    onPage(p)
+    const el = boxRef.current
+    const main = el?.closest('main')
+    if (!el || !main) return
+    // หยุดใต้ Topbar กระจก (80) เผื่อระยะหายใจอีก 16
+    main.scrollTo({ top: main.scrollTop + el.getBoundingClientRect().top - (TOPBAR + 16), behavior: 'smooth' })
   }
+
   return (
-    <div style={{ ...card, overflow: 'hidden' }}>
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>{title} · {dayLabel}</div>
-          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--mono)', color, marginTop: 2 }}>
-            {ready ? nf(total) : '—'} <span style={{ fontSize: 14, color: 'var(--text-faint)' }}>{multiDay ? 'รายการ' : 'คน'}</span>
-          </div>
-        </div>
-        <button onClick={doCSV} disabled={rows.length === 0}
-          style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', fontFamily: 'var(--sans)', cursor: rows.length === 0 ? 'default' : 'pointer', opacity: rows.length === 0 ? 0.55 : 1, whiteSpace: 'nowrap' }}>
-          Export CSV
-        </button>
-      </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: multiDay ? 580 : 500 }}>
-          <thead><tr style={theadTr}>
-            <th style={{ ...th, padding: '9px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th>
-            <th style={th}>ชื่อ-สกุล</th>
-            <th style={th}>แผนก</th>
-            {multiDay && <th style={th}>วันที่</th>}
-            <th style={th}>เวร</th>
-            <th style={th}>{timeHead}</th>
-            <th style={{ ...th, padding: '9px 20px', textAlign: 'right' }}>{minHead} (นาที)</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...td, padding: '10px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5 }}>{nf(page * PAGE_SIZE + i + 1)}</td>
-                <td style={{ ...td, fontWeight: 600 }}>{r.name}</td>
-                <td style={{ ...td, color: 'var(--text-dim)' }}>{deptName(r.dept)}</td>
-                {multiDay && <td style={{ ...td, fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-dim)' }}>{thShort(r.date)}</td>}
-                <td style={{ ...td, color: 'var(--text-dim)' }}>{dash(r.shift)}</td>
-                <td style={{ ...td, fontFamily: 'var(--mono)' }}>{dash(r.time)}</td>
-                <td style={{ ...td, padding: '10px 20px', textAlign: 'right', fontFamily: 'var(--mono)', fontWeight: 600, color }}>{nf(r.min)}</td>
-              </tr>
-            ))}
-            {ready && rows.length === 0 && (
-              <tr><td colSpan={cols} style={{ ...td, padding: '18px 20px', textAlign: 'center', color: 'var(--ok)' }}>{emptyText}</td></tr>
-            )}
-            {!ready && loading && <tr><td colSpan={cols} style={{ padding: 0 }}><Loading /></td></tr>}
-          </tbody>
-        </table>
-      </div>
+    <div ref={boxRef} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+      {loading
+        // โหลดอยู่ (รวมตอนกดเปลี่ยนหน้า) = โชว์ skeleton เท่าจำนวนแถวเดิม ไม่ค้างข้อมูลหน้าก่อน
+        ? <IssueSkeleton count={Math.max(1, rows.length || Math.min(PAGE_SIZE, total || PAGE_SIZE))} />
+        : allRows.length === 0
+          ? <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--ok)', textAlign: 'center' }}>{empty}</div>
+          : rows.map((r, i) => (
+            <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} timeLabel={timeLabel} minLabel={minLabel} color={color} showDate={showDate} />
+          ))}
       {total > PAGE_SIZE && (
-        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <Pager page={page} total={total} onPage={onPage} />
-        </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} shown={rows.length} onPage={goPage} />
       )}
     </div>
   )
@@ -111,79 +183,150 @@ export function ReportLate() {
   const [reload, setReload] = useState(0)
   const [from, setFrom] = useState(localISO())
   const [to, setTo] = useState(localISO())
-  const [fShifts, setFShifts] = useState<string[]>([])
-  const [fDepts, setFDepts] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [shift, setShift] = useState('')
+  const [dept, setDept] = useState('')
+  // ดูทีละฝั่ง (Figma มี 2 การ์ด แต่ผู้ใช้ขอเหลือใบเดียว + สวิตช์)
+  const [view, setView] = useState<'late' | 'early'>('late')
   const [latePage, setLatePage] = useState(0)
   const [earlyPage, setEarlyPage] = useState(0)
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
 
-  // สลับโรง / เปลี่ยนช่วงวัน-ตัวกรอง = ล้างตัวกรอง + กลับหน้าแรกทั้งสองตาราง
-  useEffect(() => { setFShifts([]); setFDepts([]); setFrom(localISO()); setTo(localISO()) }, [hcode])
-  useEffect(() => { setLatePage(0); setEarlyPage(0) }, [from, to, fShifts, fDepts, hcode])
+  // ค้นชื่อ/รหัส/แผนก — หน่วง 300ms แล้วกรองจากข้อมูลที่โหลดมา (backend ยังไม่มี q ให้ endpoint นี้)
+  const [dq, setDq] = useState('')
+  useEffect(() => { const t = setTimeout(() => setDq(search.trim().toLowerCase()), 300); return () => clearTimeout(t) }, [search])
 
-  const fq = filterQS(fShifts, fDepts)
-  // แบ่งหน้าฝั่งเซิร์ฟเวอร์ — 2 ตารางแยกหน้ากันด้วย late_offset/early_offset (analytics ครั้งเดียวคืนทั้งคู่)
+  // สลับโรง = ล้างตัวกรอง + กลับมาดูวันนี้ · เปลี่ยนเงื่อนไข = กลับหน้าแรกทั้งสองแผง
+  useEffect(() => { setShift(''); setDept(''); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
+  useEffect(() => { setLatePage(0); setEarlyPage(0) }, [from, to, shift, dept, dq, hcode])
+
+  const fq = filterQS(shift ? [shift] : [], dept ? [dept] : [])
   const anaF = useFetch<Analytics>(hcode
     ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}${fq}`
       + `&limit=${PAGE_SIZE}&late_offset=${latePage * PAGE_SIZE}&early_offset=${earlyPage * PAGE_SIZE}`
     : null, reload)
 
   const lateRows = useMemo<IssueRow[]>(
-    () => (anaF.data?.late_rows ?? []).map((r) => ({ name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.in, min: r.min })),
+    () => (anaF.data?.late_rows ?? []).map((r) => ({ emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.in, min: r.min })),
     [anaF.data])
   const earlyRows = useMemo<IssueRow[]>(
-    () => (anaF.data?.early_rows ?? []).map((r) => ({ name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.out, min: r.min })),
+    () => (anaF.data?.early_rows ?? []).map((r) => ({ emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.out, min: r.min })),
     [anaF.data])
 
-  if (currentHcode === '*') return <PickHospital />
-  if (!hcode) return <div style={{ maxWidth: 'var(--page-max)' }}><div style={{ ...card, padding: 20, color: 'var(--text-dim)', fontSize: 13 }}>ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div></div>
+  const match = (r: IssueRow) => !dq
+    || r.name.toLowerCase().includes(dq) || r.emp.toLowerCase().includes(dq) || (r.dept ?? '').toLowerCase().includes(dq)
+  const lateShown = dq ? lateRows.filter(match) : lateRows
+  const earlyShown = dq ? earlyRows.filter(match) : earlyRows
 
+  if (currentHcode === '*') return <PickHospital />
+  if (!hcode) {
+    return <div className="max-w-(--page-max) text-body text-text-dim">ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div>
+  }
+
+  const late = view === 'late'
   const multiDay = from !== to
-  const isToday = !multiDay && to === localISO()
-  const dayLabel = isToday ? 'วันนี้' : multiDay ? `${thShort(from)} – ${thShort(to)}` : thShort(to)
   const ready = !!anaF.data
+  // ป้ายมุมขวาหัวแผง — บอกทุกตัวกรองที่ใช้อยู่ ไม่ใช่แค่ช่วงวัน
+  const shiftLabel = shift ? (shiftOpts.find((o) => o.value === shift)?.label ?? shift) : 'ทุกเวร'
+  const deptLabel = dept ? (deptOpts.find((o) => o.value === dept)?.label ?? dept) : 'ทุกแผนก'
+  const rangeMeta = [
+    multiDay ? `${thShort(from)} – ${thShort(to)}` : thShort(to),
+    shiftLabel,
+    deptLabel,
+  ].join(' · ')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 'var(--page-max)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>ติดตามพนักงานที่มาสายหรือออกก่อนเวลาที่กำหนด</p>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
-            <DatePicker value={from} min={isoAddDays(to, -30)} max={to} onChange={setFrom} />
-            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ถึง</span>
-            <DatePicker value={to} min={from} max={localISO()}
-              onChange={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
-          </span>
-          <ShiftDeptFilters shiftOpts={shiftOpts} deptOpts={deptOpts}
-            shifts={fShifts} depts={fDepts} onShifts={setFShifts} onDepts={setFDepts} />
-          {(fShifts.length > 0 || fDepts.length > 0) && (
-            <button onClick={() => { setFShifts([]); setFDepts([]) }}
-              style={{ fontSize: 11.5, border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', textDecoration: 'underline' }}>ล้างตัวกรอง</button>
-          )}
-          <RefreshButton busy={anaF.loading} onClick={() => setReload((r) => r + 1)} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        {/* ภาพประกอบ (Figma node 114:33516) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
+        <img src="/hero-late.svg" alt="" aria-hidden width={356} height={232}
+          className="hide-sm pointer-events-none select-none"
+          style={{ position: 'absolute', right: 0, bottom: 0 }} />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">ติดตามการเข้า-ออกงานผิดเวลา</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              ติดตามพนักงานที่มาสายหรือออกก่อนเวลาที่กำหนด
+            </p>
+          </div>
+          {/* Figma หน้านี้ไม่มีปุ่มรีเฟรช แต่หน้ารายงานอื่นมีทุกหน้า — คงไว้ให้ใช้งานเหมือนกัน */}
+          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+            รีเฟรช
+          </Button>
+        </div>
+
+        {/* การ์ดสรุป 2 ใบ (Figma: ไอคอนซ้าย ข้อความขวา) */}
+        <div className="relative mt-4 flex gap-4 flex-wrap">
+          <StatCard tone="warn" layout="row" label="มาสาย" unit={multiDay ? 'ครั้ง' : 'คน'}
+            icon={<Icon name="clock-alert" size={24} color="currentColor" />}
+            value={ready ? nf(anaF.data!.late_total) : anaF.loading ? '…' : '—'} />
+          <StatCard tone="info" layout="row" label="ออกก่อนเวลา" unit={multiDay ? 'ครั้ง' : 'คน'}
+            icon={<Icon name="time-duration-off" size={24} color="currentColor" />}
+            value={ready ? nf(anaF.data!.early_total) : anaF.loading ? '…' : '—'} />
+        </div>
+
+        {/* แถบเกณฑ์ */}
+        <div className="relative mt-4 rounded-lg text-body" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
+          padding: 'var(--sp-3) var(--sp-4)',
+          background: 'var(--accent-light)', color: 'var(--text-dim)',
+        }}>
+          <Icon name="info" size={20} width={1.8} color="var(--accent)" />
+          เกณฑ์: สาย = ลงเวลาเข้าหลังเวลาเริ่มเวร · ออกก่อน = ลงเวลาออกก่อนเวลาเลิกเวร
         </div>
       </div>
 
-      {anaF.err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(430px, 100%), 1fr))', gap: 16, alignItems: 'start' }}>
-        <IssueCard title="มาสาย" dayLabel={dayLabel} color="var(--warn)" rows={lateRows}
-          total={anaF.data?.late_total ?? lateRows.length} page={latePage} onPage={setLatePage}
-          timeHead="เข้า" minHead="สาย" multiDay={multiDay} ready={ready} loading={anaF.loading}
-          csvTitle="รายงานมาสาย" emptyText="ไม่มีคนมาสายในช่วงที่เลือก" />
-        <IssueCard title="ออกก่อนเวลา" dayLabel={dayLabel} color="var(--accent)" rows={earlyRows}
-          total={anaF.data?.early_total ?? earlyRows.length} page={earlyPage} onPage={setEarlyPage}
-          timeHead="ออก" minHead="ก่อน" multiDay={multiDay} ready={ready} loading={anaF.loading}
-          csvTitle="รายงานออกก่อนเวลา" emptyText="ไม่มีคนออกก่อนเวลาในช่วงที่เลือก" />
+      {/* ---------- ค้นหา + ตัวกรอง (แถวเดียวกัน เหนือแผงรายชื่อ) ---------- */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน / แผนก" />
+        <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+          {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
+          <DateRangePicker bare from={from} to={to} max={localISO()}
+            onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
+            onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
+          <SearchSelect bare hideCaret value={shift} onChange={setShift}
+            options={[{ value: '', label: 'ทั้งหมด' }, ...shiftOpts]}
+            placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
+          <SearchSelect bare hideCaret value={dept} onChange={setDept}
+            options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+            placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
+        </FilterChip>
       </div>
 
-      <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-dim)', background: 'var(--surface)' }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
-          <circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" />
-        </svg>
-        เกณฑ์: สาย = ลงเวลาเข้าหลังเวลาเริ่มเวร · ออกก่อน = ลงเวลาออกก่อนเวลาเลิกเวร
-      </div>
+      {/* ---------- แผงรายชื่อใบเดียว สลับฝั่งด้วยชิป ---------- */}
+      <SectionPanel
+        title={late ? 'พนักงานที่มาสาย' : 'พนักงานที่ออกก่อนเวลา'}
+        meta={rangeMeta}
+        filters={<>
+          <FilterChip outlined variant="choice" tone="warn" active={late} onClick={() => setView('late')}
+            icon={<Icon name="clock-alert" size={16} width={2} />} label="มาสาย" />
+          <FilterChip outlined variant="choice" tone="accent" active={!late} onClick={() => setView('early')}
+            icon={<Icon name="time-duration-off" size={16} width={2} />} label="ออกก่อนเวลา" />
+        </>}
+      >
+        {late
+          ? (
+            <IssueList rows={lateShown} total={dq ? lateShown.length : (anaF.data?.late_total ?? lateShown.length)}
+              page={latePage} onPage={setLatePage}
+              timeLabel="เวลาเข้า" minLabel="สาย" color="var(--warn)" showDate={multiDay}
+              loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายในช่วงที่เลือก'} />
+          )
+          : (
+            <IssueList rows={earlyShown} total={dq ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
+              page={earlyPage} onPage={setEarlyPage}
+              timeLabel="เวลาออก" minLabel="ก่อนเวลา" color="var(--info)" showDate={multiDay}
+              loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนออกก่อนเวลาในช่วงที่เลือก'} />
+          )}
+      </SectionPanel>
     </div>
   )
 }

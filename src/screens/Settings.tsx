@@ -32,7 +32,7 @@ function Row({ label, sub, children }: { label: string; sub?: string; children: 
   return (
     <div style={rowSt}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
         {sub && <div style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{sub}</div>}
       </div>
       {children}
@@ -70,7 +70,7 @@ function Section({ title, sub, icon, children }: { title: string; sub?: string; 
           <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{icon}</div>
         )}
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>{title}</div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>{title}</div>
           {sub && <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 1 }}>{sub}</div>}
         </div>
       </div>
@@ -90,11 +90,11 @@ function NotiChannel({ icon, name, desc, on, onToggle, disabled, onHelp, childre
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 20px', minHeight: 58 }}>
         <span style={{ fontSize: 20, flex: 'none', width: 26, textAlign: 'center' }}>{icon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 600 }}>{name}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 500 }}>{name}</div>
           {desc && <div style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{desc}</div>}
         </div>
         {onHelp && (
-          <button onClick={onHelp} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', whiteSpace: 'nowrap' }}>📖 คู่มือ</button>
+          <button onClick={onHelp} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', whiteSpace: 'nowrap' }}>📖 คู่มือ</button>
         )}
         <Toggle on={on} disabled={disabled} onClick={onToggle} />
       </div>
@@ -112,7 +112,7 @@ function CfgRow({ label, sub, children }: { label: string; sub?: string; childre
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div style={{ flex: 1, minWidth: 130 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 500 }}>{label}</div>
         {sub && <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{sub}</div>}
       </div>
       {children}
@@ -170,7 +170,7 @@ export function Settings() {
           ตั้งค่าของโรง {currentHcode} · แอปรับค่าล่าสุดเองเมื่อพนักงานเปิดแอป · พนักงานแก้เองไม่ได้
           {readOnly && <span style={{ color: 'var(--warn)' }}> · ดูอย่างเดียว (User)</span>}
         </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
       </div>
       {err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
       {!pol && !err && <div style={card}><Loading /></div>}

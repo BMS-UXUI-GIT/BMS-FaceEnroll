@@ -68,6 +68,12 @@ export function nf(n: number | null | undefined): string {
   return _grp.format(n)
 }
 
+// เวลา "HH:MM" -> "HH:MM น." (ว่าง/ขีด = '—') — ใช้ทุกจุดที่โชว์เวลานาฬิกา
+export const clock = (t?: string | null): string => {
+  const v = (t || '').trim()
+  return !v || v === '—' ? '—' : `${v} น.`
+}
+
 // ISO UTC จาก backend -> เวลาไทยอ่านง่าย (สั้น: วันที่ / ยาว: วันที่+เวลา)
 export function thDate(iso: string | null | undefined): string {
   if (!iso) return '—'

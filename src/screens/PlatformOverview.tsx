@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { nf, useFetch } from '../hooks'
 import { Info } from '../components/Info'
 import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
-import { useApp } from '../state'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { Button } from '../components/inputs/Button'
+import { StatCard } from '../components/data-display/StatCard'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
+import { useApp, type Nav } from '../state'
 
 // Dashboard ระดับระบบ (super/ส่วนกลาง) — เห็นเมื่อเลือก "ทุกโรงพยาบาล"
-
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
+// ใช้ชุดเดียวกับหน้าอื่น: การ์ดหัวเรื่องไล่สีฟ้า + StatCard + SectionPanel
 
 type Row = {
   hcode: string; name: string; bucket: string; request_type: string
@@ -22,136 +25,179 @@ type Data = {
   hospitals: Row[]
 }
 
-const BUCKET: Record<string, { label: string; color: string }> = {
-  pending: { label: 'รออนุมัติ', color: 'var(--warn)' },
-  demo: { label: 'ทดลองใช้', color: 'var(--info)' },
-  demo_expiring: { label: 'ใกล้หมดอายุ', color: 'var(--warn)' },
-  demo_expired: { label: 'หมดอายุทดลอง', color: 'var(--danger)' },
-  real: { label: 'ใช้งานจริง', color: 'var(--ok)' },
-  suspended: { label: 'พักใช้', color: 'var(--text-faint)' },
-  rejected: { label: 'ปฏิเสธ', color: 'var(--text-faint)' },
+// ไอคอนชุดเดียวกับการ์ดสรุปด้านบน — ป้ายกับการ์ดสถานะเดียวกันจะได้อ่านออกว่าเป็นเรื่องเดียวกัน
+const BUCKET: Record<string, { label: string; color: string; icon: string }> = {
+  pending: { label: 'รออนุมัติ', color: 'var(--warn)', icon: 'hourglass' },
+  demo: { label: 'ทดลองใช้', color: 'var(--info)', icon: 'flask' },
+  demo_expiring: { label: 'ใกล้หมดอายุ', color: 'var(--warn)', icon: 'hourglass-low' },
+  demo_expired: { label: 'หมดอายุทดลอง', color: 'var(--danger)', icon: 'hourglass-off' },
+  real: { label: 'ใช้งานจริง', color: 'var(--ok)', icon: 'rosette-check' },
+  suspended: { label: 'พักใช้', color: 'var(--text-dim)', icon: 'player-pause' },
+  rejected: { label: 'ปฏิเสธ', color: 'var(--text-dim)', icon: 'ban' },
 }
 
+/** ป้ายสถานะโรง — ทรงเดียวกับ StatusBadge ของหน้าอื่น (พื้นอ่อน ไม่มีขอบ + วงกลมไอคอน 26px) */
 function Badge({ bucket }: { bucket: string }) {
-  const b = BUCKET[bucket] ?? { label: bucket, color: 'var(--text-dim)' }
+  const b = BUCKET[bucket] ?? { label: bucket, color: 'var(--text-dim)', icon: 'info' }
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: b.color, background: 'color-mix(in srgb, ' + b.color + ' 12%, transparent)', border: `1px solid ${b.color}` }}>
+    <span style={{
+      ...TEXT.sm, whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)', minHeight: 36,
+      padding: 'var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2)', borderRadius: 'var(--r-full)',
+      color: b.color, background: `color-mix(in srgb, ${b.color} 12%, transparent)`,
+    }}>
+      <span aria-hidden style={{
+        width: 26, height: 26, flex: 'none', borderRadius: 'var(--r-full)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: b.color, color: 'var(--bg)',
+      }}>
+        <Icon name={b.icon} size={14} width={2} />
+      </span>
       {b.label}
     </span>
   )
 }
 
-export function PlatformOverview() {
-  const { setNav } = useApp()
-  const [reload, setReload] = useState(0)
-  const { data: d, err, loading } = useFetch<Data>('/admin/platform/overview', reload)
+export function usePlatformOverview(reload = 0) {
+  return useFetch<Data>('/admin/platform/overview', reload)
+}
 
-  if (err) return (
-    <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}><RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} /></div>
-      <div style={{ ...card, padding: 20, color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>
+type Kpi = { v?: number; label: string; tone: 'accent' | 'warn' | 'info' | 'danger' | 'ok' | 'neutral'; icon: string; tip: string; nav?: Nav }
+function kpisOf(d?: Data | null): Kpi[] {
+  const c = d?.counts ?? {}
+  return [
+    { v: d?.total, label: 'โรงพยาบาลทั้งหมด', tone: 'accent', icon: 'hospital', tip: 'จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน' },
+    { v: c.pending, label: 'รออนุมัติ', tone: 'warn', icon: 'hourglass', tip: 'โรงที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดการ์ดนี้เพื่อไปหน้าอนุมัติ', nav: 'sys-approve' },
+    { v: c.demo, label: 'ทดลองใช้', tone: 'info', icon: 'flask', tip: 'โรงที่อนุมัติแบบทดลองใช้ (ฟรี 60 วัน) และยังเหลือเวลาเกิน 7 วัน' },
+    { v: c.demo_expiring, label: 'ใกล้หมดอายุ', tone: 'warn', icon: 'hourglass-low', tip: 'โรงทดลองใช้ที่เหลือเวลาไม่เกิน 7 วันก่อนหมดอายุ — ควรติดต่อเพื่อต่ออายุหรือเปิดใช้งานจริง' },
+    { v: c.demo_expired, label: 'หมดอายุทดลอง', tone: 'danger', icon: 'hourglass-off', tip: 'โรงทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
+    { v: c.real, label: 'ใช้งานจริง', tone: 'ok', icon: 'rosette-check', tip: 'โรงที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)' },
+    { v: c.suspended, label: 'พักใช้', tone: 'neutral', icon: 'player-pause', tip: 'โรงที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
+    { v: c.rejected, label: 'ปฏิเสธ', tone: 'neutral', icon: 'ban', tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงยื่นคำขอใหม่ได้' },
+  ]
+}
+
+/** การ์ดสรุป 8 ใบ — วางในหัวเรื่องได้ (หน้าหลักของ super ฝังไว้ในการ์ดไล่สีฟ้า) */
+export function PlatformStats({ d, loading }: { d?: Data | null; loading?: boolean }) {
+  const { setNav } = useApp()
+  return (
+    // Figma: แถวละ 4 ใบ (8 ใบ = 2 แถวพอดี) จอแคบค่อยลดเป็น 2/1
+    <div className="stat-grid-4 grid gap-2">
+      {kpisOf(d).map((k) => (
+        <StatCard key={k.label} tone={k.tone} unit="โรง"
+          label={<>{k.label}<Info text={k.tip} /></>}
+          icon={<Icon name={k.icon} size={24} color="currentColor" />}
+          value={k.v != null ? nf(k.v) : loading ? '…' : '—'}
+          onClick={k.nav ? () => setNav(k.nav!) : undefined} />
+      ))}
     </div>
   )
-  if (!d) return <div style={{ maxWidth: 'var(--page-max)' }}><div style={card}><Loading /></div></div>
+}
 
-  const c = d?.counts ?? {}
-  const KPIS = [
-    { v: d?.total, label: 'โรงพยาบาลทั้งหมด', color: 'var(--accent)', icon: '🏥', tip: 'จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน' },
-    { v: c.pending, label: 'รออนุมัติ', color: 'var(--warn)', icon: '⏳', tip: 'โรงที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดการ์ดนี้เพื่อไปหน้าอนุมัติ', nav: 'sys-approve' },
-    { v: c.demo, label: 'ทดลองใช้', color: 'var(--info)', icon: '🧪', tip: 'โรงที่อนุมัติแบบทดลองใช้ (ฟรี 60 วัน) และยังเหลือเวลาเกิน 7 วัน' },
-    { v: c.demo_expiring, label: 'ใกล้หมดอายุ', color: 'var(--warn)', icon: '⚠️', tip: 'โรงทดลองใช้ที่เหลือเวลาไม่เกิน 7 วันก่อนหมดอายุ — ควรติดต่อเพื่อต่ออายุหรือเปิดใช้งานจริง' },
-    { v: c.demo_expired, label: 'หมดอายุทดลอง', color: 'var(--danger)', icon: '⛔', tip: 'โรงทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
-    { v: c.real, label: 'ใช้งานจริง', color: 'var(--ok)', icon: '✅', tip: 'โรงที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)' },
-    { v: c.suspended, label: 'พักใช้', color: 'var(--text-faint)', icon: '⏸️', tip: 'โรงที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
-    { v: c.rejected, label: 'ปฏิเสธ', color: 'var(--text-faint)', icon: '🚫', tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงยื่นคำขอใหม่ได้' },
-  ]
-  const barBuckets = ['pending', 'demo', 'demo_expiring', 'demo_expired', 'real', 'suspended']
+/** แผงด้านล่าง (คำขอล่าสุด · ต้องติดตาม) — สัดส่วนสถานะตัดออก ซ้ำกับการ์ดสรุปด้านบน */
+export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | null }) {
+  const { setNav } = useApp()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 'var(--page-max)' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} />
-      </div>
+    <div className="flex flex-col gap-4">
+      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
 
-      {/* KPI */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: 14 }}>
-        {KPIS.map((k: any) => (
-          <div key={k.label} className="lift" onClick={k.nav ? () => setNav(k.nav) : undefined}
-            title={k.nav ? 'กดเพื่อไปหน้าอนุมัติโรงพยาบาล' : undefined}
-            style={{ ...card, padding: '15px 17px', display: 'flex', alignItems: 'center', gap: 13, cursor: k.nav ? 'pointer' : 'default' }}>
-            <div style={{
-              width: 42, height: 42, flex: 'none', borderRadius: 12, fontSize: 19,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: `color-mix(in srgb, ${k.color} 13%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${k.color} 30%, transparent)`,
-            }}>{k.icon}</div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--mono)', letterSpacing: '-.5px', color: (k.v ?? 0) > 0 ? 'var(--text)' : 'var(--text-faint)' }}>{nf(k.v)}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.label}<Info text={k.tip} /></div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap: 20, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* สัดส่วนสถานะ */}
-          <div style={{ ...card, padding: '18px 20px' }}>
-            <h2 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700 }}>สัดส่วนสถานะโรงพยาบาล<Info text="แถบแสดงสัดส่วนของแต่ละสถานะเทียบกับโรงทั้งหมด (%)" /></h2>
-            {barBuckets.map((k) => {
-              const n = c[k] ?? 0
-              const pct = d?.total ? Math.round(n * 100 / d.total) : 0
-              const b = BUCKET[k]
-              return (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-dim)', width: 105, flex: 'none' }}>{b.label}</span>
-                  <div style={{ flex: 1, height: 8, borderRadius: 5, background: 'var(--surface-card)', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 5, background: b.color, transition: 'width .3s' }} />
+      <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
+        <div className="flex flex-col gap-4">
+          {/* ---------- คำขอลงทะเบียนล่าสุด ---------- */}
+          <SectionPanel title="คำขอลงทะเบียนล่าสุด"
+            actions={
+              <Button variant="ghost" size="sm" pill onClick={() => setNav('sys-approve')}
+                iconRight={<Icon name="chevron-down" size={16} width={2} style={{ transform: 'rotate(-90deg)' }} />}>
+                ไปหน้าอนุมัติ
+              </Button>
+            }>
+            {!d ? <Loading /> : d.recent.length === 0 ? (
+              <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>ยังไม่มีคำขอ</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                {d.recent.map((r) => (
+                  <div key={r.hcode} className="row-hover" onClick={() => setNav(r.bucket === 'pending' ? 'sys-approve' : 'sys-hospitals')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', cursor: 'pointer',
+                      padding: 'var(--sp-3)', border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
+                    }}>
+                    <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)', width: 56, flex: 'none' }}>{r.hcode}</span>
+                    <span style={{ ...TEXT.bodyMed, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                    <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{r.requested_at?.slice(0, 10) ?? ''}</span>
+                    <Badge bucket={r.bucket} />
                   </div>
-                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text-dim)', width: 56, textAlign: 'right' }}>{nf(n)} โรง</span>
+                ))}
+              </div>
+            )}
+          </SectionPanel>
+        </div>
+
+        {/* ---------- ต้องติดตาม ---------- */}
+        <SectionPanel
+          title={<span style={{ color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></span>}
+          meta={d ? `${nf(d.follow_up.length)} โรง` : undefined}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)',
+            padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)',
+            background: 'var(--danger-light)', color: 'var(--text-dim)', ...TEXT.body,
+          }}>
+            <Icon name="alert" size={20} width={1.8} color="var(--danger)" />
+            ทดลองใช้ใกล้หมดอายุ / หมดอายุแล้ว — ติดต่อโรงเพื่อต่ออายุหรือเปิดใช้งานจริง
+          </div>
+
+          {!d ? <Loading /> : d.follow_up.length === 0 ? (
+            <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--ok)', textAlign: 'center' }}>ไม่มีโรงที่ต้องติดตาม — เรียบร้อยดี</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+              {d.follow_up.map((r) => (
+                <div key={r.hcode} className="row-hover" onClick={() => setNav('sys-hospitals')}
+                  style={{
+                    cursor: 'pointer', padding: 'var(--sp-3)',
+                    border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                    <span style={{ ...TEXT.bodyMed, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                    <Badge bucket={r.bucket} />
+                  </div>
+                  <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 'var(--sp-1)' }}>
+                    {r.demo_days_left != null && r.demo_days_left >= 0
+                      ? `เหลือ ${r.demo_days_left} วัน (ถึง ${r.demo_expires_at})`
+                      : `หมดอายุแล้ว ${r.demo_expires_at ?? ''}`}
+                    {r.contact_phone ? ` · ${r.contact_name} ${r.contact_phone}` : ''}
+                  </div>
                 </div>
-              )
-            })}
-            {d && d.total === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ยังไม่มีโรงในระบบ — รอคำขอจากฟอร์มลงทะเบียน</div>}
-          </div>
-
-          {/* โรงสมัครล่าสุด */}
-          <div style={{ ...card, overflow: 'hidden' }}>
-            <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14.5 }}>คำขอลงทะเบียนล่าสุด</div>
-            {(d?.recent ?? []).map((r) => (
-              <div key={r.hcode} className="row-hover" style={{ padding: '11px 20px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-                onClick={() => setNav(r.bucket === 'pending' ? 'sys-approve' : 'sys-hospitals')}>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', width: 48 }}>{r.hcode}</span>
-                <span style={{ flex: 1, fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{r.requested_at?.slice(0, 10) ?? ''}</span>
-                <Badge bucket={r.bucket} />
-              </div>
-            ))}
-            {d && d.recent.length === 0 && <div style={{ padding: '16px 20px', color: 'var(--text-faint)', fontSize: 12.5, textAlign: 'center' }}>ยังไม่มีคำขอ</div>}
-          </div>
-        </div>
-
-        {/* ต้องติดตาม */}
-        <div style={{ ...card, overflow: 'hidden' }}>
-          <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', background: 'var(--danger-light)' }}>
-            <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>ทดลองใช้ใกล้หมดอายุ / หมดอายุแล้ว — ติดต่อโรงเพื่อต่ออายุหรือเปิดใช้งานจริง</div>
-          </div>
-          {(d?.follow_up ?? []).map((r) => (
-            <div key={r.hcode} className="row-hover" style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => setNav('sys-hospitals')}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{r.name}</span>
-                <Badge bucket={r.bucket} />
-              </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 3 }}>
-                {r.demo_days_left != null && r.demo_days_left >= 0 ? `เหลือ ${r.demo_days_left} วัน (ถึง ${r.demo_expires_at})` : `หมดอายุแล้ว ${r.demo_expires_at ?? ''}`}
-                {r.contact_phone ? ` · ${r.contact_name} ${r.contact_phone}` : ''}
-              </div>
+              ))}
             </div>
-          ))}
-          {d && d.follow_up.length === 0 && <div style={{ padding: '18px 20px', color: 'var(--ok)', fontSize: 12.5, textAlign: 'center' }}>— ไม่มี —</div>}
-        </div>
+          )}
+        </SectionPanel>
       </div>
+    </div>
+  )
+}
+
+/** หน้าเดี่ยว (เผื่อเรียกใช้ตรง ๆ) — หัวเรื่อง + การ์ดสรุป + แผง */
+export function PlatformOverview() {
+  const [reload, setReload] = useState(0)
+  const { data: d, err, loading } = usePlatformOverview(reload)
+  return (
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">ภาพรวมระบบ</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              สถานะโรงพยาบาลทั้งหมดในระบบ · คำขอลงทะเบียน · โรงที่ต้องติดตาม
+            </p>
+          </div>
+          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+            รีเฟรช
+          </Button>
+        </div>
+        <div className="relative mt-4"><PlatformStats d={d} loading={loading} /></div>
+      </div>
+      <PlatformPanels d={d} err={err} />
     </div>
   )
 }

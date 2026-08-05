@@ -1,178 +1,245 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { dialog } from '../components/dialog'
+import { dialog, toast } from '../components/dialog'
 import { nf, useFetch, useServerPage } from '../hooks'
 import { Loading } from '../components/Spinner'
-import { Pager, PAGE_SIZE, SearchInput } from '../components/Pager'
-import { PickHospital } from '../components/PickHospital'
-import { RefreshButton } from '../components/RefreshButton'
+import { PAGE_SIZE } from '../components/Pager'
+import { Pagination } from '../components/data-display/Pagination'
+import { Button } from '../components/inputs/Button'
+import { StatCard } from '../components/data-display/StatCard'
+import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Icon } from '../icons'
+import { TEXT } from '../typography'
 import { useApp } from '../state'
 
-// ลงทะเบียนใบหน้า — รายชื่อผู้ลงทะเบียน + ใครยังไม่ลงทะเบียน (ข้อมูลอ่านจาก facehub)
+// ลงทะเบียนใบหน้า — Figma node 207:39928 (Enroll Registry)
+//   การ์ดหัวเรื่อง (ไล่สีฟ้า→ขาว) + การ์ดตัวเลข 4 ใบ + แถบเตือน
+//   ชิปกรอง "ยังไม่ลงทะเบียน" / "ใบหน้าไม่ครบ" + ตารางรายชื่อ + ป้ายจำนวนใบหน้า
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
+const MIN_FACES = 3 // น้อยกว่านี้ = ลงทะเบียนใบหน้าไม่ครบ
+
 
 type Subject = { subject_id: string; hcode: string; hospital_name?: string; metadata: Record<string, any>; status: string; face_count: number; updated_at: string | null }
+type CovData = { active_staff: number; enrolled: number; not_enrolled_count: number; incomplete?: number; total: number; not_enrolled: { emp_id: string; name: string }[] }
+type Filter = 'none' | 'notEnrolled' | 'incomplete'
 
-type Tab = 'inv' | 'cov'
-
-function Tabs({ tab, setTab }: { tab: Tab; setTab: (t: Tab) => void }) {
-  const items: [Tab, string][] = [['inv', 'รายชื่อผู้ลงทะเบียน'], ['cov', 'ยังไม่ลงทะเบียน']]
+/** ป้ายจำนวนใบหน้า — เขียว(mood-check) = ครบ · ส้ม(mood-cog) = ไม่ครบ
+    Figma: ป้าย 100x36 · วงกลมไอคอน 26 · ข้อความ 12 (Status Badge เดียวกับหน้าลงเวลา) */
+function FaceBadge({ n }: { n: number }) {
+  const ok = n >= MIN_FACES
   return (
-    <div style={{ display: 'flex', gap: 4, background: 'var(--surface-card)', padding: 4, borderRadius: 11, border: '1px solid var(--border)', width: 'fit-content' }}>
-      {items.map(([id, label]) => (
-        <button key={id} onClick={() => setTab(id)} style={{ padding: '7px 15px', borderRadius: 8, fontSize: 13, cursor: 'pointer', border: 'none', fontFamily: 'var(--sans)', whiteSpace: 'nowrap', fontWeight: tab === id ? 600 : 500, background: tab === id ? 'var(--surface)' : 'transparent', color: tab === id ? 'var(--text)' : 'var(--text-dim)', boxShadow: tab === id ? 'var(--shadow)' : 'none' }}>{label}</button>
-      ))}
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)', padding: '5px 10px 5px 4px', borderRadius: 'var(--r-full)', background: ok ? 'var(--ok-light)' : 'var(--warn-light)', color: ok ? 'var(--ok)' : 'var(--warn)', ...TEXT.sm, fontWeight: 500, whiteSpace: 'nowrap' }}>
+      <span aria-hidden style={{ width: 26, height: 26, flex: 'none', borderRadius: 'var(--r-full)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: ok ? 'var(--ok)' : 'var(--warn)', color: 'var(--bg)' }}>
+        <Icon name={ok ? 'mood-check' : 'mood-cog'} size={14} width={2} />
+      </span>
+      {n} ใบหน้า
+    </span>
   )
 }
 
 export function Face() {
   const { currentHcode, session } = useApp()
-  const canEdit = session?.role !== 'user' // role user (รวมพนักงาน HOSxP) = ดูอย่างเดียว
+  const canEdit = session?.role !== 'user'
   const hq = currentHcode === '*' ? '' : `&hcode=${encodeURIComponent(currentHcode)}`
-  const [tab, setTab] = useState<Tab>('inv')
+  const covHq = currentHcode === '*' ? '' : `hcode=${encodeURIComponent(currentHcode)}`
+
+  const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
-  const [qDeb, setQDeb] = useState('') // debounce กันยิง backend ทุก keystroke
-  const [covQ, setCovQ] = useState('')
-  const [actErr, setActErr] = useState<string | null>(null)
+  const [filter, setFilter] = useState<Filter>('none')
   const [page, setPage] = useState(0)
   const [reload, setReload] = useState(0)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const PAGE = 20
+  const [actErr, setActErr] = useState<string | null>(null)
 
-  useEffect(() => { const t = setTimeout(() => setQDeb(q), 300); return () => clearTimeout(t) }, [q])
-  useEffect(() => { setPage(0); setActErr(null) }, [qDeb, currentHcode, tab])
-  const inv = useFetch<{ total: number; subjects: Subject[] }>(tab === 'inv' ? `/admin/face/subjects?status=all&limit=${PAGE}&offset=${page * PAGE}${hq}${qDeb ? `&q=${encodeURIComponent(qDeb)}` : ''}` : null, reload)
-  // ยังไม่ลงทะเบียน — ค้นหา (debounce) + แบ่งหน้าฝั่งเซิร์ฟเวอร์
-  const [covDeb, setCovDeb] = useState('')
-  useEffect(() => { const t = setTimeout(() => setCovDeb(covQ.trim()), 300); return () => clearTimeout(t) }, [covQ])
-  const covJoin = useServerPage<{ active_staff: number; enrolled: number; not_enrolled_count: number; total: number; not_enrolled: { emp_id: string; name: string }[] }>(
-    tab === 'cov' && currentHcode !== '*' ? `/admin/face/coverage?hcode=${encodeURIComponent(currentHcode)}${covDeb ? `&q=${encodeURIComponent(covDeb)}` : ''}` : null, reload)
-  const covRows = covJoin.data?.not_enrolled ?? []
+  useEffect(() => { const t = setTimeout(() => setQ(search.trim()), 300); return () => clearTimeout(t) }, [search])
+  useEffect(() => { setPage(0); setActErr(null) }, [q, currentHcode, filter])
 
-  // ลบแถวสุดท้ายของหน้าสุดท้าย → total หด → เด้งกลับหน้าที่มีข้อมูล (กันค้างหน้าว่าง)
-  const invPages = Math.max(1, Math.ceil((inv.data?.total ?? 0) / PAGE))
-  useEffect(() => { if (inv.data && page > 0 && page >= invPages) setPage(invPages - 1) }, [inv.data, page, invPages])
+  // สถิติ (ไม่กรองด้วยคำค้น) — 4 การ์ดหัวเรื่อง
+  const stats = useFetch<CovData>(`/admin/face/coverage?${covHq}`, reload)
+
+  // ตารางรายชื่อผู้ลงทะเบียน (ค่าเริ่ม + ชิป "ใบหน้าไม่ครบ")
+  const inv = useFetch<{ total: number; subjects: Subject[] }>(
+    filter !== 'notEnrolled'
+      ? `/admin/face/subjects?status=all&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}${hq}${q ? `&q=${encodeURIComponent(q)}` : ''}${filter === 'incomplete' ? '&incomplete=1' : ''}`
+      : null, reload)
+
+  // ยังไม่ลงทะเบียน (ชิป) — แบ่งหน้าฝั่งเซิร์ฟเวอร์
+  const cov = useServerPage<CovData>(
+    filter === 'notEnrolled' ? `/admin/face/coverage?${covHq}${q ? `&q=${encodeURIComponent(q)}` : ''}` : null, reload)
 
   const name = (m: Record<string, any>) => m?.name || '—'
   const emp = (m: Record<string, any>) => m?.emp_id || '—'
 
   const toggleSubj = async (s: Subject) => {
     if (busyId) return
-    setBusyId(s.subject_id)
-    setActErr(null)
-    try { await api.patch(`/admin/face/subjects/${s.subject_id}`, { status: s.status === 'active' ? 'inactive' : 'active' }); setReload((r) => r + 1) } catch (e: any) { setActErr(e?.message || 'สั่งเปิด/ปิดไม่สำเร็จ') } finally { setBusyId(null) }
+    setBusyId(s.subject_id); setActErr(null)
+    try { await api.patch(`/admin/face/subjects/${s.subject_id}`, { status: s.status === 'active' ? 'inactive' : 'active' }); setReload((r) => r + 1); toast.success(s.status === 'active' ? 'ปิดใช้งานแล้ว' : 'เปิดใช้งานแล้ว') }
+    catch (e: any) { setActErr(e?.message || 'สั่งเปิด/ปิดไม่สำเร็จ') } finally { setBusyId(null) }
   }
   const delSubj = async (s: Subject) => {
     if (busyId) return
     if (!(await dialog.confirm({ title: 'ลบใบหน้า', body: `ลบใบหน้าของ ${s.metadata?.name || s.subject_id}? ลบถาวร กู้คืนไม่ได้`, confirmText: 'ลบถาวร', danger: true }))) return
-    setBusyId(s.subject_id)
-    setActErr(null)
-    try { await api.del(`/admin/face/subjects/${s.subject_id}`); setReload((r) => r + 1) } catch (e: any) { setActErr(e?.message || 'ลบไม่สำเร็จ') } finally { setBusyId(null) }
+    setBusyId(s.subject_id); setActErr(null)
+    try { await api.del(`/admin/face/subjects/${s.subject_id}`); setReload((r) => r + 1); toast.success('ลบใบหน้าแล้ว') }
+    catch (e: any) { setActErr(e?.message || 'ลบไม่สำเร็จ') } finally { setBusyId(null) }
   }
 
+  const invCols: Column<Subject>[] = [
+    // Figma: EMP_ID 80 · ชื่อ 220 · โรงพยาบาล 300 · สถานะ 80 · ใบหน้า 100 · แก้ล่าสุด 174
+    // (Figma วาดลำดับเป็นวงกลม avatar 40 — ที่นี่ใช้ตัวเลขล้วนตามที่ทีมเลือก)
+    { key: 'no', header: 'ลำดับ', width: 72, align: 'center', thStyle: { padding: '10px 16px' }, tdStyle: { padding: '12px 16px', color: 'var(--text-dim)' }, cell: (_s, i) => nf(page * PAGE_SIZE + i + 1) },
+    { key: 'emp', header: 'EMP_ID', width: 92, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (s) => emp(s.metadata) },
+    { key: 'name', header: 'ชื่อ', width: 232, tdStyle: { fontWeight: 500 }, cell: (s) => name(s.metadata) },
+    {
+      key: 'hosp', header: 'โรงพยาบาล', width: 312, cell: (s) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+          {/* Figma โชว์ชื่อโรงอย่างเดียว — รหัสโรงมีประโยชน์เฉพาะตอนดูข้ามโรง (ส่วนกลาง) */}
+          {currentHcode === '*' && (
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{s.hcode}</span>
+          )}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.hospital_name || '—'}</span>
+        </div>
+      ),
+    },
+    { key: 'status', header: 'สถานะ', width: 92, cell: (s) => <span style={{ color: s.status === 'active' ? 'var(--ok)' : 'var(--text-dim)' }}>{s.status === 'active' ? 'ใช้งาน' : 'ปิด'}</span> },
+    { key: 'face', header: 'ใบหน้า', width: 112, cell: (s) => <FaceBadge n={s.face_count} /> },
+    { key: 'updated', header: 'แก้ล่าสุด', width: 132, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)', whiteSpace: 'nowrap' }, cell: (s) => s.updated_at?.slice(0, 10) ?? '—' },
+    ...(canEdit ? [{
+      key: 'manage', header: 'จัดการ', align: 'right', thStyle: { padding: '10px 20px' }, tdStyle: { padding: '11px 20px', whiteSpace: 'nowrap' }, cell: (s: Subject) => (
+        <>
+          <button onClick={() => toggleSubj(s)} disabled={busyId === s.subject_id} style={{ fontSize: 11.5, fontWeight: 500, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>{busyId === s.subject_id ? '…' : s.status === 'active' ? 'ปิด' : 'เปิด'}</button>
+          <button onClick={() => delSubj(s)} disabled={busyId === s.subject_id} style={{ fontSize: 11.5, fontWeight: 500, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer', marginLeft: 6 }}>ลบ</button>
+        </>
+      ),
+    } as Column<Subject>] : []),
+  ]
+
+  const covCols: Column<{ emp_id: string; name: string }>[] = [
+    { key: 'no', header: 'ลำดับ', width: 72, align: 'center', thStyle: { padding: '10px 16px' }, tdStyle: { padding: '12px 16px', color: 'var(--text-dim)' }, cell: (_n, i) => nf(cov.page * PAGE_SIZE + i + 1) },
+    { key: 'emp', header: 'EMP_ID', width: 92, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (n) => n.emp_id },
+    { key: 'name', header: 'ชื่อ', tdStyle: { fontWeight: 500 }, cell: (n) => n.name },
+    {
+      key: 'status', header: 'ใบหน้า', align: 'right', width: 200, cell: () => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)', padding: '5px 10px 5px 4px', borderRadius: 'var(--r-full)', color: 'var(--warn)', background: 'var(--warn-light)', ...TEXT.sm, fontWeight: 500, whiteSpace: 'nowrap' }}>
+          <span aria-hidden style={{ width: 26, height: 26, flex: 'none', borderRadius: 'var(--r-full)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--warn)', color: 'var(--bg)' }}>
+            <Icon name="mood-x" size={14} width={2} />
+          </span>
+          ยังไม่ลงทะเบียน
+        </span>
+      ),
+    },
+  ]
+
+  const s = stats.data
+  // ไอคอนตรงกับที่ Figma ใช้ (tabler: user / mood-check / mood-x / mood-cog)
+  const SUMMARY = [
+    { label: 'พนักงาน', v: s?.active_staff, tone: 'accent' as const, icon: 'person' },
+    { label: 'ลงทะเบียนแล้ว', v: s?.enrolled, tone: 'ok' as const, icon: 'mood-check' },
+    { label: 'ยังไม่ลงทะเบียน', v: s?.not_enrolled_count, tone: 'neutral' as const, icon: 'mood-x' },
+    { label: 'ลงทะเบียนไม่ครบ', v: s?.incomplete, tone: 'warn' as const, icon: 'mood-cog' },
+  ]
+
+  const busyLoad = filter === 'notEnrolled' ? cov.loading : inv.loading
+
   return (
-    <div style={{ maxWidth: 'var(--page-max)' }}>
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}><Tabs tab={tab} setTab={setTab} /><RefreshButton busy={tab === 'inv' ? inv.loading : covJoin.loading} onClick={() => setReload((r) => r + 1)} /></div>
+    <div className="max-w-[var(--page-max)] flex flex-col gap-4">
+      {/* ---------- หัวเรื่อง + ตัวเลขสรุป (Figma 284:3189 — การ์ดสูง 245) ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        {/* ภาพประกอบพยาบาล (Figma node 220:5938) — 256x256 ชิดขวา 24
+            เยื้องลงนอกการ์ด 64 แล้วถูก crop ด้วย overflow-hidden ของการ์ดตามดีไซน์ */}
+        <img src="/hero-face.svg" alt="" aria-hidden width={256} height={256}
+          className="hide-sm pointer-events-none select-none"
+          style={{ position: 'absolute', right: 'var(--sp-6)', bottom: -64 }} />
 
-      {/* รายชื่อผู้ลงทะเบียน */}
-      {tab === 'inv' && (
-        <div style={{ ...card, overflow: 'hidden' }}>
-          <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 220, padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-card)' }}>
-              <Icon name="search" size={15} color="var(--text-faint)" width={2} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นด้วย emp_id หรือ ชื่อ…" style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, width: '100%' }} />
-            </div>
-            {inv.data && <Pager page={page} total={inv.data.total} pageSize={PAGE} onPage={setPage} />}
+        {/* Figma: บล็อกซ้ายกว้าง 760 คงที่ — ที่เหลือด้านขวาเว้นไว้ให้ภาพประกอบ */}
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">ลงทะเบียนใบหน้า</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              ตรวจสอบการลงทะเบียนใบหน้าของพนักงานทั้งหมด
+            </p>
           </div>
-          {(inv.err || actErr) && <div style={{ padding: '14px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {inv.err || actErr}</div>}
-          {!inv.err && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
-                <thead><tr style={theadTr}><th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th><th style={th}>emp_id</th><th style={th}>ชื่อ</th><th style={th}>โรงพยาบาล</th><th style={th}>สถานะ</th><th style={th}>ใบหน้า</th><th style={{ ...th, ...(canEdit ? {} : { padding: '10px 20px' }) }}>แก้ล่าสุด</th>{canEdit && <th style={{ ...th, padding: '10px 20px', textAlign: 'right' }}>จัดการ</th>}</tr></thead>
-                <tbody>
-                  {inv.data?.subjects.map((s, i) => (
-                    <tr key={s.subject_id} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(page * PAGE + i + 1)}</td>
-                      <td style={{ ...td, padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{emp(s.metadata)}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{name(s.metadata)}</td>
-                      <td style={td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{s.hcode}</span>
-                          <span style={{ fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{s.hospital_name || '—'}</span>
-                        </div>
-                      </td>
-                      <td style={td}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: s.status === 'active' ? 'var(--ok)' : 'var(--text-dim)', background: s.status === 'active' ? 'var(--ok-light)' : 'var(--surface-gray)' }}>{s.status === 'active' ? 'ใช้งาน' : 'ปิด'}</span></td>
-                      <td style={{ ...td, fontFamily: 'var(--mono)', fontWeight: 600, color: s.face_count >= 3 ? 'var(--ok)' : 'var(--warn)' }}>{s.face_count} {s.face_count < 3 && <span style={{ fontSize: 11, fontWeight: 400 }}>ไม่ครบ</span>}</td>
-                      <td style={{ ...td, fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{s.updated_at?.slice(0, 10) ?? '—'}</td>
-                      {canEdit && (
-                        <td style={{ ...td, padding: '11px 20px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <button onClick={() => toggleSubj(s)} disabled={busyId === s.subject_id} style={{ fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>{busyId === s.subject_id ? '…' : s.status === 'active' ? 'ปิด' : 'เปิด'}</button>
-                          <button onClick={() => delSubj(s)} disabled={busyId === s.subject_id} style={{ fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer', marginLeft: 6 }}>ลบ</button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  {inv.data && inv.data.subjects.length === 0 && <tr><td colSpan={canEdit ? 8 : 7} style={{ ...td, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}>ไม่พบข้อมูล</td></tr>}
-                  {inv.loading && !inv.data && <tr><td colSpan={canEdit ? 8 : 7} style={{ padding: 0 }}><Loading /></td></tr>}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* Figma: ปุ่มแคปซูล 140x48 พื้นเทาอ่อน + ไอคอน rotate — ชุดเดียวกับหน้าลงเวลา */}
+          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            icon={<Icon name="recon" size={20} style={busyLoad || stats.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+            รีเฟรชข้อมูลล่าสุด
+          </Button>
         </div>
-      )}
 
-      {/* ยังไม่ลงทะเบียน */}
-      {tab === 'cov' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {currentHcode === '*' ? (
-            <PickHospital />
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                {[
-                  { v: covJoin.data?.active_staff, t: 'พนักงานทั้งหมด', c: 'var(--accent)' },
-                  { v: covJoin.data?.enrolled, t: 'ลงทะเบียนหน้าแล้ว', c: 'var(--ok)' },
-                  { v: covJoin.data?.not_enrolled_count, t: 'ยังไม่ลงทะเบียน', c: 'var(--warn)' },
-                ].map((k, i) => (
-                  <div key={i} className="lift" style={{ ...card, padding: '18px 20px' }}>
-                    <div style={{ fontSize: 32, fontWeight: 700, fontFamily: 'var(--mono)', color: k.c }}>{k.v != null ? nf(k.v) : (covJoin.loading ? '…' : '—')}</div>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 5 }}>{k.t}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ ...card, overflow: 'hidden' }}>
-                <div style={{ padding: '13px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>พนักงานที่ยังไม่มีใบหน้า</span>
-                  <SearchInput value={covQ} onChange={setCovQ} placeholder="ค้นชื่อ / emp_id…" width={170} />
-                  <div style={{ marginLeft: 'auto' }}><Pager page={covJoin.page} total={covJoin.data?.total ?? 0} onPage={covJoin.setPage} /></div>
-                </div>
-                {covJoin.err && <div style={{ padding: '14px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {covJoin.err}</div>}
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead><tr style={theadTr}><th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th><th style={th}>emp_id</th><th style={th}>ชื่อ</th><th style={{ ...th, padding: '10px 20px', textAlign: 'right' }}>สถานะ</th></tr></thead>
-                  <tbody>
-                    {covRows.map((n, i) => (
-                      <tr key={n.emp_id} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(covJoin.page * PAGE_SIZE + i + 1)}</td>
-                        <td style={{ ...td, padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{n.emp_id}</td>
-                        <td style={{ ...td, fontWeight: 600 }}>{n.name}</td>
-                        <td style={{ ...td, padding: '11px 20px', textAlign: 'right' }}><span style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 9px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-light)' }}>ยังไม่ลงทะเบียน</span></td>
-                      </tr>
-                    ))}
-                    {covJoin.data && covRows.length === 0 && <tr><td colSpan={4} style={{ ...td, padding: '18px 20px', color: covDeb ? 'var(--text-faint)' : 'var(--ok)', textAlign: 'center' }}>{covDeb ? 'ไม่พบที่ตรงกับคำค้น' : 'ลงทะเบียนครบ 🎉'}</td></tr>}
-                    {covJoin.loading && !covJoin.data && <tr><td colSpan={4} style={{ padding: 0 }}><Loading /></td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+        {/* การ์ดตัวเลข 4 ใบ — Figma 178x80 ไอคอนซ้าย ข้อความขวา */}
+        {/* 4 คอลัมน์กว้างเท่ากันเสมอ (minmax(0,1fr) — ไม่ให้การ์ดที่ข้อความยาวดันคอลัมน์ตัวเอง)
+            กว้างสุด = ที่ว่างหักภาพประกอบ 256 + ระยะห่าง 24 · จอแคบค่อยตกลงมาเป็น 2 คอลัมน์ */}
+        <div className="relative grid gap-4 mt-4 max-w-[calc(100%-264px)] grid-cols-4 max-md:grid-cols-2 max-md:max-w-full">
+          {SUMMARY.map((k) => (
+            <StatCard key={k.label} tone={k.tone} label={k.label} unit="คน" layout="row"
+              icon={<Icon name={k.icon} size={24} color="currentColor" />}
+              value={k.v != null ? nf(k.v) : stats.loading ? '…' : '—'} />
+          ))}
         </div>
-      )}
+
+        {/* แถบเตือน — Figma อยู่ในการ์ดหัวเรื่อง (Frame 17: 760x34 · padding 4/12 · r-full) */}
+        <div className="relative max-w-190" style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--sp-2)',
+          marginTop: 'var(--sp-4)',
+          padding: 'var(--sp-1) var(--sp-3)',
+          borderRadius: 'var(--r-full)',
+          background: 'var(--warn-light)',
+        }}>
+          <span aria-hidden style={{
+            width: 26, height: 26, flex: 'none', borderRadius: 'var(--r-full)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--warn)', color: 'var(--bg)',
+          }}>
+            <Icon name="info" size={14} width={2} />
+          </span>
+          <span style={{ ...TEXT.sm, fontWeight: 500, color: 'var(--warn)' }}>
+            หากพนักงานลงทะเบียนจำนวนใบหน้าน้อยกว่า {MIN_FACES} รูป จะนับว่าลงทะเบียนใบหน้าไม่ครบ
+          </span>
+        </div>
+      </div>
+
+      {/* ---------- แถบตัวกรอง ---------- */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
+        <FilterChip variant="choice" active={filter === 'notEnrolled'} onClick={() => setFilter((f) => f === 'notEnrolled' ? 'none' : 'notEnrolled')}
+          icon={<Icon name="mood-x" size={14} width={2} />} label="ยังไม่ลงทะเบียน" />
+        <FilterChip variant="choice" active={filter === 'incomplete'} onClick={() => setFilter((f) => f === 'incomplete' ? 'none' : 'incomplete')}
+          icon={<Icon name="mood-cog" size={14} width={2} />} label="ใบหน้าไม่ครบ" />
+      </div>
+
+      {actErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {actErr}</div>}
+
+      {/* ---------- ตาราง ---------- */}
+      <div className="bg-bg border border-control-border rounded-lg">
+        {filter === 'notEnrolled' ? (
+          cov.err
+            ? <div className="text-body p-4 text-danger">ผิดพลาด: {cov.err}</div>
+            : (
+              <>
+                <DataTable columns={covCols} rows={cov.data?.not_enrolled ?? []} rowKey={(n) => n.emp_id}
+                  loading={cov.loading && !cov.data ? <Loading /> : undefined}
+                  empty={q ? 'ไม่พบที่ตรงกับคำค้น' : 'ลงทะเบียนครบทุกคน 🎉'}
+                  emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: q ? 'var(--text-dim)' : 'var(--ok)', textAlign: 'center' }} />
+                <Pagination page={cov.page} pageSize={PAGE_SIZE} total={cov.data?.total ?? 0} shown={cov.data?.not_enrolled.length} onPage={cov.setPage} />
+              </>
+            )
+        ) : (
+          inv.err
+            ? <div className="text-body p-4 text-danger">ผิดพลาด: {inv.err}</div>
+            : (
+              <>
+                <DataTable columns={invCols} rows={inv.data?.subjects ?? []} rowKey={(s) => s.subject_id}
+                  minWidth={980}
+                  loading={inv.loading && !inv.data ? <Loading /> : undefined}
+                  empty={q ? 'ไม่พบที่ตรงกับคำค้น' : filter === 'incomplete' ? 'ทุกคนลงทะเบียนใบหน้าครบแล้ว 🎉' : 'ยังไม่มีผู้ลงทะเบียน'}
+                  emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }} />
+                <Pagination page={page} pageSize={PAGE_SIZE} total={inv.data?.total ?? 0} shown={inv.data?.subjects.length} onPage={setPage} />
+              </>
+            )
+        )}
+      </div>
     </div>
   )
 }

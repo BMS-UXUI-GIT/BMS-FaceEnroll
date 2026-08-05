@@ -1,0 +1,50 @@
+/* Tailwind CSS v4 — เข้ามาผ่าน plugin @tailwindcss/vite (ไม่มีไฟล์ config, ตั้งค่าใน CSS)
+   ─────────────────────────────────────────────────────────────────────────
+   ต้อง import ไฟล์นี้ "ก่อน" theme.css เสมอ — ของเราต้องชนะ preflight ของ Tailwind
+   หน้าจอเดิมเขียนด้วย inline style + CSS variable ยังใช้ได้เหมือนเดิมทุกอย่าง
+   Tailwind มีไว้ให้เขียน utility class ในของใหม่เท่านั้น ไม่ต้องไล่แปลงของเก่า
+
+   สี/ระยะ/ตัวอักษรของจริงอยู่ใน theme.css (ตรงกับ Figma) — @theme ข้างล่างแค่
+   ส่งค่าชุดเดียวกันนั้นต่อให้ utility ของ Tailwind ใช้ ห้ามใส่ hex ใหม่ที่นี่ */
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Noto Sans Thai Looped', system-ui, sans-serif;
+  --font-mono: 'Nunito', 'Noto Sans Thai Looped', system-ui, sans-serif;
+
+  /* สี — ชี้กลับไปที่ token ของ Figma ใน theme.css (bg-accent, text-ok, ...) */
+  --color-accent: var(--accent);
+  --color-accent-active: var(--accent-active);
+  --color-accent-light: var(--accent-light);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
+  --color-info: var(--info);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-table-row: var(--table-row-text);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-hero: var(--hero-bg);
+  --color-border: var(--border);
+  --color-control-border: var(--control-border);
+
+  /* radius scale ของ Figma (r-md/r-lg/r-xl/r-full) */
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* Type scale — ชุดเดียวกับ TEXT ใน src/typography.ts (Figma page 146:5136)
+   ไฟล์ .tsx ที่เขียนด้วย inline style ยัง spread TEXT เหมือนเดิม
+   ไฟล์ที่ย้ายมาใช้ Tailwind แล้วใช้คลาสพวกนี้แทน — แก้ขนาดต้องแก้ทั้งสองที่ให้ตรงกัน */
+@utility text-h1 { font-size: 24px; font-weight: 500; line-height: 32px; }
+@utility text-h2 { font-size: 20px; font-weight: 500; line-height: 28px; }
+@utility text-h3 { font-size: 16px; font-weight: 500; line-height: 24px; }
+@utility text-body { font-size: 14px; font-weight: 400; line-height: 20px; }
+@utility text-body-med { font-size: 14px; font-weight: 500; line-height: 20px; }
+@utility text-body-bold { font-size: 14px; font-weight: 500; line-height: 20px; }
+@utility text-sm-fig { font-size: 12px; font-weight: 400; line-height: 16px; }
+@utility text-caption { font-size: 11px; font-weight: 400; line-height: 14px; }

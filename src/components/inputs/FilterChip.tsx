@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { TEXT } from '../../typography'
 
 // ชิปตัวกรอง — Figma หน้าลงเวลา node 227:7677 ("Frame 96" > "Frame 29"/"Frame 30")
@@ -6,56 +6,85 @@ import { TEXT } from '../../typography'
 //   ไอคอน: วงกลม 32x32 โปร่ง ไอคอน 24 เส้นสีดำ
 //   ข้อความ: label 12-14/400 ดำ 60% + value 14/500 ดำเต็ม (gap 8)
 //
-// variant 'action' = ชิปกดสลับ (Figma: "เฉพาะรายงานผิดปกติ")
-//   วงกลม 26x26 พื้นสีเน้น ไอคอน 14 สีขาว · label 12/500 ดำ 60% ไม่มี value
+// มี 2 ชนิด
+//   'select' = ชิปเปิด dropdown (ช่วงวันที่ / เลือกเวร / เลือกแผนก)
+//              กดตรงไหนของชิปก็เปิดได้ ไม่ต้องเล็งโดนตัวหนังสือข้างใน
+//   'choice' = ชิปเลือก/ไม่เลือก (Figma: "เฉพาะรายงานผิดปกติ") — วงกลม 26 พื้นสีเน้น ไอคอน 14 ขาว
+//
+// สถานะทั้งหมด (default / hover / focus / open / selected / disabled) อยู่ในคลาส
+// .chip กับ .chip-choice ใน theme.css — ที่นี่คุมแค่โครงกับสีของไอคอน
 
-export function FilterChip({ icon, label, value, variant = 'select', active = false, tone = 'warn', onClick, children }: {
+export function FilterChip({
+  icon, label, value, variant = 'select', active = false, tone = 'warn', outlined, disabled, onClick, children,
+}: {
   icon?: ReactNode
   label: ReactNode
   /** ค่าที่เลือกอยู่ — ตัวหนาต่อท้าย label */
   value?: ReactNode
-  variant?: 'select' | 'action'
+  /** 'action' = ชื่อเดิมของ 'choice' (ยังรับไว้ให้โค้ดเก่าเรียกได้) */
+  variant?: 'select' | 'choice' | 'action'
+  /** ใช้กับ choice: เลือกอยู่หรือไม่ */
   active?: boolean
   tone?: 'accent' | 'warn'
+  /** มีเส้นขอบ — ใช้ตอนวางบนพื้นเทา (Figma หน้ารายละเอียดพนักงาน) ไม่งั้นชิปจมไปกับพื้น */
+  outlined?: boolean
+  disabled?: boolean
   onClick?: () => void
-  /** ตัวควบคุมจริง (SearchSelect / DatePicker) วางแทนส่วน value */
+  /** ตัวควบคุมจริง (SearchSelect / DateRangePicker) วางแทนส่วน value */
   children?: ReactNode
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const choice = variant === 'choice' || variant === 'action'
   const accent = tone === 'warn' ? 'var(--warn)' : 'var(--accent-active)'
-  const action = variant === 'action'
+
+  // ชิป select: คลิกที่ว่างของชิป = คลิก trigger ของ dropdown ข้างใน
+  // (ถ้าคลิกโดน control ข้างในอยู่แล้วปล่อยผ่าน ไม่งั้นจะเปิดแล้วปิดทันที)
+  const forward = (e: React.MouseEvent) => {
+    if (disabled) return
+    if (onClick) return onClick()
+    if ((e.target as HTMLElement).closest('button')) return
+    ref.current?.querySelector('button')?.click()
+  }
+
+  const interactive = !disabled && (!!onClick || !choice)
 
   return (
     <div
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      aria-pressed={onClick ? active : undefined}
+      ref={ref}
+      className={`chip${choice ? ' chip-choice' : ''}${outlined ? ' chip-outline' : ''}`}
+      onClick={forward}
+      onKeyDown={choice && onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+      } : undefined}
+      role={choice && onClick ? 'button' : undefined}
+      tabIndex={choice && onClick && !disabled ? 0 : undefined}
+      aria-pressed={choice && onClick ? active : undefined}
+      aria-disabled={disabled || undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
         minHeight: 48,
         padding: 'var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2)',
-        borderRadius: 'var(--r-full)',
-        background: 'var(--surface-alt)',
-        cursor: onClick ? 'pointer' : undefined,
+        cursor: disabled ? 'not-allowed' : interactive ? 'pointer' : 'default',
+        opacity: disabled ? 0.5 : 1,
         whiteSpace: 'nowrap',
-        // ชิปกดสลับ: ตอนปิดอยู่ให้จางลงนิด บอกว่ายังไม่ทำงาน (Figma มีแต่สถานะเปิด)
-        opacity: action && !active ? 0.65 : 1,
-        transition: 'opacity .12s ease',
       }}
     >
       {icon && (
         <span aria-hidden style={{
-          width: action ? 26 : 32, height: action ? 26 : 32, flex: 'none',
+          width: choice ? 26 : 32, height: choice ? 26 : 32, flex: 'none',
           borderRadius: 'var(--r-full)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: action ? accent : 'transparent',
-          color: action ? 'var(--bg)' : 'var(--text-faint)',
+          // choice ที่ยังไม่ถูกเลือก: วงกลมเทา บอกว่ายังไม่ทำงาน (ไม่ใช้ opacity ทั้งชิป)
+          background: choice ? (active ? accent : 'var(--text-dim)') : 'transparent',
+          color: choice ? 'var(--bg)' : 'var(--text-faint)',
+          transition: 'background .12s ease',
         }}>{icon}</span>
       )}
 
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
         <span style={{
-          ...(action ? { ...TEXT.sm, fontWeight: 500 } : TEXT.sm),
-          color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)',
+          ...(choice ? { ...TEXT.sm, fontWeight: 500 } : TEXT.sm),
+          color: choice && active ? 'var(--text-faint)' : 'color-mix(in srgb, var(--text-faint) 60%, transparent)',
         }}>{label}</span>
         {children ?? (value != null && (
           <span style={{ ...TEXT.bodyMed, color: 'var(--text-faint)' }}>{value}</span>

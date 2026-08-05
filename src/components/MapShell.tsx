@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export const mapBtn: React.CSSProperties = {
   position: 'absolute', right: 10, zIndex: 1000, cursor: 'pointer',
-  fontSize: 12, fontWeight: 600, fontFamily: 'var(--sans)', padding: '6px 11px',
+  fontSize: 12, fontWeight: 500, fontFamily: 'var(--sans)', padding: '6px 11px',
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
   color: 'var(--text)', boxShadow: 'var(--shadow)',
 }

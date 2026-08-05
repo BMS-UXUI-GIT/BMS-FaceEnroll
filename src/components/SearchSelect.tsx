@@ -58,7 +58,8 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
     const r = btnRef.current!.getBoundingClientRect()
     const w = Math.max(r.width, 280)
     const up = window.innerHeight - r.bottom < 360 && r.top > 360
-    setPos({ top: up ? r.top - 6 : r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - w - 12)), width: w, up })
+    const centered = r.left + r.width / 2 - w / 2
+    setPos({ top: up ? r.top - 24 : r.bottom + 24, left: Math.max(8, Math.min(centered, window.innerWidth - w - 12)), width: w, up })
     setQ(''); setAct(0); setOpen(true)
   }
 
@@ -106,7 +107,7 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
   const extraVals = multi ? (values ?? []).filter((v) => !options.some((o) => o.value === v)) : []
 
   const trigger: React.CSSProperties = bare
-    ? { display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: 0, minWidth: 0, width }
+    ? { display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--text)', padding: 0, minWidth: 0, width }
     : {
         display: 'flex', alignItems: 'center', gap: 8, width: width ?? '100%', minHeight: 36, padding: '6px 11px',
         border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)',
@@ -116,16 +117,17 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
   const chips = multi && (selected as SelectOpt[]).length + extraVals.length > 0
   return (
     <>
-      <button type="button" ref={btnRef} onClick={() => (open ? setOpen(false) : openPanel())} disabled={disabled} style={trigger}>
+      <button type="button" ref={btnRef} onClick={() => (open ? setOpen(false) : openPanel())} disabled={disabled}
+        aria-haspopup="listbox" aria-expanded={open} style={trigger}>
         {chips ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
             {[...(selected as SelectOpt[]).map((o) => ({ key: o.value, text: o.sub ? `${o.sub} ${o.label}` : o.label })), ...extraVals.map((v) => ({ key: v, text: v }))]
               .map((c) => (
-                <span key={c.key} style={{ fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-light)', color: 'var(--accent-active)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
+                <span key={c.key} style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.6, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-light)', color: 'var(--accent-active)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
               ))}
           </span>
         ) : (
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: maxTriggerWidth, color: (multi ? false : !!selected) ? 'var(--text)' : 'var(--text-faint)', fontWeight: bare ? 600 : 500 }}>
+          <span style={{ flex: 1, minWidth: 0, lineHeight: 1.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: maxTriggerWidth, color: (multi ? false : !!selected) ? 'var(--text)' : 'var(--text-faint)', fontWeight: bare ? 500 : 500 }}>
             {multi ? placeholder : (selected as SelectOpt | undefined)?.label ?? placeholder}
           </span>
         )}
@@ -159,9 +161,9 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8,
                   border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)', background: i === act ? 'var(--surface-card)' : 'transparent', color: 'var(--text)',
                 }}>
-                  {o.sub && <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{o.sub}</span>}
-                  <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: on ? 700 : 500 }}>{o.label}</span>
-                  {on && <span style={{ color: 'var(--accent-active)', fontWeight: 700, flex: 'none' }}>✓</span>}
+                  {o.sub && <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{o.sub}</span>}
+                  <span style={{ flex: 1, fontSize: 13, lineHeight: 1.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: on ? 500 : 500 }}>{o.label}</span>
+                  {on && <span style={{ color: 'var(--accent-active)', fontWeight: 500, flex: 'none' }}>✓</span>}
                 </button>
               )
             })}

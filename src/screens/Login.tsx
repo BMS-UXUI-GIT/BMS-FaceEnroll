@@ -35,7 +35,7 @@ const field: React.CSSProperties = {
   width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 10,
   background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
 }
-const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 6 }
+const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6 }
 
 export function Login() {
   const { theme, toggleTheme, login, loginStaff } = useApp()
@@ -120,7 +120,7 @@ export function Login() {
 
   const segBtn = (active: boolean): React.CSSProperties => ({
     flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)',
-    fontSize: 13, fontWeight: active ? 700 : 500,
+    fontSize: 13, fontWeight: active ? 500 : 500,
     background: active ? 'var(--surface)' : 'transparent',
     color: active ? 'var(--text)' : 'var(--text-faint)',
     boxShadow: active ? 'var(--shadow)' : 'none',
@@ -150,13 +150,13 @@ export function Login() {
             <img src="/logo.png" alt="" width={42} height={42} style={{ display: 'block' }} />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 19, letterSpacing: '-.3px' }}>FaceCheck Admin</div>
+            <div style={{ fontWeight: 500, fontSize: 19, letterSpacing: '-.3px' }}>FaceCheck Admin</div>
             <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>แดชบอร์ดผู้ดูแลระบบ</div>
           </div>
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-lg)', padding: '28px 28px 26px' }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>เข้าสู่ระบบ</h1>
+          <h1 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 500 }}>เข้าสู่ระบบ</h1>
           <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-dim)' }}>มอนิเตอร์ระบบสแกนหน้า–ลงเวลา รพ.</p>
 
           <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20 }}>
@@ -190,7 +190,7 @@ export function Login() {
 
               <button type="submit" disabled={busy} style={{
                 width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
-                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1,
+                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 500, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1,
               }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
             </form>
           ) : (
@@ -199,7 +199,7 @@ export function Login() {
               {hosp ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
                   <div style={{ ...field, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{hosp.hcode}</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{hosp.hcode}</span>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hosp.name || '(ไม่มีชื่อ)'}</span>
                     <button type="button" onClick={() => { setHosp(null); setHq('') }} style={{ border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1, flex: 'none' }}>×</button>
                   </div>
@@ -214,7 +214,7 @@ export function Login() {
                         <button key={h.hcode} type="button" onClick={() => { setHosp(h); setHres([]); persist({ hosp: h }) }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--text)' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-card)' }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{h.hcode}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{h.hcode}</span>
                           <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name || '(ไม่มีชื่อ)'}</span>
                         </button>
                       ))}
@@ -246,7 +246,7 @@ export function Login() {
 
               <button type="submit" disabled={busy || !hosp || !uu.trim() || !up.trim()} style={{
                 width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
-                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
+                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 500, cursor: busy ? 'default' : 'pointer',
                 opacity: busy || !hosp || !uu.trim() || !up.trim() ? 0.55 : 1,
               }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
             </form>

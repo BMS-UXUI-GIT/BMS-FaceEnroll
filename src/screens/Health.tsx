@@ -3,9 +3,10 @@ import { nf, useFetch } from '../hooks'
 import { Loading } from '../components/Spinner'
 import { Pager, PAGE_SIZE, usePaged } from '../components/Pager'
 import { RefreshButton } from '../components/RefreshButton'
+import { DataTable, type Column } from '../components/data-display/DataTable'
 
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
+const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 500 }
 const td: React.CSSProperties = { padding: '11px 12px' }
 const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
 
@@ -25,14 +26,14 @@ function Card({ title, ok, status, rows }: { title: string; ok: boolean; status:
   return (
     <div style={{ ...card, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700 }}>{title}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, color: ok ? 'var(--ok)' : 'var(--danger)' }}><Dot ok={ok} />{status}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 500 }}>{title}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 500, color: ok ? 'var(--ok)' : 'var(--danger)' }}><Dot ok={ok} />{status}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {rows.map(([k, v], i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
             <span style={{ color: 'var(--text-dim)' }}>{k}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{String(v)}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{String(v)}</span>
           </div>
         ))}
       </div>
@@ -53,6 +54,30 @@ export function Health() {
   const hospitals = d?.hospitals ?? []
   const downCount = hospitals.filter((h) => !h.ok).length
   const paged = usePaged(hospitals)
+
+  const cols: Column<HospCheck>[] = [
+    { key: 'no', header: 'ลำดับ', align: 'right', width: 56,
+      thStyle: { padding: '10px 20px' },
+      tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 },
+      cell: (_h, i) => nf(paged.offset + i + 1) },
+    { key: 'hcode', header: 'รหัสโรง',
+      thStyle: { padding: '10px 20px' },
+      tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' },
+      cell: (h) => h.hcode },
+    { key: 'name', header: 'ชื่อโรง', tdStyle: { fontWeight: 500 }, cell: (h) => h.name || '—' },
+    { key: 'status', header: 'สถานะ', cell: (h) => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: h.ok ? 'var(--ok)' : 'var(--danger)' }}>
+        <Dot ok={h.ok} />{h.ok ? 'เชื่อมต่อได้' : 'ต่อไม่ได้'}
+      </span>
+    ) },
+    { key: 'latency', header: 'ความเร็วตอบ',
+      tdStyle: (h) => ({ fontFamily: 'var(--mono)', color: h.latency_ms > 3000 ? 'var(--warn)' : 'var(--text-dim)' }),
+      cell: (h) => `${nf(h.latency_ms)} ms` },
+    { key: 'error', header: 'ปัญหา',
+      thStyle: { padding: '10px 20px' },
+      tdStyle: { padding: '11px 20px', fontSize: 12, color: 'var(--danger)' },
+      cell: (h) => h.error || '—' },
+  ]
 
   return (
     <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -79,35 +104,14 @@ export function Health() {
       </div>
 
       {/* การเชื่อมต่อรายโรงพยาบาล */}
-      <div style={{ ...card, overflow: 'hidden' }}>
+      <div style={{ ...card }}>
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>การเชื่อมต่อรายโรงพยาบาล</h2>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>การเชื่อมต่อรายโรงพยาบาล</h2>
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>ระบบของแต่ละโรงอยู่คนละเซิร์ฟเวอร์ — ทดสอบดึงข้อมูลจริงทีละโรง</span>
-          {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', borderRadius: 20, padding: '2px 10px' }}>ต่อไม่ได้ {downCount} โรง</span>}
+          {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--danger)', background: 'var(--danger-light)', borderRadius: 20, padding: '2px 10px' }}>ต่อไม่ได้ {downCount} โรง</span>}
           <div style={{ marginLeft: 'auto' }}><Pager page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
-          <thead><tr style={theadTr}><th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th><th style={{ ...th, padding: '10px 20px' }}>รหัสโรง</th><th style={th}>ชื่อโรง</th><th style={th}>สถานะ</th><th style={th}>ความเร็วตอบ</th><th style={{ ...th, padding: '10px 20px' }}>ปัญหา</th></tr></thead>
-          <tbody>
-            {paged.pageRows.map((h, i) => (
-              <tr key={h.hcode} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(paged.offset + i + 1)}</td>
-                <td style={{ ...td, padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{h.hcode}</td>
-                <td style={{ ...td, fontWeight: 600 }}>{h.name || '—'}</td>
-                <td style={td}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: h.ok ? 'var(--ok)' : 'var(--danger)' }}>
-                    <Dot ok={h.ok} />{h.ok ? 'เชื่อมต่อได้' : 'ต่อไม่ได้'}
-                  </span>
-                </td>
-                <td style={{ ...td, fontFamily: 'var(--mono)', color: h.latency_ms > 3000 ? 'var(--warn)' : 'var(--text-dim)' }}>{nf(h.latency_ms)} ms</td>
-                <td style={{ ...td, padding: '11px 20px', fontSize: 12, color: 'var(--danger)' }}>{h.error || '—'}</td>
-              </tr>
-            ))}
-            {hospitals.length === 0 && <tr><td colSpan={6} style={{ ...td, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}>ยังไม่มีโรงเปิดใช้งาน</td></tr>}
-          </tbody>
-        </table>
-        </div>
+        <DataTable columns={cols} rows={paged.pageRows} rowKey={(h) => h.hcode} minWidth={760} divider="top" theadRowStyle={theadTr} thBase={th} tdBase={{ ...td, fontSize: 13 }} empty="ยังไม่มีโรงเปิดใช้งาน" emptyStyle={{ ...td, fontSize: 13, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }} />
       </div>
       </>
       )}

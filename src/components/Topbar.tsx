@@ -1,6 +1,8 @@
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { Button } from './inputs/Button'
+import { ProfileMenu } from './ProfileMenu'
 
 // แถบบนสุด — Figma node 227:6401 ("Group 18")
 // สเปกจริง: 1408x112 · พื้นขาว · มุมบน [24,24,0,0] (มุมมาจากการ์ดแม่ใน App.tsx)
@@ -18,40 +20,34 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
 
   return (
     <header className="topbar" style={{
-      flex: 'none', zIndex: 20, background: 'var(--bg)',
-      padding: 'var(--sp-6)', minHeight: 112,
-      display: 'flex', alignItems: 'center', gap: 'var(--sp-4)',
+      height: 'var(--topbar-h)', flex: 'none', boxSizing: 'border-box', overflow: 'hidden',
+      // header กระจก — โปร่งแสง + เบลอ ให้เห็น content ที่เลื่อนลอดอยู่ด้านหลัง
+      background: 'color-mix(in srgb, var(--bg) 72%, transparent)',
+      backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+      padding: 'var(--sp-4) var(--sp-6)',
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
     }}>
       {onMenu && (
-        <button onClick={onMenu} title="เมนู" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-md)',
-          border: 'none', background: 'var(--surface-alt)', color: 'var(--text-dim)', cursor: 'pointer',
-        }}>
-          <Icon name="menu" size={20} width={2} />
-        </button>
+        <Button onClick={onMenu} title="เมนู" variant="soft" size="xs"
+          icon={<Icon name="menu" size={18} width={2} />} />
       )}
 
-      <img src="/logo.png" alt="" width={64} height={64}
-        style={{ display: 'block', flex: 'none', borderRadius: 'var(--r-xl)' }} />
+      <img src="/logo.png" alt="" width={40} height={40}
+        style={{ display: 'block', flex: 'none', borderRadius: 'var(--r-lg)' }} />
 
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ ...TEXT.h2, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ ...TEXT.h3, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           BMS FaceEnroll
         </div>
-        <div style={{ ...TEXT.body, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)', marginTop: 'var(--sp-1)' }}>
+        <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)' }}>
           แดชบอร์ดติดตามการเข้างาน
         </div>
       </div>
 
-      <button title="การแจ้งเตือน" style={{
-        width: 56, height: 56, flex: 'none',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: 'none', borderRadius: 'var(--r-lg)',
-        background: 'var(--accent-light)', color: 'var(--accent)', cursor: 'pointer',
-      }}>
-        <Icon name="bell" size={24} width={1.8} />
-      </button>
+      <Button title="การแจ้งเตือน" variant="accent-soft" size="sm" radius="md"
+        icon={<Icon name="bell" size={20} width={1.8} />} />
+
+      <ProfileMenu />
     </header>
   )
 }

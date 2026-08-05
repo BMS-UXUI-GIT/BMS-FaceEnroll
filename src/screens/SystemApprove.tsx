@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { thDate } from '../hooks'
 import { Loading } from '../components/Spinner'
 import { api } from '../api'
-import { dialog } from '../components/dialog'
+import { dialog, toast } from '../components/dialog'
 import { card, notifyBadges, type Tenant } from './tenantsCommon'
 
 // อนุมัติโรงพยาบาล — คิวคำขอจากฟอร์มลงทะเบียน (URL /hospital-request)
@@ -22,7 +22,7 @@ export function SystemApprove() {
     setBusy(key); setErr(null)
     try {
       const r = await api.post<{ tenants: Tenant[] }>(path, body)
-      setTenants(r.tenants); notifyBadges()
+      setTenants(r.tenants); notifyBadges(); toast.success('ทำรายการแล้ว')
     } catch (e: any) { setErr(e?.message || 'ทำรายการไม่สำเร็จ') } finally { setBusy(null) }
   }
 
@@ -34,8 +34,8 @@ export function SystemApprove() {
 
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>คำขอรออนุมัติ</h2>
-          {pending.length > 0 && <span style={{ fontSize: 12, fontWeight: 700, background: 'var(--warn)', color: 'var(--bg)', borderRadius: 20, padding: '1px 9px' }}>{pending.length}</span>}
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>คำขอรออนุมัติ</h2>
+          {pending.length > 0 && <span style={{ fontSize: 12, fontWeight: 500, background: 'var(--warn)', color: 'var(--bg)', borderRadius: 20, padding: '1px 9px' }}>{pending.length}</span>}
           <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>อนุมัติทดลองใช้ = เปิด 60 วันนับจากวันนี้ · ใช้งานจริง = เปิดถาวร</span>
         </div>
 
@@ -44,9 +44,9 @@ export function SystemApprove() {
             <span style={{ flex: 'none', fontFamily: 'var(--mono)', fontSize: 12.5, color: 'var(--text-faint)', minWidth: 18, textAlign: 'right' }}>{i + 1}</span>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: 13.5 }}>{t.name || '—'}</span>
+                <span style={{ fontWeight: 500, fontSize: 13.5 }}>{t.name || '—'}</span>
                 <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)' }}>{t.hcode}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '1px 8px', borderRadius: 5, background: t.request_type === 'demo' ? 'var(--info-light)' : 'var(--accent-light)', color: t.request_type === 'demo' ? 'var(--info)' : 'var(--accent-active)' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 500, padding: '1px 8px', borderRadius: 5, background: t.request_type === 'demo' ? 'var(--info-light)' : 'var(--accent-light)', color: t.request_type === 'demo' ? 'var(--info)' : 'var(--accent-active)' }}>
                   {t.request_type === 'demo' ? 'ขอทดลองใช้' : 'ขอใช้งานจริง'}
                 </span>
               </div>
@@ -58,7 +58,7 @@ export function SystemApprove() {
             <button onClick={() => act(`ap:${t.hcode}`, `/admin/tenants/${t.hcode}/approve`, { demo_days: 60 },
               t.request_type === 'demo' ? `อนุมัติ ${t.name} แบบทดลองใช้ 60 วัน?` : `อนุมัติ ${t.name} ใช้งานจริง?`)}
               disabled={!!busy}
-              style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--ok)', color: 'var(--bg)', cursor: 'pointer' }}>
+              style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--ok)', color: 'var(--bg)', cursor: 'pointer' }}>
               {busy === `ap:${t.hcode}` ? 'กำลังอนุมัติ…' : t.request_type === 'demo' ? 'อนุมัติ (60 วัน)' : 'อนุมัติ'}
             </button>
             <button onClick={async () => {
@@ -66,7 +66,7 @@ export function SystemApprove() {
               if (reason !== null) act(`rj:${t.hcode}`, `/admin/tenants/${t.hcode}/reject`, { reason: reason.trim() })
             }}
               disabled={!!busy}
-              style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer' }}>
+              style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer' }}>
               ปฏิเสธ
             </button>
           </div>

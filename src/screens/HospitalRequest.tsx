@@ -15,7 +15,7 @@ const field: React.CSSProperties = {
   width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11,
   background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
 }
-const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 7 }
+const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 7 }
 const req = <span style={{ color: 'var(--danger)' }}> *</span>
 
 // ไอคอนเส้นเล็กๆ เฉพาะหน้านี้ (ตามดีไซน์)
@@ -68,7 +68,7 @@ function FieldError({ show, text }: { show: boolean; text: string }) {
 function UseCodeBtn({ q, onPick }: { q: string; onPick: (h: Hosp) => void }) {
   if (!/^\d{4,6}$/.test(q.trim())) return null
   return (
-    <button onClick={() => onPick({ hcode: q.trim(), name: '' })} style={{ marginTop: 9, fontSize: 12.5, fontWeight: 600, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
+    <button onClick={() => onPick({ hcode: q.trim(), name: '' })} style={{ marginTop: 9, fontSize: 12.5, fontWeight: 500, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--accent-light)', color: 'var(--accent-active)', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
       ใช้รหัสหน่วยงาน “{q.trim()}” นี้
     </button>
   )
@@ -90,8 +90,8 @@ function PdpaSection({ n, title, children }: { n: string; title: string; childre
   return (
     <section>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{n}</span>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h3>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, color: 'var(--accent)' }}>{n}</span>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>{title}</h3>
       </div>
       {children}
     </section>
@@ -106,10 +106,10 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, borderRadius: 18, boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 11, fontWeight: 500, marginBottom: 6 }}>
               <Svg d={['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z']} size={12} sw={2} />PDPA · พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล
             </div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-.3px' }}>นโยบายความเป็นส่วนตัว</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, letterSpacing: '-.3px' }}>นโยบายความเป็นส่วนตัว</h2>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-faint)', marginTop: 3 }}>ปรับปรุงล่าสุด: 7 กรกฎาคม 2569 · เวอร์ชัน 1.0</div>
           </div>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 20, lineHeight: 1, flex: 'none' }}>×</button>
@@ -124,7 +124,7 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {PDPA_DATA_ITEMS.map((d) => (
                 <div key={d.title} style={{ padding: '11px 14px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--surface-card)' }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{d.title}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{d.title}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>{d.sub}</div>
                 </div>
               ))}
@@ -174,7 +174,7 @@ function PdpaModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ padding: '13px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>เข้าใจแล้ว</button>
+          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>เข้าใจแล้ว</button>
         </div>
       </div>
     </div>
@@ -201,10 +201,10 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
         <div style={{ padding: '15px 15px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
-              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--text-faint)' }}>มอนิเตอร์</div>
-              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.2px' }}>Dashboard</div>
+              <div style={{ fontSize: 8, fontWeight: 500, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--text-faint)' }}>มอนิเตอร์</div>
+              <div style={{ fontSize: 14, fontWeight: 500, letterSpacing: '-.2px' }}>หน้าหลัก</div>
             </div>
-            <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-dim)', background: 'var(--surface-card)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6 }}>สำนักงานทดสอบ · 99999</span>
+            <span style={{ fontSize: 9, fontWeight: 500, color: 'var(--text-dim)', background: 'var(--surface-card)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 6 }}>สำนักงานทดสอบ · 99999</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
             {PREVIEW_KPIS.map((k) => (
@@ -213,7 +213,7 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
                   <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 500 }}>{k.label}</span>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: k.dot }} />
                 </div>
-                <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--mono)', color: k.color, marginTop: 4, lineHeight: 1 }}>{k.value}</div>
+                <div style={{ fontSize: 19, fontWeight: 500, fontFamily: 'var(--mono)', color: k.color, marginTop: 4, lineHeight: 1 }}>{k.value}</div>
               </div>
             ))}
           </div>
@@ -232,7 +232,7 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
                 <Svg d={['M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M5.5 20a6.5 6.5 0 0 1 13 0']} size={40} sw={1.6} />
               </div>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--ok)', background: 'var(--ok-light)', padding: '3px 9px', borderRadius: 20 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 500, color: 'var(--ok)', background: 'var(--ok-light)', padding: '3px 9px', borderRadius: 20 }}>
               <Svg d={CHECK} size={12} sw={3} />ยืนยันตัวตนสำเร็จ
             </div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-faint)', marginTop: 8 }}>match 0.94 · 07:58 น.</div>
@@ -246,9 +246,9 @@ function PreviewSet({ hidden }: { hidden?: boolean }) {
         <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {MINI_REPORT.map((r) => (
             <div key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
               <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-faint)' }}>{r.time}</span>
-              <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 7px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-light)', whiteSpace: 'nowrap' }}>{r.tag}</span>
+              <span style={{ fontSize: 9, fontWeight: 500, padding: '1px 7px', borderRadius: 20, color: 'var(--warn)', background: 'var(--warn-light)', whiteSpace: 'nowrap' }}>{r.tag}</span>
             </div>
           ))}
         </div>
@@ -423,7 +423,7 @@ export function HospitalRequest() {
             <img src="/logo.png" alt="" width={36} height={36} style={{ display: 'block' }} />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-.2px' }}>FaceCheck</div>
+            <div style={{ fontWeight: 500, fontSize: 15, letterSpacing: '-.2px' }}>FaceCheck</div>
             <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>ระบบสแกนหน้า–ลงเวลา สำหรับโรงพยาบาล</div>
           </div>
         </div>
@@ -436,16 +436,16 @@ export function HospitalRequest() {
 
         {/* ซ้าย: แนะนำระบบ */}
         <div className="reg-intro-col" style={{ minWidth: 0, paddingTop: 8, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 12, fontWeight: 600, marginBottom: 18 }}>
+          <div style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 20, background: 'var(--accent-light)', color: 'var(--accent-active)', fontSize: 12, fontWeight: 500, marginBottom: 18 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />สำหรับโรงพยาบาลและหน่วยงานสาธารณสุข
           </div>
-          <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(16px, 1.8vw, 19px)', lineHeight: 1.4, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '-.2px' }}>ลงเวลาด้วยการสแกนใบหน้า เชื่อมตรงเข้า HOSxP</h1>
+          <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(16px, 1.8vw, 19px)', lineHeight: 1.4, fontWeight: 500, color: 'var(--text-dim)', letterSpacing: '-.2px' }}>ลงเวลาด้วยการสแกนใบหน้า เชื่อมตรงเข้า HOSxP</h1>
           <p style={{ margin: '0 0 26px', fontSize: 13.5, color: 'var(--text-faint)', maxWidth: 480 }}>
             พนักงานสแกนหน้าผ่านแอปบนมือถือ ระบบตรวจใบหน้าจริง (liveness) แล้วบันทึกเวลาเข้า–ออกลง HOSxP อัตโนมัติ พร้อมแดชบอร์ดมอนิเตอร์แบบเรียลไทม์สำหรับผู้ดูแล
           </p>
 
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.2px', color: 'var(--text)' }}>ตัวอย่างหน้าจอระบบ</span>
+            <span style={{ fontSize: 17, fontWeight: 500, letterSpacing: '-.2px', color: 'var(--text)' }}>ตัวอย่างหน้าจอระบบ</span>
             <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ภาพประกอบระบบ — เข้าชมระบบจริงได้ที่ด้านล่าง</span>
           </div>
           <Previews />
@@ -458,7 +458,7 @@ export function HospitalRequest() {
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-.2px' }}>
+                <span style={{ fontSize: 14.5, fontWeight: 500, letterSpacing: '-.2px' }}>
                   {demoBusy ? 'กำลังเปิด…' : 'เข้าชมแดชบอร์ดตัวอย่าง'}
                 </span>
                 <span className="reg-demo-live">
@@ -466,7 +466,7 @@ export function HospitalRequest() {
                 </span>
               </span>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--text-dim)', marginTop: 3 }}>
-                เข้าถึงได้ทันทีโดยไม่ต้องลงทะเบียน ด้วยข้อมูลจากโรงพยาบาลสาธิต <b style={{ color: 'var(--text-dim)', fontWeight: 700 }}>สำหรับรับชมเท่านั้น ไม่สามารถแก้ไขข้อมูลได้</b>
+                เข้าถึงได้ทันทีโดยไม่ต้องลงทะเบียน ด้วยข้อมูลจากโรงพยาบาลสาธิต <b style={{ color: 'var(--text-dim)', fontWeight: 500 }}>สำหรับรับชมเท่านั้น ไม่สามารถแก้ไขข้อมูลได้</b>
               </span>
             </span>
             <span className="reg-demo-go">
@@ -478,7 +478,7 @@ export function HospitalRequest() {
             <div style={{ marginTop: 8, background: 'color-mix(in srgb, var(--danger) 8%, var(--surface))', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 10, padding: '8px 13px', fontSize: 12.5 }}>{demoErr}</div>
           )}
 
-          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.2px', color: 'var(--text)', marginTop: 26, marginBottom: 2 }}>
+          <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: '-.2px', color: 'var(--text)', marginTop: 26, marginBottom: 2 }}>
             ความสามารถของระบบ
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: '16px 22px', marginTop: 14, maxWidth: 520 }}>
@@ -488,7 +488,7 @@ export function HospitalRequest() {
                   <Svg d={f.d} />
                 </span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>{f.title}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500 }}>{f.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 1 }}>{f.sub}</div>
                 </div>
               </div>
@@ -505,16 +505,16 @@ export function HospitalRequest() {
               <div style={{ width: 60, height: 60, margin: '0 auto 18px', borderRadius: 16, background: 'var(--ok-light)', color: 'var(--ok)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Svg d={CHECK} size={30} sw={2.4} />
               </div>
-              <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700 }}>ส่งคำขอเรียบร้อยแล้ว</h2>
+              <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 500 }}>ส่งคำขอเรียบร้อยแล้ว</h2>
               <p style={{ margin: '0 auto 20px', fontSize: 13.5, color: 'var(--text-dim)', maxWidth: 340 }}>
                 คำขอของ <b>{picked?.name || `หน่วยงาน ${picked?.hcode}`}</b> อยู่ระหว่างตรวจสอบ เจ้าหน้าที่จะติดต่อกลับตามเบอร์/อีเมลที่ให้ไว้ — กรุณาบันทึกหมายเลขคำขอไว้อ้างอิง
               </p>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderRadius: 11, background: 'var(--surface-card)', border: '1px solid var(--border)', marginBottom: 24 }}>
                 <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>หมายเลขคำขอ</span>
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 600, color: 'var(--accent-active)' }}>{reqId}</span>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 500, color: 'var(--accent-active)' }}>{reqId}</span>
               </div>
               <div>
-                <button onClick={reset} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>ยื่นคำขอใหม่</button>
+                <button onClick={reset} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>ยื่นคำขอใหม่</button>
               </div>
             </div>
           ) : (
@@ -528,11 +528,11 @@ export function HospitalRequest() {
                 <div style={{ height: 5, background: 'linear-gradient(90deg, var(--accent), var(--accent-active))' }} />
                 <div style={{ padding: '20px 26px 18px', borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--accent-light), transparent)' }}>
                   <div style={{ marginBottom: 10 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 20, background: 'var(--accent)', color: 'var(--bg)', fontSize: 11.5, fontWeight: 700, letterSpacing: '.3px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 20, background: 'var(--accent)', color: 'var(--bg)', fontSize: 11.5, fontWeight: 500, letterSpacing: '.3px' }}>
                       <Svg d={['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z']} size={12} sw={2.2} />แบบฟอร์มลงทะเบียน
                     </span>
                   </div>
-                  <h2 style={{ margin: '0 0 5px', fontSize: 22, fontWeight: 700, letterSpacing: '-.4px' }}>ลงทะเบียนขอใช้งาน</h2>
+                  <h2 style={{ margin: '0 0 5px', fontSize: 22, fontWeight: 500, letterSpacing: '-.4px' }}>ลงทะเบียนขอใช้งาน</h2>
                   <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>เลือกหน่วยงาน กรอกผู้ติดต่อ แล้วส่งคำขอ</p>
                 </div>
 
@@ -542,8 +542,8 @@ export function HospitalRequest() {
                     <label style={lbl}>หน่วยงาน / โรงพยาบาลของท่าน{req}</label>
                     {picked ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', border: '1px solid var(--accent)', borderRadius: 11, background: 'var(--accent-light)' }}>
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 700, color: 'var(--accent-active)' }}>{picked.hcode}</span>
-                        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{picked.name || 'กรอกรหัสเอง'}</span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, fontWeight: 500, color: 'var(--accent-active)' }}>{picked.hcode}</span>
+                        <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500 }}>{picked.name || 'กรอกรหัสเอง'}</span>
                         <button onClick={() => { setPicked(null); setQ('') }} style={{ fontSize: 12, border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>เปลี่ยน</button>
                       </div>
                     ) : (
@@ -570,7 +570,7 @@ export function HospitalRequest() {
                             ) : (
                               results.map((h) => (
                                 <button key={h.hcode} onClick={() => setPicked(h)} className="row-hover" style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', padding: '10px 13px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', fontSize: 13 }}>
-                                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 700, color: 'var(--accent-active)', background: 'var(--accent-light)', borderRadius: 7, padding: '3px 8px', minWidth: 52, textAlign: 'center' }}>{h.hcode}</span>
+                                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', borderRadius: 7, padding: '3px 8px', minWidth: 52, textAlign: 'center' }}>{h.hcode}</span>
                                   <span style={{ color: 'var(--text)' }}>{h.name || '(ไม่มีชื่อ)'}</span>
                                 </button>
                               ))
@@ -594,7 +594,7 @@ export function HospitalRequest() {
                             background: on ? 'var(--accent-light)' : 'var(--surface-card)',
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t}</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap' }}>{t}</span>
                               {on ? (
                                 <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bg)' }}>
                                   <Svg d={CHECK} size={10} sw={4} />
@@ -642,7 +642,7 @@ export function HospitalRequest() {
                     <span style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.55 }}>
                       ยินยอมให้จัดเก็บและประมวลผลข้อมูลติดต่อเพื่อการพิจารณาคำขอ ตาม{' '}
                       <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPdpa(true) }}
-                        style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                        style={{ color: 'var(--accent)', fontWeight: 500, textDecoration: 'underline', textUnderlineOffset: 3 }}>
                         นโยบายความเป็นส่วนตัว (PDPA)
                       </a>
                     </span>
@@ -651,11 +651,11 @@ export function HospitalRequest() {
                   {err && <div style={{ fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>}
 
                   {consent ? (
-                    <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', opacity: busy ? .75 : 1 }}>
+                    <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--accent)', color: 'var(--bg)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 500, cursor: 'pointer', opacity: busy ? .75 : 1 }}>
                       {busy ? 'กำลังส่งคำขอ…' : 'ส่งคำขอลงทะเบียน'}
                     </button>
                   ) : (
-                    <button disabled title="กรุณายอมรับนโยบายความเป็นส่วนตัวก่อน" style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--surface-gray)', color: 'var(--text-faint)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 700, cursor: 'not-allowed' }}>
+                    <button disabled title="กรุณายอมรับนโยบายความเป็นส่วนตัวก่อน" style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: 'var(--surface-gray)', color: 'var(--text-faint)', fontFamily: 'var(--sans)', fontSize: 14.5, fontWeight: 500, cursor: 'not-allowed' }}>
                       ส่งคำขอลงทะเบียน
                     </button>
                   )}
@@ -670,16 +670,16 @@ export function HospitalRequest() {
               {/* ขั้นตอนหลังส่งคำขอ */}
               <div style={{ ...card, marginTop: 16, overflow: 'hidden' }}>
                 <button onClick={() => setStepsOpen((v) => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '15px 18px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--text-faint)' }}>ขั้นตอนหลังส่งคำขอ</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '.6px', textTransform: 'uppercase', color: 'var(--text-faint)' }}>ขั้นตอนหลังส่งคำขอ</span>
                   <Svg d={[stepsOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6']} size={17} sw={2.2} style={{ color: 'var(--text-faint)' }} />
                 </button>
                 {stepsOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 11, padding: '2px 18px 16px' }}>
                     {STEPS.map((s) => (
                       <div key={s.n} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                        <span style={{ width: 22, height: 22, flex: 'none', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.n}</span>
+                        <span style={{ width: 22, height: 22, flex: 'none', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.n}</span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{s.title}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{s.title}</div>
                           <div style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{s.sub}</div>
                         </div>
                       </div>

@@ -7,7 +7,7 @@ import { Icon } from '../icons'
 export type GeoLoc = { name: string; lat: number; lng: number; radius_m: number }
 
 const input: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
-const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }
+const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 500, padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }
 
 export function LocationModal({ initial, disabled, onSave, onClose }: {
   initial: GeoLoc
@@ -58,7 +58,7 @@ export function LocationModal({ initial, disabled, onSave, onClose }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
-          <span style={{ fontWeight: 700, fontSize: 14.5 }}>{disabled ? 'ดูจุดลงเวลา' : hasPoint ? 'แก้ไขจุดลงเวลา' : 'เพิ่มจุดลงเวลา'}</span>
+          <span style={{ fontWeight: 500, fontSize: 14.5 }}>{disabled ? 'ดูจุดลงเวลา' : hasPoint ? 'แก้ไขจุดลงเวลา' : 'เพิ่มจุดลงเวลา'}</span>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 

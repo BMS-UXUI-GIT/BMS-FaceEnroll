@@ -4,7 +4,6 @@ import { nf, useServerPage } from '../hooks'
 import { daysAgoISO, filterQS, localISO, useAttFilterOptions } from '../components/AttFilters'
 import { SearchSelect } from '../components/SearchSelect'
 import { Loading } from '../components/Spinner'
-import { PAGE_SIZE } from '../components/Pager'
 import { PickHospital } from '../components/PickHospital'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Pagination } from '../components/data-display/Pagination'
@@ -14,14 +13,11 @@ import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
-import { TEXT } from '../typography'
 import { Icon } from '../icons'
 import { useApp } from '../state'
 import { IssueBadges } from './attendance/IssueBadges'
-import { PunchModal } from './attendance/PunchModal'
 import { EmployeeModal } from './attendance/EmployeeModal'
-import { FixTimeModal } from './attendance/FixTimeModal'
-import type { Daily, DailyRow, LateRow } from './attendance/types'
+import type { Daily, DailyRow } from './attendance/types'
 
 // หน้าลงเวลา — ตาม Figma node 227:6394
 //   การ์ดหัวเรื่อง (ไล่สี surface-blue → ขาว, r-xl) + การ์ดตัวเลข 4 ใบ
@@ -29,8 +25,6 @@ import type { Daily, DailyRow, LateRow } from './attendance/types'
 //
 // หมายเหตุ: ดีไซน์นี้ไม่มีแท็บ "รายเดือน" (ย้ายไปอยู่เมนู "รายงาน" แล้ว)
 // และไม่มีแท็บ "รายงานผิดปกติ" — กลายเป็นชิปกรอง "เฉพาะรายงานผิดปกติ" แทน
-
-const mono: React.CSSProperties = { fontFamily: 'var(--mono)' }
 
 /** สลับค่าในลิสต์ตัวกรอง (เลือกซ้ำ = เอาออก) */
 const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
@@ -43,23 +37,21 @@ const SUMMARY = [
   { key: 'late', label: 'มาสาย', tone: 'warn', icon: 'clock-alert' },
 ] as const
 
+/** จำนวนแถวต่อหน้าของตารางนี้ (แยกจาก PAGE_SIZE กลางที่จออื่นใช้) */
+const ROWS_PER_PAGE = 10
+
+/** เวลาในตาราง — Figma เขียน "06:02 น." (ไม่มีค่า = ขีด) */
+const hhmm = (t?: string | null) => (t ? `${t} น.` : '—')
+
 /** แถวนี้มีอะไรผิดปกติไหม (ใช้กับชิป "เฉพาะรายงานผิดปกติ") */
 const isIssue = (r: DailyRow) => r.late || r.early || r.no_out || r.out_area === true
-
-/** สร้าง LateRow ให้ FixTimeModal จากแถวรายวัน */
-const toLateRow = (r: DailyRow): LateRow => ({
-  emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, seq: r.seq,
-  io: `${r.in || '—'} / ${r.out || '—'}`,
-  issue: r.no_out ? 'ไม่สแกนออก' : r.late ? `มาสาย ${nf(r.late_min)} นาที` : r.early ? `ออกก่อน ${nf(r.early_min)} นาที` : 'สแกนนอกพื้นที่',
-})
 
 export function Attendance() {
   const { currentHcode, session } = useApp()
   const hcode = useMemo(() => (currentHcode === '*' ? '' : currentHcode), [currentHcode])
   const [reload, setReload] = useState(0)
-  const [punchRow, setPunchRow] = useState<DailyRow | null>(null)
-  const [empId, setEmpId] = useState<string | null>(null)
-  const [fixRow, setFixRow] = useState<LateRow | null>(null)
+  // modal รายละเอียดพนักงาน — คลิกแถว = มุมมองรายวัน · คลิกชื่อ = มุมมองรายเดือน
+  const [view, setView] = useState<{ row: DailyRow; tab: 'daily' | 'monthly' } | null>(null)
   const [search, setSearch] = useState('')
   const [onlyIssue, setOnlyIssue] = useState(false)
   const [dFrom, setDFrom] = useState(daysAgoISO(6))
@@ -81,7 +73,7 @@ export function Attendance() {
   useEffect(() => { const t = setTimeout(() => setDq(search.trim()), 300); return () => clearTimeout(t) }, [search])
   const sq = dq ? `&q=${encodeURIComponent(dq)}` : ''
 
-  const daily = useServerPage<Daily>(hcode ? `/admin/attendance/daily?${q}&date_from=${dFrom}&date_to=${dTo}${fq}${sq}` : null, reload)
+  const daily = useServerPage<Daily>(hcode ? `/admin/attendance/daily?${q}&date_from=${dFrom}&date_to=${dTo}${fq}${sq}` : null, reload, ROWS_PER_PAGE)
   const allRows = daily.data?.rows ?? []
   // ชิป "เฉพาะรายงานผิดปกติ" กรองบนหน้าที่โหลดมาแล้ว (backend ยังไม่มี query สำหรับกรองข้ามหน้า)
   const rows = onlyIssue ? allRows.filter(isIssue) : allRows
@@ -99,54 +91,51 @@ export function Attendance() {
   }
 
   if (currentHcode === '*') return <PickHospital />
-  if (!hcode) return <div style={{ ...TEXT.body, padding: 'var(--sp-5)', color: 'var(--text-dim)' }}>ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div>
+  if (!hcode) return <div className="text-body p-5 text-text-dim">ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div>
 
   const cols: Column<DailyRow>[] = [
     {
       key: 'emp', header: 'พนักงาน', cell: (r) => (
-        <button onClick={(e) => { e.stopPropagation(); setEmpId(r.emp) }} title="ดูประวัติย้อนหลัง 30 วัน"
-          style={{ ...TEXT.bodyBold, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', padding: 0, color: 'var(--text)', textAlign: 'left' }}>
+        <button onClick={(e) => { e.stopPropagation(); setView({ row: r, tab: 'monthly' }) }} title="ดูประวัติย้อนหลัง 30 วัน"
+          className="text-body-bold border-none bg-transparent cursor-pointer p-0 text-left text-text font-[family-name:var(--sans)]">
           {r.name}
-          {session?.role !== 'user' && <span style={{ ...TEXT.caption, ...mono, color: 'var(--text-dim)' }}> #{r.emp}</span>}
+          {session?.role !== 'user' && <span className="text-caption text-text-dim font-[family-name:var(--mono)]"> #{r.emp}</span>}
         </button>
       ),
     },
-    { key: 'dept', header: 'แผนก', cell: (r) => <span style={{ color: 'var(--text-dim)' }}>{r.dept || '—'}</span> },
-    { key: 'in', header: 'เข้าเวร', cell: (r) => <span style={{ ...TEXT.bodyBold, color: 'var(--ok)' }}>{r.in || '—'}</span> },
-    { key: 'out', header: 'ออกเวร', cell: (r) => <span style={{ ...TEXT.body, color: 'var(--table-row-text)' }}>{r.out || '—'}</span> },
-    { key: 'shift', header: 'เวร', cell: (r) => <ShiftBadge shift={shiftKindOf(r.shift)} label={r.shift} /> },
+    { key: 'dept', header: 'แผนก', cell: (r) => <span className="text-text-dim">{r.dept || '—'}</span> },
+    { key: 'in', header: 'เข้าเวร', cell: (r) => <span className="text-body-bold text-ok">{hhmm(r.in)}</span> },
+    { key: 'out', header: 'ออกเวร', cell: (r) => <span className="text-body text-table-row">{hhmm(r.out)}</span> },
+    // Figma: เวร = คอลัมน์กว้างคงที่ 70 · ป้ายโชว์แค่ "เช้า/บ่าย/ดึก" (ช่วงเวลาอยู่ในหน้าต่างรายละเอียด)
+    //        GPS = กึ่งกลาง · สถานะ = ชิดขวา กว้าง 200
+    { key: 'shift', header: 'เวร', width: 70, align: 'center', cell: (r) => <ShiftBadge shift={shiftKindOf(r.shift)} /> },
     {
-      key: 'gps', header: 'GPS', cell: (r) => r.gps
-        ? <span style={{ ...TEXT.body, color: r.out_area ? 'var(--danger)' : 'var(--ok)' }}>● {r.out_area ? 'นอกพื้นที่' : 'มีพิกัด'}</span>
-        : <span style={{ ...TEXT.body, color: 'var(--text-dim)' }}>— ไม่มี</span>,
+      key: 'gps', header: 'GPS', align: 'center', cell: (r) => r.gps
+        ? <span className={`text-body ${r.out_area ? 'text-danger' : 'text-ok'}`}>● {r.out_area ? 'นอกพื้นที่' : 'มีพิกัด'}</span>
+        : <span className="text-body text-text-dim">— ไม่มี</span>,
     },
-    { key: 'status', header: 'สถานะ', cell: (r) => <IssueBadges r={r} /> },
+    { key: 'status', header: 'สถานะ', align: 'center', width: 400, cell: (r) => <IssueBadges r={r} /> },
   ]
 
   return (
-    <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+    <div className="max-w-[var(--page-max)] flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง + ตัวเลขสรุป ---------- */}
-      <div style={{
-        position: 'relative', overflow: 'hidden',
-        borderRadius: 'var(--r-xl)',
-        // Figma: gradient handles (0.5,1) -> (0.5,0) = ไล่จากล่างขึ้นบน (#F0F6FD -> ขาว)
-        background: 'linear-gradient(to top, var(--hero-bg), var(--bg))',
-        padding: 'var(--sp-6)',
-      }}>
+      {/* Figma: gradient handles (0.5,1) -> (0.5,0) = ไล่จากล่างขึ้นบน (#F0F6FD -> ขาว)
+          จุดจบของการไล่สีดันลงมาที่ 65% ของความสูง — สีฟ้ากองอยู่ครึ่งล่าง ขาวยาวขึ้น */}
+      <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-t from-hero from-0% to-bg to-65%">
         {/* ภาพประกอบ export จาก Figma (node I227:7677;227:9723) — 298x298 ชิดขวา
-            เยื้องลง 19px แล้วถูก crop ด้านล่างด้วย overflow:hidden ตามดีไซน์ */}
+            ยึดจากขอบล่างแล้วเยื้องลงไปนอกการ์ด ส่วนที่เกินถูก crop ด้วย overflow:hidden */}
         <img src="/hero-attendance.svg" alt="" aria-hidden width={298} height={298}
-          className="hide-sm"
-          style={{ position: 'absolute', right: 0, top: 19, pointerEvents: 'none', userSelect: 'none' }} />
+          className="hide-sm absolute right-0 -bottom-24 pointer-events-none select-none" />
 
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--sp-4)', flexWrap: 'wrap' }}>
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 style={{ ...TEXT.h2, margin: 0, color: 'var(--text)' }}>การลงเวลาของพนักงาน</h1>
-            <p style={{ ...TEXT.body, margin: 'var(--sp-2) 0 0', color: 'color-mix(in srgb, var(--text-faint) 50%, transparent)' }}>
+            <h1 className="text-h2 m-0 text-text">การลงเวลาของพนักงาน</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
               ตรวจสอบการลงเวลาของพนักงานทั้งหมด
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+          <div className="flex gap-2 flex-wrap">
             <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={daily.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
@@ -160,11 +149,7 @@ export function Attendance() {
           </div>
         </div>
 
-        <div style={{
-          position: 'relative',
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
-          gap: 'var(--sp-2)', marginTop: 'var(--sp-4)', maxWidth: 760,
-        }}>
+        <div className="relative grid gap-2 mt-4 max-w-190 grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))]">
           {SUMMARY.map((s) => (
             <StatCard key={s.key} tone={s.tone} label={s.label} unit="คน"
               icon={<Icon name={s.icon} size={24} color="currentColor" />}
@@ -174,8 +159,8 @@ export function Attendance() {
       </div>
 
       {/* ---------- แถบตัวกรอง (Figma node 227:7677) ---------- */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
-        <SearchInput value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
 
         <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
           <DateRangePicker bare from={dFrom} to={dTo} onFrom={setDFrom} onTo={setDTo} max={localISO()} />
@@ -191,7 +176,7 @@ export function Attendance() {
             options={deptOpts} placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
         </FilterChip>
 
-        <FilterChip variant="action" active={onlyIssue} onClick={() => setOnlyIssue((v) => !v)}
+        <FilterChip variant="choice" active={onlyIssue} onClick={() => setOnlyIssue((v) => !v)}
           icon={<Icon name="progress-alert" size={14} width={2.2} />} label="เฉพาะรายงานผิดปกติ" />
 
         {(fShifts.length > 0 || fDepts.length > 0 || onlyIssue) && (
@@ -199,35 +184,33 @@ export function Attendance() {
         )}
       </div>
 
-      {expErr && <div style={{ ...TEXT.body, padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)', background: 'var(--danger-light)', color: 'var(--danger)' }}>ดาวน์โหลดไม่สำเร็จ: {expErr}</div>}
+      {expErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ดาวน์โหลดไม่สำเร็จ: {expErr}</div>}
 
       {/* ---------- ตาราง ---------- */}
-      <div style={{ background: 'var(--bg)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+      {/* Figma: การ์ดตาราง = พื้นขาว · ขอบ 1px #E5E7EB · r-lg (16) */}
+      <div className="bg-bg border border-control-border rounded-lg">
         {daily.err
-          ? <div style={{ ...TEXT.body, padding: 'var(--sp-4) var(--sp-4)', color: 'var(--danger)' }}>ผิดพลาด: {daily.err}</div>
+          ? <div className="text-body p-4 text-danger">ผิดพลาด: {daily.err}</div>
           : daily.loading && !daily.data
             ? <Loading />
             : (
               <>
-                <DataTable columns={cols} rows={rows} onRowClick={(r) => setPunchRow(r)}
+                <DataTable columns={cols} rows={rows} minWidth={1040} onRowClick={(r) => setView({ row: r, tab: 'daily' })}
                   rowKey={(r) => `${r.emp}:${r.date}:${r.seq ?? 0}`}
                   empty={dq ? 'ไม่พบที่ตรงกับคำค้น' : onlyIssue ? 'ไม่มีรายการผิดปกติในหน้านี้ 🎉' : 'ไม่มีการลงเวลาในช่วงที่เลือก'} />
                 {!onlyIssue && (
-                  <Pagination page={daily.page} pageSize={PAGE_SIZE} total={daily.data?.total ?? 0}
+                  <Pagination page={daily.page} pageSize={ROWS_PER_PAGE} total={daily.data?.total ?? 0}
                     shown={rows.length} onPage={daily.setPage} />
                 )}
               </>
             )}
       </div>
 
-      {punchRow && daily.data && (
-        <PunchModal row={punchRow} fences={daily.data.fences} date={punchRow.date}
-          onClose={() => setPunchRow(null)}
-          onFix={session?.role !== 'user' && isIssue(punchRow) ? () => { setFixRow(toLateRow(punchRow)); setPunchRow(null) } : undefined} />
+      {view && daily.data && (
+        <EmployeeModal hcode={hcode} row={view.row} fences={daily.data.fences} initialTab={view.tab}
+          onClose={() => setView(null)}
+          onSaved={() => { setView(null); setReload((r) => r + 1) }} />
       )}
-      {empId && <EmployeeModal hcode={hcode} empId={empId} onClose={() => setEmpId(null)} />}
-      {fixRow && <FixTimeModal hcode={hcode} row={fixRow} onClose={() => setFixRow(null)}
-        onSaved={() => { setFixRow(null); setReload((r) => r + 1) }} />}
     </div>
   )
 }

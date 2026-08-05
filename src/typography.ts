@@ -7,15 +7,15 @@
 // ให้เพิ่ม entry ใหม่ที่นี่ (แล้วอัปเดต Figma ให้ตรงกัน) ไม่ใช่เขียนตัวเลขลอยในหน้าจอ
 
 export const TEXT = {
-  displayLg:   { fontSize: 32, fontWeight: 700, lineHeight: '40px' },
-  displayStat: { fontSize: 28, fontWeight: 700, lineHeight: '36px' },
-  h1:          { fontSize: 24, fontWeight: 700, lineHeight: '32px' },
-  h2:          { fontSize: 20, fontWeight: 700, lineHeight: '28px' },
-  h3:          { fontSize: 16, fontWeight: 700, lineHeight: '24px' },
+  displayLg:   { fontSize: 32, fontWeight: 500, lineHeight: '40px' },
+  displayStat: { fontSize: 28, fontWeight: 500, lineHeight: '36px' },
+  h1:          { fontSize: 24, fontWeight: 500, lineHeight: '32px' },
+  h2:          { fontSize: 20, fontWeight: 500, lineHeight: '28px' },
+  h3:          { fontSize: 16, fontWeight: 500, lineHeight: '24px' },
   bodyLg:      { fontSize: 16, fontWeight: 400, lineHeight: '24px' },
   body:        { fontSize: 14, fontWeight: 400, lineHeight: '20px' },
   bodyMed:     { fontSize: 14, fontWeight: 500, lineHeight: '20px' },
-  bodyBold:    { fontSize: 14, fontWeight: 700, lineHeight: '20px' },
+  bodyBold:    { fontSize: 14, fontWeight: 500, lineHeight: '20px' },
   sm:          { fontSize: 12, fontWeight: 400, lineHeight: '16px' },
   caption:     { fontSize: 11, fontWeight: 400, lineHeight: '14px' },
 } as const

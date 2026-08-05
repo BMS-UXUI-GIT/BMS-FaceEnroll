@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loading } from '../components/Spinner'
 import { api } from '../api'
-import { dialog } from '../components/dialog'
+import { dialog, toast } from '../components/dialog'
 import { LocationModal, type GeoLoc } from '../components/LocationModal'
 import { ScanMap } from '../components/ScanMap'
 import { PickHospital } from '../components/PickHospital'
@@ -14,7 +14,7 @@ import { useApp } from '../state'
 type Pol = Record<string, any>
 
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)', overflow: 'hidden' }
-const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }
+const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 500, padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }
 
 function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
   return (
@@ -98,7 +98,7 @@ export function Locations() {
           โรง {currentHcode} · พนักงานลงเวลาได้เฉพาะในรัศมีของจุดที่กำหนด
           {readOnly && <span style={{ color: 'var(--warn)' }}> · ดูอย่างเดียว (User)</span>}
         </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
       </div>
       {err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
       {!pol && !err && <div style={card}><Loading /></div>}
@@ -107,7 +107,7 @@ export function Locations() {
         <>
           <div style={{ ...card, padding: '15px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 240 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>บังคับ GPS ตอนลงเวลา<Info text="เปิด = พนักงานต้องเปิด GPS และอยู่ในรัศมีของจุดใดจุดหนึ่งจึงลงเวลาได้ · ปิด = ไม่ตรวจพื้นที่" /></div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>บังคับ GPS ตอนลงเวลา<Info text="เปิด = พนักงานต้องเปิด GPS และอยู่ในรัศมีของจุดใดจุดหนึ่งจึงลงเวลาได้ · ปิด = ไม่ตรวจพื้นที่" /></div>
               <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 1 }}>ไม่ปักจุดเลย = มีพิกัดก็พอ ไม่จำกัดพื้นที่</div>
             </div>
             <Toggle on={!!pol.gps_required} disabled={readOnly} onClick={() => updMany({ gps_required: !pol.gps_required })} />
@@ -116,7 +116,7 @@ export function Locations() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))', gap: 16, alignItems: 'start' }}>
           <div style={card}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>จุดลงเวลา <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>({locations.length})</span></h2>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>จุดลงเวลา <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}>({locations.length})</span></h2>
               {!readOnly && <button onClick={() => setEditing({ idx: -1, loc: { name: `จุดที่ ${locations.length + 1}`, lat: 0, lng: 0, radius_m: 5 } })} style={{ ...btn, color: 'var(--accent-active)', borderColor: 'var(--accent)' }}>+ เพิ่มจุด</button>}
             </div>
 
@@ -135,7 +135,7 @@ export function Locations() {
                     return (
                       <tr key={i} className="row-hover" style={{ borderTop: i ? '1px solid var(--border)' : 'none' }}>
                         <td style={{ padding: '13px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12, width: 40 }}>{i + 1}</td>
-                        <td style={{ padding: '13px 12px', fontWeight: 600 }}>
+                        <td style={{ padding: '13px 12px', fontWeight: 500 }}>
                           {l.name || `จุดที่ ${i + 1}`}
                           {!placed && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--warn)', fontWeight: 500 }}>ยังไม่ปักหมุด</span>}
                         </td>
@@ -158,7 +158,7 @@ export function Locations() {
 
           {/* แผนที่รวมทุกจุดของโรง */}
           <div style={card}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 15 }}>แผนที่จุดลงเวลา</div>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 500, fontSize: 15 }}>แผนที่จุดลงเวลา</div>
             <div style={{ padding: 14 }}>
               {placedLocs.length > 0
                 ? <ScanMap fences={placedLocs} points={[]} height={380} />

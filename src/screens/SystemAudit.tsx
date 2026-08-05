@@ -5,6 +5,7 @@ import { Pager } from '../components/Pager'
 import { Loading } from '../components/Spinner'
 import { RefreshButton } from '../components/RefreshButton'
 import { useApp } from '../state'
+import { DataTable, type Column } from '../components/data-display/DataTable'
 import { card, td, th, theadTr } from './tenantsCommon'
 
 // ประวัติการจัดการ — audit log + ฟิลเตอร์ (ผู้ทำ/ประเภท/ช่วงวัน)
@@ -50,13 +51,23 @@ export function SystemAudit() {
     return () => { alive = false; clearTimeout(t) }
   }, [reload, actor, action, q2, from, to, page, currentHcode])
 
+  const cols: Column<AuditRow>[] = [
+    { key: 'no', header: 'ลำดับ', align: 'right', width: 56, thStyle: { padding: '10px 20px' }, tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }, cell: (_r, i) => nf(page * PAGE + i + 1) },
+    { key: 'ts', header: 'เวลา', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)', fontSize: 12 }, cell: (r) => r.ts },
+    { key: 'actor', header: 'ผู้ทำ', cell: (r) => <>{r.actor} <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({r.role})</span></> },
+    { key: 'action', header: 'การกระทำ', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (r) => r.action },
+    { key: 'target', header: 'เป้าหมาย', tdStyle: { fontFamily: 'var(--mono)' }, cell: (r) => r.target },
+    { key: 'detail', header: 'รายละเอียด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (r) => r.detail },
+    { key: 'ip', header: 'IP', thStyle: { padding: '10px 20px' }, tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-faint)' }, cell: (r) => r.ip || '—' },
+  ]
+
   return (
     <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
 
-      <div style={{ ...card, overflow: 'hidden' }}>
+      <div style={{ ...card }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, marginRight: 4 }}>ประวัติการจัดการ</h2>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500, marginRight: 4 }}>ประวัติการจัดการ</h2>
           <input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="ผู้ทำ…" style={{ ...inputSt, width: 120 }} />
           <input value={action} onChange={(e) => setAction(e.target.value)} placeholder="การกระทำ เช่น approve…" style={{ ...inputSt, width: 160 }} />
           <input value={q2} onChange={(e) => setQ2(e.target.value)} placeholder="ค้นเป้าหมาย/รายละเอียด…" style={{ ...inputSt, width: 160 }} />
@@ -72,26 +83,19 @@ export function SystemAudit() {
             <RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} />
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 860 }}>
-            <thead><tr style={theadTr}><th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th><th style={th}>เวลา</th><th style={th}>ผู้ทำ</th><th style={th}>การกระทำ</th><th style={th}>เป้าหมาย</th><th style={th}>รายละเอียด</th><th style={{ ...th, padding: '10px 20px' }}>IP</th></tr></thead>
-            <tbody>
-              {(audit ?? []).map((r, i) => (
-                <tr key={i} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(page * PAGE + i + 1)}</td>
-                  <td style={{ ...td, fontFamily: 'var(--mono)', color: 'var(--text-dim)', fontSize: 12 }}>{r.ts}</td>
-                  <td style={td}>{r.actor} <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({r.role})</span></td>
-                  <td style={{ ...td, fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{r.action}</td>
-                  <td style={{ ...td, fontFamily: 'var(--mono)' }}>{r.target}</td>
-                  <td style={{ ...td, fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{r.detail}</td>
-                  <td style={{ ...td, padding: '11px 20px', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-faint)' }}>{r.ip || '—'}</td>
-                </tr>
-              ))}
-              {audit && audit.length === 0 && <tr><td colSpan={7} style={{ ...td, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}>ไม่พบรายการตามเงื่อนไข</td></tr>}
-              {!audit && !err && <tr><td colSpan={7} style={{ padding: 0 }}><Loading /></td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={cols}
+          rows={audit ?? []}
+          rowKey={(_r, i) => String(i)}
+          divider="top"
+          theadRowStyle={theadTr}
+          thBase={th}
+          tdBase={{ ...td, fontSize: 13 }}
+          minWidth={860}
+          loading={!audit && !err ? <Loading /> : undefined}
+          empty="ไม่พบรายการตามเงื่อนไข"
+          emptyStyle={{ ...td, fontSize: 13, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}
+        />
       </div>
     </div>
   )

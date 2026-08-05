@@ -4,7 +4,7 @@ import { nf } from '../hooks'
 
 // แบ่งหน้า + ช่องค้นหา ใช้ร่วมทุกตาราง
 // ขนาดหน้า (front กำหนดเอง — ส่งเป็น limit ให้ backend, backend ไม่ hardcode)
-export const PAGE_SIZE = 20
+export const PAGE_SIZE = 10
 
 // ปุ่มควบคุมหน้าเต็มชุด: « แรกสุด · ‹ ก่อนหน้า · [หน้า/ทั้งหมด] · ถัดไป › · สุดท้าย »
 export function Pager({ page, total, pageSize = PAGE_SIZE, onPage }: {
@@ -26,7 +26,8 @@ export function Pager({ page, total, pageSize = PAGE_SIZE, onPage }: {
   const nav = (label: string, target: number, dis: boolean, title: string) => (
     <button onClick={() => onPage(target)} disabled={dis} title={title}
       style={{
-        fontSize: 12.5, fontWeight: 600, minWidth: 30, padding: '5px 9px', borderRadius: 8,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+        fontSize: 12.5, fontWeight: 500, minWidth: 30, height: 30, padding: '0 9px', borderRadius: 8,
         border: '1px solid var(--border)', background: 'var(--surface)',
         color: dis ? 'var(--text-faint)' : 'var(--text)', cursor: dis ? 'default' : 'pointer',
         opacity: dis ? 0.5 : 1, fontFamily: 'var(--sans)',

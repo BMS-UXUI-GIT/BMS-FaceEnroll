@@ -6,7 +6,7 @@ export function RefreshButton({ onClick, busy }: { onClick: () => void; busy?: b
       disabled={busy}
       title="โหลดข้อมูลล่าสุด"
       style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600,
+        display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 500,
         padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border)',
         background: 'var(--surface)', color: 'var(--text-dim)', fontFamily: 'var(--sans)',
         cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.75 : 1,

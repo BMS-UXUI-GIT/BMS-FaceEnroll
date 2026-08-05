@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DialogHost } from './components/dialog'
+import { DialogHost, ToastHost } from './components/dialog'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Sidebar } from './components/layout/Sidebar'
 import { Topbar } from './components/Topbar'
@@ -32,7 +32,7 @@ function DemoBanner() {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 9, padding: '9px 16px', marginBottom: 16,
       borderRadius: 11, background: 'var(--warn-light)', border: '1px solid var(--warn)',
-      color: 'var(--warn)', fontSize: 12.5, fontWeight: 600,
+      color: 'var(--warn)', fontSize: 12.5, fontWeight: 500,
     }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
         <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -106,22 +106,36 @@ export function App() {
       display: 'flex',
     }}>
       <div style={{
+        position: 'relative',
         flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
         background: 'var(--bg)',
         borderRadius: mobile ? 0 : 'var(--r-xl)',
         overflow: 'hidden',
         boxShadow: 'var(--shadow-sm)',
       }}>
-        <Topbar onMenu={mobile ? () => setMenuOpen(true) : undefined} />
+        {/* header กระจกลอยทับ — content เลื่อนลอดข้างหลัง */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30 }}>
+          <Topbar onMenu={mobile ? () => setMenuOpen(true) : undefined} />
+        </div>
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           <Sidebar mobile={mobile} open={menuOpen} onClose={() => setMenuOpen(false)} />
-          <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, padding: mobile ? 'var(--sp-3)' : 'var(--sp-6)' }}>
+          <main style={{
+            flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0,
+            padding: mobile ? 'var(--sp-3)' : 'var(--sp-6)',
+            paddingTop: 0,
+          }}>
+            {/* spacer แทน paddingTop — ให้ content เริ่มใต้ header แต่ sticky ยังวัดจากขอบบน main (top:0) */}
+            <div aria-hidden style={{ height: 'calc(var(--topbar-h) + var(--sp-4))' }} />
             {isDemo && <DemoBanner />}
-            <ErrorBoundary resetKey={`${effNav}:${currentHcode}`}>{screen}</ErrorBoundary>
+            {/* key = หน้าปัจจุบัน -> เปลี่ยนเมนูแล้ว React สร้าง node ใหม่ อนิเมชัน .page-in เล่นซ้ำทุกครั้ง */}
+            <div key={`${effNav}:${currentHcode}`} className="page-in">
+              <ErrorBoundary resetKey={`${effNav}:${currentHcode}`}>{screen}</ErrorBoundary>
+            </div>
           </main>
         </div>
       </div>
       <DialogHost />
+      <ToastHost />
     </div>
   )
 }

@@ -1,5 +1,8 @@
-// กราฟชิ้นเล็กที่ใช้ร่วมทั้ง dashboard + แท็บวิเคราะห์ — CSS/SVG ล้วน ไม่มี lib
+// กราฟชิ้นเล็กที่ใช้ร่วมทั้ง dashboard + แท็บวิเคราะห์
 // ทุกตัว responsive (กว้าง 100% ของกล่อง) และใช้สีจาก CSS vars (สลับธีมได้เอง)
+// กราฟที่มีแกน (PercentBars/StackedColumns/GroupedBars/TrendLine) ใช้ recharts
+// ที่ไม่มีแกน (SegmentBar/Donut/MeterRow/DayTimeBars/StackedBars) ยังเป็น CSS/SVG มือ — recharts ไม่ได้ช่วยอะไร
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 export type Seg = { v: number; color: string; label?: string }
 
@@ -41,12 +44,245 @@ export function StackedBars({ data, height = 150, unit = 'คน' }: {
   )
 }
 
+/** คอลัมน์เทียบเป็น % — หน้ารายแผนก (เปรียบเทียบการมาทำงานของแต่ละแผนก)
+    ชื่อแผนกใต้แท่ง · ตัวเลข % บนหัวแท่ง · แกน Y 0-100% · แผนกเยอะเกินกล่อง -> เลื่อนแนวนอน */
+export function PercentBars({ rows, color = 'var(--accent)', colors, height = 320, columnWidth = 96 }: {
+  rows: { label: string; pct: number }[]
+  color?: string
+  /** สีรายแท่ง (วนซ้ำถ้าไม่พอ) — ใช้ตอนอยากแยกสีต่อหมวด เช่นต่อแผนก */
+  colors?: string[]
+  height?: number
+  columnWidth?: number
+}) {
+  const minWidth = Math.max(320, rows.length * columnWidth)
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth, height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} margin={{ top: 24, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
+            <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: 'var(--border)' }} tickMargin={10}
+              tick={{ fill: 'var(--text-dim)', fontSize: 13, fontFamily: 'var(--sans)' }} />
+            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v) => `${v}%`} width={48}
+              tickLine={false} axisLine={{ stroke: 'var(--border)' }}
+              tick={{ fill: 'var(--text-faint)', fontSize: 12, fontFamily: 'var(--sans)' }} />
+            <Tooltip cursor={{ fill: 'var(--surface-alt)' }}
+              formatter={(v) => [`${(Number(v) || 0).toFixed(1)}%`, 'อัตราเข้าทำงาน']}
+              contentStyle={{
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
+              }}
+              labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
+            <Bar dataKey="pct" fill={color} maxBarSize={36} radius={[4, 4, 0, 0]}>
+              {colors?.length ? rows.map((_r, i) => <Cell key={i} fill={colors[i % colors.length]} />) : null}
+              <LabelList dataKey="pct" position="top" formatter={(v) => `${(Number(v) || 0).toFixed(1)}%`}
+                style={{ fill: 'var(--text)', fontSize: 13, fontFamily: 'var(--sans)', fontWeight: 500 }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+/** คอลัมน์ซ้อน (stacked) — Figma หน้าหลัก node 13:2973 "สถิติการเข้า-ออกงาน"
+    1 แท่ง = 1 วัน ซ้อนตามชุดข้อมูล · legend วาดเองจากฝั่งผู้เรียก (ให้วางมุมขวาบนได้) */
+export function StackedColumns({ groups, series, height = 240, unit = 'ครั้ง', columnWidth = 56, axisLabel }: {
+  groups: { label: string; values: Record<string, number> }[]
+  series: { key: string; label: string; color: string }[]
+  height?: number
+  unit?: string
+  columnWidth?: number
+  /** ป้ายใต้แกน X (Figma หน้าหลักเขียน "วันที่") */
+  axisLabel?: string
+}) {
+  const data = groups.map((g) => ({ label: g.label, ...g.values }))
+  // columnWidth 0 = ให้กราฟย่อพอดีกล่อง (ไม่มีแถบเลื่อน) — ใช้ตอนวางคู่กับการ์ดในพื้นที่แคบ
+  const minWidth = groups.length * columnWidth
+  const margin = { top: 8, right: 8, left: 0, bottom: axisLabel ? 16 : 0 }
+  // เพดานแกน Y คิดเองแล้วส่งให้ทั้ง 2 กราฟ — กราฟแกนที่ปักไว้ซ้ายกับกราฟที่เลื่อนได้จะได้สเกลตรงกันเป๊ะ
+  const top = axis(Math.max(4, ...data.map((d) => series.reduce((a, s) => a + (Number(d[s.key as keyof typeof d]) || 0), 0)))).top
+  return (
+    // แกน Y ปักซ้ายไม่เลื่อนตาม: วาดกราฟใบที่ 2 ทับไว้ซ้าย (โชว์เฉพาะแกน) แล้วบังกราฟจริงที่เลื่อนลอดข้างหลัง
+    <div style={{ position: 'relative' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth, height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={margin} barCategoryGap="30%">
+              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
+              <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }} tickMargin={8}
+                tick={{ fill: 'var(--text-dim)', fontSize: 12, fontFamily: 'var(--sans)' }}
+                label={axisLabel ? { value: axisLabel, position: 'insideBottom', offset: -2, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'var(--sans)' } : undefined} />
+              {/* แกน Y ปกติ (เส้นกริดอิงตัวนี้) — เวลาเลื่อน ตัวเลขจะลอดไปหลังใบที่ปักซ้ายซึ่งพื้นทึบ */}
+              <YAxis domain={[0, top]} allowDecimals={false} width={32} tickLine={false}
+                axisLine={{ stroke: 'var(--border)' }}
+                tick={{ fill: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--mono)' }} />
+              <Tooltip cursor={{ fill: 'var(--surface-alt)' }}
+                formatter={(v, name) => [`${fmtNum(Number(v) || 0)} ${unit}`, String(name)]}
+                contentStyle={{
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                  boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
+                }}
+                labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
+              {series.map((s, i) => (
+                <Bar key={s.key} dataKey={s.key} name={s.label} stackId="a" fill={s.color} maxBarSize={28}
+                  // มนเฉพาะชิ้นบนสุดของกอง
+                  radius={i === series.length - 1 ? [4, 4, 0, 0] : undefined} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ใบแกน: กว้าง 32 (เท่าที่ YAxis กัน) พื้นทึบทับกราฟที่เลื่อนมา · ไม่รับคลิกให้ทะลุไปโดน tooltip ได้ */}
+      <div aria-hidden className="pointer-events-none"
+        style={{ position: 'absolute', left: 0, top: 0, width: 32, height, overflow: 'hidden', background: 'var(--bg)' }}>
+        {/* ขนาดตายตัว ไม่ใช้ ResponsiveContainer — พ่อกว้าง 32 แต่ลูกต้อง 120 มันวัดได้ 0 */}
+        <BarChart width={120} height={height} data={data} margin={margin} barCategoryGap="30%">
+          <XAxis dataKey="label" tick={false} tickLine={false} axisLine={false} tickMargin={8} />
+          <YAxis domain={[0, top]} allowDecimals={false} width={32} tickLine={false}
+            axisLine={{ stroke: 'var(--border)' }}
+            tick={{ fill: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--mono)' }} />
+          {/* ต้องมีชุดข้อมูลอย่างน้อย 1 ชิ้น recharts ถึงจะออก tick ให้ — วาดโปร่งใสไว้ */}
+          <Bar dataKey={series[0].key} stackId="a" fill="none" isAnimationActive={false} />
+        </BarChart>
+      </div>
+    </div>
+  )
+}
+
+/** แถบสัดส่วนแนวนอน (ไม่มีแกน) — Figma หน้าหลัก: สัดส่วนเวร / สถานะการมาทำงาน */
+export function SegmentBar({ segs, height = 24 }: { segs: Seg[]; height?: number }) {
+  const total = segs.reduce((s, x) => s + x.v, 0)
+  return (
+    <div style={{ display: 'flex', height, borderRadius: 'var(--r-md)', overflow: 'hidden', background: 'var(--surface-card)' }}>
+      {total > 0 && segs.filter((s) => s.v > 0).map((s, i) => (
+        <div key={i} title={`${s.label ?? ''} ${fmtNum(s.v)}`} style={{ width: `${(s.v / total) * 100}%`, background: s.color }} />
+      ))}
+    </div>
+  )
+}
+
+/** โครงร่างกราฟแท่งกลุ่มระหว่างโหลด — สูงเท่า GroupedBars เป๊ะ การ์ดจึงไม่ยุบ/ยืดตอนสลับตัวกรอง */
+export function GroupedBarsSkeleton({ groups = 5, series = 4, height = 320, unit = 'วัน' }: {
+  groups?: number
+  series?: number
+  height?: number
+  unit?: string
+}) {
+  // ความสูงแท่งคงที่ตามตำแหน่ง (ไม่สุ่ม) — ไม่งั้นสลับทุก render แล้วกระตุก
+  const h = [0.85, 0.5, 0.7, 0.35, 0.6, 0.45, 0.75, 0.4]
+  return (
+    <div aria-busy="true" aria-label="กำลังโหลดกราฟ">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', minHeight: 28 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({unit})</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 20 }}>
+          {Array.from({ length: series }, (_, i) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span className="skel" style={{ width: 14, height: 14, borderRadius: 4 }} />
+              <span className="skel" style={{ width: 56, height: 12 }} />
+            </span>
+          ))}
+        </span>
+      </div>
+      <div style={{ height, display: 'flex', flexDirection: 'column' }}>
+        {/* พื้นที่กราฟ: แกน Y + แท่ง */}
+        <div style={{ flex: 1, display: 'flex', gap: 8, minHeight: 0 }}>
+          <div style={{ width: 36, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 30 }}>
+            {Array.from({ length: 5 }, (_, i) => <span key={i} className="skel" style={{ width: 14, height: 10 }} />)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+              {Array.from({ length: groups }, (_, gi) => (
+                <div key={gi} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, height: '100%' }}>
+                  {Array.from({ length: series }, (_, si) => (
+                    <span key={si} className="skel" style={{ width: 18, height: `${h[(gi * series + si) % h.length] * 100}%`, borderRadius: '4px 4px 0 0' }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div style={{ height: 30, display: 'flex', alignItems: 'center' }}>
+              {Array.from({ length: groups }, (_, i) => (
+                <span key={i} style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                  <span className="skel" style={{ width: 58, height: 12 }} />
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** กราฟแท่งกลุ่ม — Figma หน้ารายละเอียดพนักงาน node 95:25768 (สถิติแยกตามสัปดาห์)
+    ใช้ recharts (ตัวเดียวในไฟล์นี้ที่ใช้ lib — กราฟอื่นเป็น CSS/SVG มือ ยังไม่ย้าย)
+    legend มุมขวาบน (วาดเอง ไม่ใช่ของ recharts) · เส้นกริดประแนวนอน · แท่งมนหัว · กลุ่มเยอะเกินกล่อง -> เลื่อนแนวนอน */
+export function GroupedBars({ groups, series, height = 320, unit = 'วัน', barWidth = 18 }: {
+  groups: { label: string; values: Record<string, number> }[]
+  series: { key: string; label: string; color: string }[]
+  height?: number
+  unit?: string
+  barWidth?: number
+}) {
+  const data = groups.map((g) => ({ label: g.label, ...g.values }))
+  // recharts ยืดเต็มกล่องเสมอ -> ตั้งความกว้างขั้นต่ำต่อกลุ่มเอง แล้วให้กล่องนอกเลื่อนแทน
+  const minWidth = Math.max(320, groups.length * (series.length * (barWidth + 6) + 56))
+
+  return (
+    <div>
+      {/* หน่วยซ้าย · legend ขวาบน — อยู่นอกกล่องเลื่อน จึงไม่ขยับตามตอน scroll แนวนอน
+          (Legend ของ recharts อยู่ใน SVG ที่กว้างตามข้อมูล เลยเลื่อนตาม ต้องวาดเอง) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', minHeight: 28 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({unit})</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 20 }}>
+          {series.map((s) => (
+            <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+              <span style={{ width: 14, height: 14, borderRadius: 4, background: s.color, flex: 'none' }} />
+              {s.label}
+            </span>
+          ))}
+        </span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth, height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={6} barCategoryGap="25%">
+              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
+              <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }}
+                tick={{ fill: 'var(--text-dim)', fontSize: 14, fontFamily: 'var(--sans)' }} tickMargin={10} />
+              <YAxis allowDecimals={false} width={36} tickLine={false} axisLine={{ stroke: 'var(--border)' }}
+                tick={{ fill: 'var(--text-faint)', fontSize: 12, fontFamily: 'var(--mono)' }} />
+              <Tooltip
+                cursor={{ fill: 'var(--surface-alt)' }}
+                formatter={(v, name) => [`${fmtNum(Number(v) || 0)} ${unit}`, String(name)]}
+                contentStyle={{
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                  boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
+                }}
+                labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
+              {series.map((s) => (
+                <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} maxBarSize={barWidth} radius={[4, 4, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** โดนัท conic-gradient + legend — ค่า 0 ทั้งหมดจะโชว์วงจาง */
-export function Donut({ segs, centerLabel, centerValue, size = 120 }: {
+export function Donut({ segs, centerLabel, centerValue, size = 120, pie, unit, legendSize = 12 }: {
   segs: Seg[]
   centerLabel: string
   centerValue: string | number
   size?: number
+  /** วงเต็ม ไม่เจาะรูตรงกลาง (Figma หน้ารายเวร: อัตราเข้างานแยกตามเวร) */
+  pie?: boolean
+  /** หน่วยต่อท้ายตัวเลขใน legend เช่น "คน" */
+  unit?: string
+  legendSize?: number
 }) {
   const total = segs.reduce((s, x) => s + x.v, 0)
   let acc = 0
@@ -60,17 +296,21 @@ export function Donut({ segs, centerLabel, centerValue, size = 120 }: {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', width: '100%' }}>
       <div style={{ position: 'relative', width: size, height: size, flex: 'none', borderRadius: '50%', background: `conic-gradient(${stops})` }}>
-        <div style={{ position: 'absolute', inset: Math.round(size * 0.18), borderRadius: '50%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{centerLabel}</span>
-          <span style={{ fontSize: size >= 120 ? 21 : 18, fontWeight: 700, fontFamily: 'var(--mono)' }}>{centerValue}</span>
-        </div>
+        {!pie && (
+          <div style={{ position: 'absolute', inset: Math.round(size * 0.18), borderRadius: '50%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{centerLabel}</span>
+            <span style={{ fontSize: size >= 120 ? 21 : 18, fontWeight: 500, fontFamily: 'var(--mono)' }}>{centerValue}</span>
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 120 }}>
         {segs.map((s, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: legendSize }}>
             <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flex: 'none' }} />
             <span style={{ color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtNum(s.v)}{total > 0 ? ` (${((s.v / total) * 100).toFixed(1)}%)` : ''}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              {fmtNum(s.v)}{unit ? ` ${unit}` : ''}{total > 0 ? ` (${((s.v / total) * 100).toFixed(2)}%)` : ''}
+            </span>
           </div>
         ))}
         {total === 0 && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ไม่มีข้อมูลในช่วงที่เลือก</span>}
@@ -79,45 +319,74 @@ export function Donut({ segs, centerLabel, centerValue, size = 120 }: {
   )
 }
 
-/** กราฟเส้นแนวโน้ม (SVG) — จุด + พื้นจาง แกน Y อัตโนมัติ */
-export function TrendLine({ points, color = 'var(--accent)', height = 210 }: {
+/** แถบเวลาบนแกน 24 ชั่วโมง — Figma หน้ารายเวร node 114:29745 (เปรียบเทียบเวลาเข้าเฉลี่ย)
+    รางเทาเต็มความกว้าง = 00:00-24:00 · ส่วนที่ทึบ = เวลาเฉลี่ยของเวรนั้น */
+export function DayTimeBars({ rows }: {
+  rows: { label: string; minutes: number | null; value: string; color: string }[]
+}) {
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {rows.map((r, i) => (
+          <div key={i}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-dim)', marginBottom: 6 }}>
+              {r.label}
+              <span style={{ marginLeft: 'auto', fontFamily: 'var(--mono)', color: 'var(--text-faint)' }}>{r.value}</span>
+            </div>
+            <div title={`${r.label} · ${r.value}`} style={{ height: 30, borderRadius: 6, background: 'var(--surface-card)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 6, background: r.color,
+                width: `${Math.min(100, Math.max(0, ((r.minutes ?? 0) / 1440) * 100))}%`,
+                transition: 'width .3s',
+              }} />
+            </div>
+          </div>
+        ))}
+        {rows.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ไม่มีข้อมูลในช่วงที่เลือก</span>}
+      </div>
+      {/* แกนเวลา 00:00-24:00 ทุก 6 ชม. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text-faint)' }}>
+        {['00:00', '06:00', '12:00', '18:00', '24:00'].map((t) => <span key={t}>{t}</span>)}
+      </div>
+    </div>
+  )
+}
+
+/** กราฟเส้นแนวโน้ม (recharts) — เส้น + จุด + พื้นจาง แกน/tooltip ชุดเดียวกับกราฟอื่น
+    จุดสุดท้ายทึบ ที่เหลือกลวง = ชี้ว่าค่าล่าสุดอยู่ตรงไหน */
+export function TrendLine({ points, color = 'var(--accent)', height = 210, unit = 'นาที' }: {
   points: { label: string; v: number }[]
   color?: string
   height?: number
+  unit?: string
 }) {
-  const W = 340
-  const padL = 34, padT = 16, padB = 34
-  const plotH = height - padT - padB
-  const max = Math.max(4, ...points.map((p) => p.v))
-  const { top, ticks } = axis(max)
-  const n = points.length
-  const x = (i: number) => n <= 1 ? padL + (W - padL) / 2 : padL + 20 + (i * (W - padL - 30)) / (n - 1)
-  const y = (v: number) => padT + plotH - (v / top) * plotH
-  const line = points.map((p, i) => `${x(i)},${y(p.v)}`).join(' ')
+  const last = points.length - 1
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
-      {ticks.map((t, i) => (
-        <g key={i}>
-          {/* เส้นฐาน (0) ทึบ ที่เหลือเป็นเส้นประ */}
-          <line x1={padL} y1={y(t)} x2={W} y2={y(t)} stroke={t === 0 ? 'var(--border)' : 'var(--border)'} strokeWidth={1} strokeDasharray={t === 0 ? undefined : '3 4'} />
-          <text x={padL - 6} y={y(t) + 3} textAnchor="end" fontSize={9} fill="var(--text-faint)">{fmtNum(t)}</text>
-        </g>
-      ))}
-      <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="var(--border)" strokeWidth={1} />
-      {n > 1 && <polygon points={`${line} ${x(n - 1)},${y(0)} ${x(0)},${y(0)}`} fill={color} opacity={0.1} />}
-      {n > 0 && <polyline points={line} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />}
-      {points.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.v)} r={3.5} fill={i === n - 1 ? color : 'var(--surface)'} stroke={color} strokeWidth={2}>
-          <title>{`${p.label} · ${p.v}`}</title>
-        </circle>
-      ))}
-      {points.map((p, i) => (
-        // label ถี่เกิน → เว้นให้เหลือ ~7 ป้าย
-        (n <= 8 || i % Math.ceil(n / 7) === 0 || i === n - 1)
-          ? <text key={`t${i}`} x={x(i)} y={height - padB + 16} textAnchor="middle" fontSize={9} fill="var(--text-faint)">{p.label}</text>
-          : null
-      ))}
-    </svg>
+    <div style={{ width: '100%', height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={points} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
+          <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }} tickMargin={8}
+            interval="preserveStartEnd" minTickGap={16}
+            tick={{ fill: 'var(--text-dim)', fontSize: 12, fontFamily: 'var(--sans)' }} />
+          <YAxis allowDecimals={false} width={32} tickLine={false} axisLine={{ stroke: 'var(--border)' }}
+            tick={{ fill: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--mono)' }} />
+          <Tooltip cursor={{ stroke: 'var(--border)' }}
+            formatter={(v) => [`${fmtNum(Number(v) || 0)} ${unit}`, '']}
+            contentStyle={{
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+              boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
+            }}
+            labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
+          <Area type="linear" dataKey="v" stroke={color} strokeWidth={2.5} fill={color} fillOpacity={0.1}
+            activeDot={{ r: 5, fill: color, stroke: 'var(--surface)', strokeWidth: 2 }}
+            dot={(p: { cx?: number; cy?: number; index?: number }) => (
+              <circle key={p.index} cx={p.cx} cy={p.cy} r={3.5} strokeWidth={2} stroke={color}
+                fill={p.index === last ? color : 'var(--surface)'} />
+            )} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 
@@ -134,7 +403,7 @@ export function MeterRow({ label, value, pct, color, dot }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, marginBottom: 5 }}>
         {dot && <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flex: 'none' }} />}
         <span style={{ color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        <span style={{ fontFamily: 'var(--mono)', fontWeight: 600, whiteSpace: 'nowrap' }}>{value}</span>
+        <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, whiteSpace: 'nowrap' }}>{value}</span>
       </div>
       <div style={{ height: 7, borderRadius: 5, background: 'var(--surface-gray)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, pct))}%`, background: color, borderRadius: 5, transition: 'width .3s' }} />

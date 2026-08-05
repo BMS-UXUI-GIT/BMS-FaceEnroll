@@ -21,27 +21,41 @@ const TONE: Record<Tone, string> = {
   info: 'var(--info)',
 }
 
-export function StatCard({ value, label, unit, icon, tone = 'accent', onClick }: {
+export function StatCard({ value, label, unit, icon, tone = 'accent', color: colorProp, layout = 'col', align = 'center', bg = 'var(--bg)', onClick }: {
   value: ReactNode
   label: ReactNode
   unit?: ReactNode
   icon?: ReactNode
   tone?: Tone
+  /** สีเฉพาะกิจ (นอกชุด tone) เช่นสีประจำเวร */
+  color?: string
+  /** 'col' = ไอคอนบน ข้อความล่าง (หน้าลงเวลา) · 'row' = ไอคอนซ้าย ข้อความขวา (หน้าลงทะเบียนใบหน้า 178x80) */
+  layout?: 'col' | 'row'
+  /** จัดชิดในแนวขวาง — 'center' (ค่าเริ่มต้น) · 'start' ชิดซ้าย (layout col แบบชิดซ้ายของหน้าหลัก) */
+  align?: 'center' | 'start'
+  /** พื้นการ์ด — ขาว (ค่าเริ่มต้น) สำหรับวางบนพื้นเทา · เทาไว้วางในแผงพื้นขาว (Figma หน้าหลัก) */
+  bg?: string
   onClick?: () => void
 }) {
-  const color = TONE[tone]
+  const color = colorProp ?? TONE[tone]
+  const row = layout === 'row'
+  // row ชิดซ้ายอยู่แล้ว · col เลือกได้ว่ากึ่งกลางหรือชิดซ้าย
+  const start = row || align === 'start'
   return (
     <div
       className={onClick ? 'lift' : undefined}
       onClick={onClick}
       style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 'var(--sp-2)',
-        minHeight: 138,
-        padding: 'var(--sp-3) var(--sp-10)',
-        background: 'var(--bg)',
+        display: 'flex',
+        flexDirection: row ? 'row' : 'column',
+        alignItems: start ? 'flex-start' : 'center',
+        justifyContent: row ? 'flex-start' : 'center',
+        gap: row ? 'var(--sp-2)' : 'var(--sp-2)',
+        minHeight: row ? 80 : 138,
+        padding: row || start ? 'var(--sp-3) var(--sp-4)' : 'var(--sp-3) var(--sp-10)',
+        background: bg,
         borderRadius: 'var(--r-xl)',
-        textAlign: 'center',
+        textAlign: start ? 'left' : 'center',
         cursor: onClick ? 'pointer' : undefined,
       }}
     >
@@ -52,11 +66,11 @@ export function StatCard({ value, label, unit, icon, tone = 'accent', onClick }:
           background: color, color: 'var(--bg)',
         }}>{icon}</span>
       )}
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: start ? 'flex-start' : 'center' }}>
         <div style={{ ...TEXT.bodyMed, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)', whiteSpace: 'nowrap' }}>{label}</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 'var(--sp-1)', marginTop: 'var(--sp-1)' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: start ? 'flex-start' : 'center', gap: 'var(--sp-1)', marginTop: 'var(--sp-1)' }}>
           <span style={{ ...TEXT.h1, color }}>{value}</span>
-          {unit && <span style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 40%, transparent)' }}>{unit}</span>}
+          {unit && <span style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 40%, transparent)', whiteSpace: 'nowrap' }}>{unit}</span>}
         </div>
       </div>
     </div>

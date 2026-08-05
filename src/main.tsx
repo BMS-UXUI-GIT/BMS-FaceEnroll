@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { App } from './App'
 import { AppProvider } from './state'
 import { installMockFetch } from './mock'
+import './tailwind.css'   // ต้องมาก่อน theme.css — token ของ Figma ต้องชนะ preflight
 import './theme.css'
 
 installMockFetch() // dev + VITE_MOCK=1 เท่านั้น — build จริงเป็น no-op แล้วถูกตัดทิ้ง

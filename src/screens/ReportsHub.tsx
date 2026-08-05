@@ -1,18 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { nf, useFetch } from '../hooks'
-import { Pager, usePaged } from '../components/Pager'
-import { filterQS, isoAddDays, localISO, ShiftDeptFilters, useAttFilterOptions } from '../components/AttFilters'
-import { DatePicker, MonthPicker, thShort } from '../components/DatePicker'
+import { PAGE_SIZE, usePaged } from '../components/Pager'
+import { filterQS, isoAddDays, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { MonthPicker, thShort } from '../components/DatePicker'
+import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { SearchSelect } from '../components/SearchSelect'
+import { Button } from '../components/inputs/Button'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { StatCard } from '../components/data-display/StatCard'
+import { DataTable, type Column } from '../components/data-display/DataTable'
+import { Pagination } from '../components/data-display/Pagination'
 import { exportCSV, exportPDF, exportXLSX, printTable, type Table } from '../utils/exportx'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 import { useApp } from '../state'
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '8px 10px', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '8px 10px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '.3px', background: 'var(--surface-card)' }
+// รายงาน — Figma node 114:36843
+//   การ์ดหัวเรื่อง: ชิปช่วงวัน/เวร/แผนก · การ์ดจำนวนเทมเพลต · ภาพประกอบ
+//   แผง "เทมเพลต": รายการเทมเพลตซ้าย + ตัวอย่างรายงานขวา · ปุ่ม "ดาวน์โหลดไฟล์" มีเมนู PDF/Excel/CSV/พิมพ์
 
 type Daily = {
   rows: { emp: string; name: string; dept?: string; date: string; in: string; out: string; shift: string; status: string }[]
@@ -52,31 +60,53 @@ function thisMonth(): string {
 const deptName = (d?: string) => (d && d.trim() !== '' ? d : 'ไม่ระบุแผนก')
 const dash = (v?: string) => (v && v.trim() !== '' ? v : '—')
 
-const fileIcon = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
-  </svg>
-)
-
-// ปุ่มส่งออก — hover เปลี่ยนสีตามชนิดไฟล์ (ตามดีไซน์)
-function ExpBtn({ label, tone, onClick, disabled, busy }: {
-  label: string
-  tone: string
-  onClick: () => void
+/** เมนูดาวน์โหลด — ปุ่มเดียวตาม Figma แล้วเลือกชนิดไฟล์ในเมนู */
+function DownloadMenu({ disabled, busy, onPick }: {
   disabled: boolean
-  busy?: boolean
+  busy: '' | 'pdf' | 'xlsx' | 'csv' | 'print'
+  onPick: (kind: 'pdf' | 'xlsx' | 'csv' | 'print') => void
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', away)
+    return () => document.removeEventListener('mousedown', away)
+  }, [open])
+
+  const ITEMS = [
+    { kind: 'pdf' as const, label: 'PDF', color: 'var(--danger)' },
+    { kind: 'xlsx' as const, label: 'Excel', color: 'var(--ok)' },
+    { kind: 'csv' as const, label: 'CSV', color: 'var(--accent)' },
+    { kind: 'print' as const, label: 'พิมพ์', color: 'var(--info)' },
+  ]
+
   return (
-    <button onClick={onClick} disabled={disabled}
-      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.borderColor = tone; e.currentTarget.style.color = tone } }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '8px 13px',
-        borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface-card)', color: 'var(--text)',
-        fontFamily: 'var(--sans)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.55 : 1, whiteSpace: 'nowrap',
-      }}>
-      {busy ? 'กำลังส่งออก…' : label}
-    </button>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <Button variant="primary" size="md" pill disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        icon={<Icon name="download" size={20} width={1.8} />}
+        iconRight={<Icon name="chevron-down" size={16} width={2} />}>
+        {busy ? 'กำลังส่งออก…' : 'ดาวน์โหลดไฟล์'}
+      </Button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + var(--sp-2))', minWidth: 180, zIndex: 40,
+          background: 'var(--bg)', borderRadius: 'var(--r-lg)', border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-lg)', padding: 'var(--sp-2)',
+          display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)',
+        }}>
+          {ITEMS.map((it) => (
+            <Button key={it.kind} variant="ghost" size="sm" align="start" fullWidth
+              onClick={() => { setOpen(false); onPick(it.kind) }}
+              icon={<Icon name={it.kind === 'print' ? 'report' : 'download'} size={18} width={1.8} color={it.color} />}>
+              {it.label}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -88,17 +118,17 @@ export function ReportsHub() {
   const [from, setFrom] = useState(localISO())
   const [to, setTo] = useState(localISO())
   const [month, setMonth] = useState(thisMonth())
-  const [fShifts, setFShifts] = useState<string[]>([])
-  const [fDepts, setFDepts] = useState<string[]>([])
+  const [shift, setShift] = useState('')
+  const [dept, setDept] = useState('')
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
   const [exporting, setExporting] = useState<'' | 'pdf' | 'xlsx' | 'csv' | 'print'>('')
   const [expErr, setExpErr] = useState<string | null>(null)
 
   // สลับโรง = ล้างตัวกรองทั้งหมด
-  useEffect(() => { setFShifts([]); setFDepts([]); setFrom(localISO()); setTo(localISO()); setMonth(thisMonth()) }, [hcode])
+  useEffect(() => { setShift(''); setDept(''); setFrom(localISO()); setTo(localISO()); setMonth(thisMonth()) }, [hcode])
 
   const q = `hcode=${encodeURIComponent(hcode)}`
-  const fq = filterQS(fShifts, fDepts)
+  const fq = filterQS(shift ? [shift] : [], dept ? [dept] : [])
   // fetch เฉพาะรายงานที่ถูกเลือก (dept/shift/late ใช้ analytics ตัวเดียวกัน)
   const dailyF = useFetch<Daily>(hcode && active === 'daily' ? `/admin/attendance/daily?${q}&date_from=${from}&date_to=${to}${fq}` : null, reload)
   const monthlyF = useFetch<Monthly>(hcode && active === 'monthly' ? `/admin/attendance/monthly?${q}&month=${month}${fq}` : null, reload)
@@ -107,7 +137,7 @@ export function ReportsHub() {
   const loading = active === 'daily' ? dailyF.loading : active === 'monthly' ? monthlyF.loading : active === 'person' ? false : anaF.loading
   const err = active === 'daily' ? dailyF.err : active === 'monthly' ? monthlyF.err : active === 'person' ? null : anaF.err
 
-  // แปลงข้อมูล API -> Table (ใช้ทั้ง preview และส่งออก) — ไม่มีคอลัมน์ขาดงาน
+  // แปลงข้อมูล API -> Table (ใช้ทั้งตัวอย่างและส่งออก) — ไม่มีคอลัมน์ขาดงาน
   const table = useMemo<Table | null>(() => {
     if (active === 'daily') {
       if (!dailyF.data) return null
@@ -153,12 +183,29 @@ export function ReportsHub() {
     return null
   }, [active, dailyF.data, monthlyF.data, anaF.data])
 
-  // preview แบ่งหน้า 20 (ส่งออกไฟล์ยังได้ครบทุกแถว) — เปลี่ยนรายงาน/ตัวกรอง = กลับหน้าแรก
+  // ตัวอย่างแบ่งหน้า (ส่งออกไฟล์ยังได้ครบทุกแถว) — เปลี่ยนรายงาน/ตัวกรอง = กลับหน้าแรก
   const paged = usePaged(table?.rows ?? [])
-  useEffect(() => { paged.setPage(0) }, [active, from, to, month, fShifts, fDepts, hcode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { paged.setPage(0) }, [active, from, to, month, shift, dept, hcode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // คอลัมน์แบบไดนามิก — หัวตาราง/ชนิดค่าเปลี่ยนตามรายงานที่เลือก
+  const cols: Column<(string | number)[]>[] = table ? table.headers.map((h, j): Column<(string | number)[]> => ({
+    key: `c${j}`,
+    header: h,
+    thStyle: { padding: 'var(--sp-3) var(--sp-4)', color: 'var(--bg)', whiteSpace: 'nowrap' },
+    tdStyle: (r) => ({
+      padding: 'var(--sp-3) var(--sp-4)',
+      fontFamily: typeof r[j] === 'number' ? 'var(--mono)' : undefined,
+      color: j === 0 ? 'var(--text)' : 'var(--table-row-text)',
+      fontWeight: j === 0 ? 500 : 400,
+      whiteSpace: 'nowrap',
+    }),
+    cell: (r) => (typeof r[j] === 'number' ? nf(r[j] as number) : r[j]),
+  })) : []
 
   if (currentHcode === '*') return <PickHospital />
-  if (!hcode) return <div style={{ maxWidth: 'var(--page-max)' }}><div style={{ ...card, padding: 20, color: 'var(--text-dim)', fontSize: 13 }}>ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div></div>
+  if (!hcode) {
+    return <div className="max-w-(--page-max) text-body text-text-dim">ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div>
+  }
 
   const activeLabel = REPORTS.find((r) => r.key === active)!.label
   const periodLabel = active === 'monthly'
@@ -183,122 +230,133 @@ export function ReportsHub() {
     }
   }
 
+  // ป้ายมุมขวาหัวแผง — ตัวกรองที่ใช้อยู่ทั้งหมด
+  const shiftLabel = shift ? (shiftOpts.find((o) => o.value === shift)?.label ?? shift) : 'ทุกเวร'
+  const deptLabel = dept ? (deptOpts.find((o) => o.value === dept)?.label ?? dept) : 'ทุกแผนก'
+  const filterMeta = [periodLabel, shiftLabel, deptLabel].join(' · ')
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 'var(--page-max)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>สร้างรายงานและส่งออกข้อมูลสำหรับการวิเคราะห์</p>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {active === 'monthly'
-            ? <MonthPicker value={month} max={thisMonth()} onChange={setMonth} />
-            : <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                <DatePicker value={from} min={isoAddDays(to, -30)} max={to} onChange={setFrom} />
-                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ถึง</span>
-                <DatePicker value={to} min={from} max={localISO()}
-              onChange={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
-              </span>}
-          <ShiftDeptFilters shiftOpts={shiftOpts} deptOpts={deptOpts}
-            shifts={fShifts} depts={fDepts} onShifts={setFShifts} onDepts={setFDepts} />
-          {(fShifts.length > 0 || fDepts.length > 0) && (
-            <button onClick={() => { setFShifts([]); setFDepts([]) }}
-              style={{ fontSize: 11.5, border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', textDecoration: 'underline' }}>ล้างตัวกรอง</button>
-          )}
-          <RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        {/* ภาพประกอบส่งออกไฟล์ (Figma node 114:36843) */}
+        <img src="/hero-report.svg" alt="" aria-hidden width={230} height={230}
+          className="hide-sm pointer-events-none select-none"
+          style={{ position: 'absolute', right: 8, bottom: -12 }} />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">รายงาน</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              สร้างรายงานและส่งออกข้อมูลสำหรับการวิเคราะห์
+            </p>
+          </div>
+          <span className="inline-flex gap-2 items-center flex-wrap">
+            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+              icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+              รีเฟรช
+            </Button>
+            {/* รายงานประจำเดือนเลือกเป็นเดือน ที่เหลือเลือกเป็นช่วงวัน */}
+            {active === 'monthly' ? (
+              <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
+                <MonthPicker bare value={month} max={thisMonth()} onChange={setMonth} />
+              </FilterChip>
+            ) : (
+              <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+                {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
+                <DateRangePicker bare from={from} to={to} max={localISO()}
+                  onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
+                  onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+              </FilterChip>
+            )}
+            <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
+              <SearchSelect bare hideCaret value={shift} onChange={setShift}
+                options={[{ value: '', label: 'ทั้งหมด' }, ...shiftOpts]}
+                placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
+            </FilterChip>
+            <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
+              <SearchSelect bare hideCaret value={dept} onChange={setDept}
+                options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+                placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
+            </FilterChip>
+          </span>
+        </div>
+
+        <div className="relative mt-4 max-w-90">
+          <StatCard tone="accent" layout="row" label="เทมเพลต" unit="ไฟล์"
+            icon={<Icon name="report" size={24} color="currentColor" />}
+            value={nf(REPORTS.length)} />
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {/* รายการรายงานสำเร็จรูป */}
-        <div style={{ ...card, overflow: 'hidden', flex: '1 1 260px', minWidth: 'min(260px, 100%)' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 700 }}>รายงานสำเร็จรูป</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {REPORTS.map((r, i) => {
-              const on = active === r.key
-              return (
-                <button key={r.key} onClick={() => setActive(r.key)}
-                  style={{
-                    textAlign: 'left', display: 'flex', alignItems: 'center', gap: 11, padding: '13px 18px',
-                    border: 'none', borderTop: i > 0 ? '1px solid var(--border)' : 'none', cursor: 'pointer',
-                    fontFamily: 'var(--sans)', fontSize: 13,
-                    background: on ? 'var(--surface-card)' : 'transparent',
-                    color: on ? 'var(--text)' : 'var(--text-dim)', fontWeight: on ? 700 : 500,
-                    boxShadow: on ? 'inset 3px 0 0 var(--accent)' : 'none',
-                  }}>
-                  {fileIcon}{r.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* preview รายงานที่เลือก + ปุ่มส่งออก */}
-        <div style={{ ...card, overflow: 'hidden', flex: '2.4 1 380px', minWidth: 'min(380px, 100%)' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>{activeLabel}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 2 }}>{active === 'person' ? hospLabel : subtitle}</div>
+      {/* ---------- เทมเพลต + ตัวอย่างรายงาน ---------- */}
+      <SectionPanel
+        title="เทมเพลต"
+        meta={filterMeta}
+        actions={<DownloadMenu disabled={!canExport} busy={exporting} onPick={doExport} />}
+        bodyPadding={false}
+      >
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(240px, 320px) minmax(0, 1fr)', padding: 'var(--sp-4)' }}>
+          {/* รายการเทมเพลต */}
+          {/* รายการเทมเพลตติดหนึบใต้ Topbar ตอนเลื่อนดูตารางยาว ๆ */}
+          <div className="rounded-xl" style={{
+            border: '1px solid var(--control-border)', padding: 'var(--sp-2)',
+            display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)',
+            position: 'sticky', top: 'calc(var(--topbar-h) + var(--sp-4))', alignSelf: 'start',
+          }}>
+            {REPORTS.map((r) => (
+              <Button key={r.key} variant="ghost" size="md" align="start" fullWidth radius="lg"
+                active={active === r.key} ariaCurrent={active === r.key || undefined}
+                onClick={() => setActive(r.key)}
+                icon={<Icon name="report" size={20} width={1.8} />}>
+                {r.label}
+              </Button>
+            ))}
           </div>
 
-          {active === 'person' ? (
-            <div style={{ padding: '30px 24px', textAlign: 'center', fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7 }}>
-              รายงานสถิติการทำงานรายบุคคลดูได้ที่แท็บ <b>"รายบุคคล"</b><br />
-              เลือกพนักงานเพื่อดูโปรไฟล์ สรุปช่วงเวลา และประวัติการลงเวลาแบบละเอียด
-            </div>
-          ) : err ? (
-            <div style={{ padding: '14px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>
-          ) : !table ? (
-            <Loading />
-          ) : (
-            <>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
-                  <thead><tr style={theadTr}>
-                    <th style={{ ...th, paddingLeft: 16, textAlign: 'right', width: 56 }}>ลำดับ</th>
-                    {table.headers.map((h, i) => (
-                      <th key={h} style={{ ...th, paddingRight: i === table.headers.length - 1 ? 16 : undefined }}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {paged.pageRows.map((r, i) => (
-                      <tr key={i} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ ...td, paddingLeft: 16, textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11 }}>{nf(paged.offset + i + 1)}</td>
-                        {r.map((c, j) => (
-                          <td key={j} style={{
-                            ...td,
-                            paddingLeft: j === 0 ? 16 : undefined, paddingRight: j === r.length - 1 ? 16 : undefined,
-                            fontFamily: typeof c === 'number' ? 'var(--mono)' : undefined,
-                            textAlign: typeof c === 'number' ? 'center' : 'left',
-                            color: j === 0 ? undefined : 'var(--text-dim)',
-                            fontWeight: j === 0 ? 600 : 400,
-                          }}>{typeof c === 'number' ? nf(c) : c}</td>
-                        ))}
-                      </tr>
-                    ))}
-                    {table.rows.length === 0 && (
-                      <tr><td colSpan={table.headers.length + 1} style={{ ...td, padding: '18px 16px', textAlign: 'center', color: 'var(--text-faint)' }}>ไม่มีข้อมูลในช่วงที่เลือก</td></tr>
-                    )}
-                  </tbody>
-                </table>
+          {/* ตัวอย่างรายงาน */}
+          <div className="rounded-xl" style={{ border: '1px solid var(--control-border)', padding: 'var(--sp-4)', minWidth: 0 }}>
+            <div style={{ textAlign: 'center', marginBottom: 'var(--sp-4)' }}>
+              <div style={{ ...TEXT.h3, color: 'var(--text)' }}>{activeLabel}</div>
+              <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 'var(--sp-1)' }}>
+                {active === 'person' ? hospLabel : subtitle}
               </div>
-              {table.rows.length > 0 && (
-                <div style={{ padding: '10px 18px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>ส่งออกไฟล์ได้ครบทุกแถว</span>
-                  <Pager page={paged.page} total={paged.total} onPage={paged.setPage} />
-                </div>
-              )}
-            </>
-          )}
-
-          <div style={{ padding: '14px 18px', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.4px', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>ส่งออกข้อมูล</div>
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
-              <ExpBtn label="PDF" tone="var(--danger)" onClick={() => doExport('pdf')} disabled={!canExport} busy={exporting === 'pdf'} />
-              <ExpBtn label="Excel" tone="var(--ok)" onClick={() => doExport('xlsx')} disabled={!canExport} busy={exporting === 'xlsx'} />
-              <ExpBtn label="CSV" tone="var(--accent)" onClick={() => doExport('csv')} disabled={!canExport} busy={exporting === 'csv'} />
-              <ExpBtn label="Print" tone="var(--info)" onClick={() => doExport('print')} disabled={!canExport} busy={exporting === 'print'} />
-              {expErr && <span style={{ fontSize: 12, color: 'var(--danger)' }}>ส่งออกไม่สำเร็จ: {expErr}</span>}
             </div>
+
+            {active === 'person' ? (
+              <div style={{ ...TEXT.body, padding: '30px 24px', textAlign: 'center', color: 'var(--text-dim)', lineHeight: 1.7 }}>
+                รายงานสถิติการทำงานรายบุคคลดูได้ที่เมนู <b>"รายบุคคล"</b><br />
+                เลือกพนักงานเพื่อดูโปรไฟล์ สรุปช่วงเวลา และประวัติการลงเวลาแบบละเอียด
+              </div>
+            ) : err ? (
+              <div className="text-body text-danger" style={{ padding: 'var(--sp-4)' }}>ผิดพลาด: {err}</div>
+            ) : !table ? (
+              <Loading />
+            ) : (
+              <>
+                <div className="table-rounded rounded-lg" style={{ border: '1px solid var(--control-border)' }}>
+                  <DataTable
+                    columns={cols} rows={paged.pageRows} rowKey={(_r, i) => String(i)}
+                    minWidth={640}
+                    // หัวตารางพื้นน้ำเงินเข้ม ตัวอักษรขาว ตาม Figma
+                    theadRowStyle={{ background: 'var(--table-head-dark)' }}
+                    empty="ไม่มีข้อมูลในช่วงที่เลือก"
+                    emptyStyle={{ ...TEXT.body, padding: '28px 20px', textAlign: 'center', color: 'var(--text-dim)' }}
+                  />
+                </div>
+                {table.rows.length > PAGE_SIZE && (
+                  <Pagination page={paged.page} pageSize={PAGE_SIZE} total={paged.total}
+                    shown={paged.pageRows.length} onPage={paged.setPage} />
+                )}
+                <p className="text-sm-fig mt-3 mb-0 text-text-dim">
+                  ตัวอย่างแสดงทีละ {PAGE_SIZE} แถว — ไฟล์ที่ดาวน์โหลดได้ครบทุกแถว
+                </p>
+              </>
+            )}
+            {expErr && <div className="text-body text-danger" style={{ marginTop: 'var(--sp-3)' }}>ส่งออกไม่สำเร็จ: {expErr}</div>}
           </div>
         </div>
-      </div>
+      </SectionPanel>
     </div>
   )
 }

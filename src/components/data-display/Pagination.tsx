@@ -1,4 +1,5 @@
 import { TEXT } from '../../typography'
+import { Icon } from '../../icons'
 
 // แถบแบ่งหน้า — Figma component "Pagination" (node 90:2074)
 // สเปกจริง: สูง 68 · padding 16/24 · ปุ่ม 36x36 radius 8
@@ -47,7 +48,9 @@ export function Pagination({ page, pageSize, total, shown, onPage }: {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
         <button onClick={() => onPage(page - 1)} disabled={page <= 0} title="หน้าก่อนหน้า"
-          style={{ ...cell, ...TEXT.bodyLg, border: '1px solid var(--control-border)' }}>‹</button>
+          style={{ ...cell, border: '1px solid var(--control-border)' }}>
+          <Icon name="chevron-down" size={16} width={2} style={{ transform: 'rotate(90deg)' }} />
+        </button>
 
         {pageList(page, pages).map((p, i) =>
           p === '…'
@@ -64,7 +67,9 @@ export function Pagination({ page, pageSize, total, shown, onPage }: {
         )}
 
         <button onClick={() => onPage(page + 1)} disabled={page >= pages - 1} title="หน้าถัดไป"
-          style={{ ...cell, ...TEXT.bodyLg, border: '1px solid var(--control-border)' }}>›</button>
+          style={{ ...cell, border: '1px solid var(--control-border)' }}>
+          <Icon name="chevron-down" size={16} width={2} style={{ transform: 'rotate(-90deg)' }} />
+        </button>
       </div>
     </div>
   )

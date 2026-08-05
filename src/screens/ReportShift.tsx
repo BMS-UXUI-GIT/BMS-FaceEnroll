@@ -1,146 +1,188 @@
-import { useEffect, useState } from 'react'
-import { nf, useFetch } from '../hooks'
-import { daysAgoISO, isoAddDays, localISO } from '../components/AttFilters'
-import { DatePicker } from '../components/DatePicker'
-import { Donut, MeterRow } from '../components/charts'
+import { useEffect, useMemo, useState } from 'react'
+import { clock, nf, useFetch } from '../hooks'
+import { localISO } from '../components/AttFilters'
+import { MonthPicker, thMonth, thShort } from '../components/DatePicker'
+import { DayTimeBars, Donut } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { Button } from '../components/inputs/Button'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { StatCard } from '../components/data-display/StatCard'
+import { ShiftBadge, shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
+import { DataTable, type Column } from '../components/data-display/DataTable'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 import { useApp } from '../state'
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
-
-// สีสลับต่อเวร (pastel, แยกแต่ละเวรชัด): พื้นการ์ด(ทินต์) / ตัวเลข / กราฟ — index เดียวกัน = เวรเดียวกันทุกที่
-const CAT = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)', 'var(--cat-7)', 'var(--cat-8)']
-const BG = CAT.map((c) => `color-mix(in srgb, ${c} 14%, var(--surface))`)
-const NUM_C = CAT
-const CHART_C = CAT
+// รายเวร — Figma node 114:29745
+//   การ์ดหัวเรื่อง (ภาพประกอบ 3 เวร) + การ์ดสรุปเวรละใบ + ชิปเลือกเดือน
+//   2 แผง: อัตราเข้างานแยกตามเวร (วงกลม) · เปรียบเทียบเวลาเข้าเฉลี่ย (แถบบนแกน 24 ชม.)
+//   แผงล่าง: ตารางสรุปรายเวร
+//
+// ⚠️ ระบบไม่มีตารางเวรล่วงหน้า (ไม่รู้ว่าใครต้องอยู่เวรไหน) — คอลัมน์ "ขาดงาน/อัตราเข้าทำงาน"
+//    ของ Figma จึงคำนวณไม่ได้ ตารางนี้ใช้ตัวเลขที่วัดได้จริงจากการลงเวลาแทน
 
 type ShiftRow = { name: string; persons: number; late: number; early: number; avg_in: string }
 type Analytics = { shifts: ShiftRow[] }
 
-const shiftName = (s: string) => (s.trim() === '' ? '—' : s)
-// "HH:MM" -> % ของวัน (นาทีตั้งแต่เที่ยงคืน / 1440)
-const avgInPct = (t: string) => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
-  return m ? ((Number(m[1]) * 60 + Number(m[2])) / 1440) * 100 : 0
+const shiftName = (s: string) => (s.trim() === '' ? 'ไม่ระบุเวร' : s)
+/** ชื่อสั้นสำหรับป้าย/แกน — ตัดวงเล็บเวลาออก เช่น "เช้า (08:00-16:00)" -> "เช้า" */
+const shortName = (s: string) => shiftName(s).replace(/\s*\(.*\)\s*$/, '')
+const colorOf = (k: ShiftKind) => `var(--shift-${k}-icon)`
+const ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
+
+/** "HH:MM" -> นาทีตั้งแต่เที่ยงคืน (ค่าพัง = null) */
+const toMinutes = (t: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((t ?? '').trim())
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+/** ช่วงวันของเดือนที่เลือก (ไม่เลยวันนี้) */
+function monthRange(ym: string): { from: string; to: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym)
+  const now = new Date()
+  const y = m ? Number(m[1]) : now.getFullYear()
+  const mo = m ? Number(m[2]) - 1 : now.getMonth()
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const end = iso(new Date(y, mo + 1, 0))
+  const today = localISO()
+  return { from: iso(new Date(y, mo, 1)), to: end > today ? today : end }
 }
 
 export function ReportShift() {
   const { currentHcode } = useApp()
   const hcode = currentHcode === '*' ? '' : currentHcode
   const [reload, setReload] = useState(0)
-  // default = 7 วันล่าสุด (ภาพรวม/เทียบสัดส่วน ต้องมีหลายวันถึงจะมีความหมาย)
-  const [from, setFrom] = useState(daysAgoISO(6))
-  const [to, setTo] = useState(localISO())
+  const [month, setMonth] = useState(localISO().slice(0, 7))
 
-  // สลับโรง = กลับมาดูวันนี้
-  useEffect(() => { setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
+  // สลับโรง = กลับมาดูเดือนนี้
+  useEffect(() => { setMonth(localISO().slice(0, 7)) }, [hcode])
 
+  const range = useMemo(() => monthRange(month), [month])
   const anaF = useFetch<Analytics>(
-    hcode ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}` : null, reload)
+    hcode ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${range.from}&date_to=${range.to}` : null, reload)
   const ana = anaF.data
 
   if (currentHcode === '*') return <PickHospital />
 
   const shifts = ana?.shifts ?? []
-  const totalPersons = shifts.reduce((s, x) => s + x.persons, 0)
-  const totalLate = shifts.reduce((s, x) => s + x.late, 0)
-  const pctOf = (v: number) => (totalPersons > 0 ? `${((v / totalPersons) * 100).toFixed(2)}%` : '—')
-  const lateSegs = shifts.map((s, i) => ({ v: s.late, color: CHART_C[i % CHART_C.length], label: shiftName(s.name) }))
+  const total = shifts.reduce((s, x) => s + x.persons, 0)
+  const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0)
+  const kindOf = (s: ShiftRow) => shiftKindOf(s.name)
+
+  const cols: Column<ShiftRow>[] = [
+    {
+      key: 'shift', header: 'เวร', width: 140,
+      thStyle: { textAlign: 'center' }, tdStyle: { padding: 'var(--sp-3) var(--sp-6)' },
+      cell: (s) => <ShiftBadge shift={kindOf(s)} label={shortName(s.name)} />,
+    },
+    { key: 'persons', header: 'ลงเวลา', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.persons) },
+    { key: 'late', header: 'มาสาย', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.late) },
+    { key: 'early', header: 'ออกก่อน', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.early) },
+    { key: 'avg', header: 'เวลาเข้าเฉลี่ย', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.avg_in) },
+    {
+      key: 'share', header: 'สัดส่วนของทั้งหมด',
+      cell: (s) => <span style={{ ...TEXT.bodyMed, color: colorOf(kindOf(s)) }}>{total > 0 ? `${pct(s.persons).toFixed(2)}%` : '—'}</span>,
+    },
+  ]
+
+  // ป้ายมุมขวาหัวแผง — บอกช่วงวันจริงที่ดึงมา (เดือนปัจจุบันจะจบที่วันนี้ ไม่ใช่สิ้นเดือน)
+  const filterMeta = `${thMonth(month)} · ${thShort(range.from)} – ${thShort(range.to)}`
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 'var(--page-max)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>ดูสถิติการเข้า-ออกงานแยกตามเวรการทำงาน</p>
-        <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            <DatePicker value={from} min={isoAddDays(to, -30)} max={to} onChange={setFrom} />
-            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ถึง</span>
-            <DatePicker value={to} min={from} max={localISO()}
-              onChange={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง (Figma Frame 128:3610) ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        {/* ภาพประกอบ 3 เวร (Figma node 114:30977) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
+        <img src="/hero-shift.svg" alt="" aria-hidden width={397} height={251}
+          className="hide-sm pointer-events-none select-none"
+          style={{ position: 'absolute', right: 0, bottom: 0 }} />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">รายเวร</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              ดูสถิติการเข้า-ออกงานแยกตามเวรการทำงาน
+            </p>
+          </div>
+          <span className="inline-flex gap-2 items-center flex-wrap">
+            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+              icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+              รีเฟรชข้อมูลล่าสุด
+            </Button>
+            <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
+              <MonthPicker bare value={month} onChange={setMonth} max={localISO().slice(0, 7)} />
+            </FilterChip>
           </span>
-          <RefreshButton busy={anaF.loading} onClick={() => setReload((r) => r + 1)} />
-        </span>
-      </div>
+        </div>
 
-      {anaF.err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {anaF.err}</div>}
-
-      {/* การ์ดต่อเวร */}
-      {!ana && !anaF.err ? (
-        <div style={card}><Loading /></div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14 }}>
-          {shifts.map((s, i) => (
-            <div key={s.name || i} style={{ background: BG[i % BG.length], border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-dim)' }}>{shiftName(s.name)}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-                <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--mono)', color: NUM_C[i % NUM_C.length] }}>{nf(s.persons)}</span>
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>คน ({pctOf(s.persons)})</span>
-              </div>
-            </div>
+        {/* การ์ดสรุปเวรละใบ — ตัวเลขคือคนที่ลงเวลาในเวรนั้น + สัดส่วน */}
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          {shifts.map((s) => (
+            <StatCard key={s.name} label={`เวร${shortName(s.name)}`} color={colorOf(kindOf(s))}
+              icon={<Icon name={ICON[kindOf(s)]} size={24} color="currentColor" />}
+              value={nf(s.persons)} unit={`คน (${pct(s.persons).toFixed(0)}%)`} />
           ))}
-          {shifts.length === 0 && <div style={{ ...card, padding: '18px 20px', color: 'var(--text-faint)', fontSize: 12.5 }}>ไม่มีข้อมูลในช่วงที่เลือก</div>}
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16, alignItems: 'start' }}>
-        <div style={{ ...card, padding: '16px 18px' }}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>อัตราการมาสายแยกตามเวร</h2>
-          {!ana && !anaF.err ? <Loading /> : (
-            <Donut segs={lateSegs} centerLabel="มาสาย" centerValue={nf(totalLate)} size={118} />
-          )}
-        </div>
-        <div style={{ ...card, padding: '16px 18px' }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700 }}>เปรียบเทียบเวลาเข้าเฉลี่ย</h2>
-          {!ana && !anaF.err ? <Loading /> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {shifts.map((s, i) => (
-                <MeterRow key={s.name || i} label={shiftName(s.name)}
-                  value={s.avg_in} pct={avgInPct(s.avg_in)} color={CHART_C[i % CHART_C.length]} />
-              ))}
-              {ana && shifts.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ไม่มีข้อมูลในช่วงที่เลือก</span>}
+          {shifts.length === 0 && (
+            <div className="bg-bg rounded-xl text-body text-text-dim" style={{ padding: 'var(--sp-4) var(--sp-6)' }}>
+              {anaF.loading ? 'กำลังโหลด…' : 'ไม่มีข้อมูลในเดือนที่เลือก'}
             </div>
           )}
         </div>
       </div>
 
-      {/* ตารางสรุปตามเวร */}
-      <div style={{ ...card, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 700 }}>สรุปตามเวร</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 560 }}>
-            <thead><tr style={theadTr}>
-              <th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th>
-              <th style={{ ...th, padding: '10px 20px' }}>เวร</th>
-              <th style={{ ...th, textAlign: 'center' }}>ลงเวลา</th>
-              <th style={{ ...th, textAlign: 'center' }}>มาสาย</th>
-              <th style={{ ...th, textAlign: 'center' }}>ออกก่อน</th>
-              <th style={{ ...th, padding: '10px 20px', textAlign: 'right' }}>เวลาเข้าเฉลี่ย</th>
-            </tr></thead>
-            <tbody>
-              {shifts.map((s, i) => (
-                <tr key={s.name || i} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(i + 1)}</td>
-                  <td style={{ ...td, padding: '11px 20px', fontWeight: 600 }}>{shiftName(s.name)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)' }}>{nf(s.persons)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--warn)' }}>{nf(s.late)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--accent)' }}>{nf(s.early)}</td>
-                  <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', fontWeight: 600 }}>{s.avg_in}</td>
-                </tr>
-              ))}
-              {ana && shifts.length === 0 && <tr><td colSpan={6} style={{ ...td, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}>ไม่มีข้อมูลในช่วงที่เลือก</td></tr>}
-              {anaF.loading && !ana && <tr><td colSpan={6} style={{ padding: 0 }}><Loading /></td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--text-faint)' }}>
-          ไม่แสดงอัตรามาทำงาน — ระบบไม่มีตารางเวรล่วงหน้า จึงไม่ทราบว่าแต่ละคนต้องอยู่เวรใด
-        </div>
+      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
+
+      {/* ---------- 2 แผงกราฟ ---------- */}
+      <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
+        <SectionPanel title="อัตราเข้างานแยกตามเวร" meta={filterMeta}>
+          {!ana && !anaF.err
+            ? <Loading />
+            : total === 0
+              ? <Empty />
+              : (
+                <div style={{ padding: 'var(--sp-4) 0' }}>
+                  <Donut pie size={200} unit="คน" legendSize={15} centerLabel="รวม" centerValue={nf(total)}
+                    segs={shifts.map((s) => ({ v: s.persons, color: colorOf(kindOf(s)), label: shortName(s.name) }))} />
+                </div>
+              )}
+        </SectionPanel>
+
+        <SectionPanel title="เปรียบเทียบเวลาเข้าเฉลี่ย" meta={filterMeta}>
+          {!ana && !anaF.err
+            ? <Loading />
+            : (
+              <div style={{ padding: 'var(--sp-2) 0' }}>
+                <DayTimeBars rows={shifts.map((s) => ({
+                  label: shortName(s.name), minutes: toMinutes(s.avg_in), value: clock(s.avg_in), color: colorOf(kindOf(s)),
+                }))} />
+              </div>
+            )}
+        </SectionPanel>
       </div>
+
+      {/* ---------- ตารางสรุปรายเวร ---------- */}
+      <SectionPanel title="สรุปจำนวนพนักงานเวร" meta={filterMeta}>
+        <div className="table-rounded rounded-lg" style={{ border: '1px solid var(--control-border)' }}>
+          <DataTable
+            columns={cols}
+            rows={shifts}
+            rowKey={(s, i) => s.name || String(i)}
+            minWidth={760}
+            loading={anaF.loading && !ana ? <Loading /> : undefined}
+            empty="ไม่มีข้อมูลในเดือนที่เลือก"
+            emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }}
+          />
+        </div>
+        <p className="text-sm-fig mt-3 mb-0 text-text-dim">
+          ไม่มีคอลัมน์ ขาดงาน/อัตราเข้าทำงาน — ระบบไม่มีตารางเวรล่วงหน้า จึงไม่ทราบว่าแต่ละคนต้องอยู่เวรใด
+        </p>
+      </SectionPanel>
     </div>
   )
+}
+
+function Empty({ text = 'ไม่มีข้อมูลในเดือนที่เลือก' }: { text?: string }) {
+  return <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>{text}</div>
 }

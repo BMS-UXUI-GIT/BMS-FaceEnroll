@@ -1,20 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { nf, useFetch } from '../hooks'
-import { daysAgoISO, isoAddDays, localISO } from '../components/AttFilters'
-import { DatePicker } from '../components/DatePicker'
-import { Donut, MeterRow } from '../components/charts'
+import { daysAgoISO, localISO } from '../components/AttFilters'
+import { thShort } from '../components/DatePicker'
+import { Donut, PercentBars } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { SearchSelect } from '../components/SearchSelect'
+import { Button } from '../components/inputs/Button'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { StatCard } from '../components/data-display/StatCard'
+import { DataTable, type Column } from '../components/data-display/DataTable'
+import { Pagination } from '../components/data-display/Pagination'
+import { PAGE_SIZE, usePaged } from '../components/Pager'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 import { useApp } from '../state'
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600 }
-const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
-
-// สีวนสำหรับ Donut แยกแผนก (pastel, แต่ละแผนกต่างกันชัด)
-const CYCLE = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)', 'var(--cat-7)', 'var(--cat-8)']
+// รายแผนก — Figma node 114:28921
+//   การ์ดหัวเรื่อง (พื้นไล่สีฟ้า + ภาพประกอบทีมแพทย์) + การ์ดสรุป 5 ใบ + ปุ่มรีเฟรช/เลือกแผนก
+//   2 แผง: เปรียบเทียบการมาทำงานของแต่ละแผนก (แท่งแนวนอน %) · สัดส่วนการมาสาย (โดนัท)
+//   แผงล่าง: ตารางสรุปจำนวนพนักงานรายแผนก
+//
+// ⚠️ backend ไม่มีตัวเลข "ขาดงาน" ตรง ๆ — คำนวณเป็น พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน
 
 type DeptRow = { dept: string; staff: number; present: number; person_days: number; late: number; early: number; no_out: number; rate: number | null }
 type Analytics = {
@@ -23,135 +31,168 @@ type Analytics = {
   depts: DeptRow[]
 }
 
+// สีวนของโดนัทแยกแผนก (pastel ต่างกันชัด)
+const CYCLE = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)', 'var(--cat-7)', 'var(--cat-8)']
+
 const deptName = (d: string) => (d.trim() === '' ? 'ไม่ระบุแผนก' : d)
 const fmtRate = (r: number | null) => (r != null ? `${r.toFixed(2)}%` : '—')
+/** สีอัตราเข้าทำงานตาม Figma: ≥90 เขียว · ≥80 ฟ้า · ต่ำกว่านั้นส้ม */
+const rateColor = (r: number | null) => (r == null ? 'var(--text-faint)' : r >= 90 ? 'var(--ok)' : r >= 80 ? 'var(--accent)' : 'var(--warn)')
+const absentOf = (d: DeptRow) => Math.max(0, d.staff - d.present)
 
 export function ReportDept() {
   const { currentHcode } = useApp()
   const hcode = currentHcode === '*' ? '' : currentHcode
   const [reload, setReload] = useState(0)
+  const [dept, setDept] = useState('')
   // default = 7 วันล่าสุด (ภาพรวม/เทียบสัดส่วน ต้องมีหลายวันถึงจะมีความหมาย)
   const [from, setFrom] = useState(daysAgoISO(6))
   const [to, setTo] = useState(localISO())
 
-  // สลับโรง = กลับมาดูวันนี้
-  useEffect(() => { setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
+  // สลับโรง = กลับไปช่วงตั้งต้น + ล้างตัวกรองแผนก
+  useEffect(() => { setFrom(daysAgoISO(6)); setTo(localISO()); setDept('') }, [hcode])
 
   const anaF = useFetch<Analytics>(
     hcode ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}` : null, reload)
   const ana = anaF.data
 
+  // เรียงอัตรามาทำงานมาก→น้อย (แบบเดียวกับดีไซน์) ใช้ทั้งกราฟเทียบ + ตาราง
+  const all = useMemo(() => [...(ana?.depts ?? [])].sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1)), [ana])
+  const depts = dept ? all.filter((d) => deptName(d.dept) === dept) : all
+  const dPaged = usePaged(depts)
+
+  const deptOpts = useMemo(
+    () => [{ value: '', label: 'ทั้งหมด' }, ...all.map((d) => ({ value: deptName(d.dept), label: deptName(d.dept) }))],
+    [all],
+  )
+
   if (currentHcode === '*') return <PickHospital />
 
-  // เรียงอัตรามาทำงานมาก→น้อย (แบบเดียวกับดีไซน์) ใช้ทั้งหลอดเทียบ + ตาราง
-  const depts = [...(ana?.depts ?? [])].sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1))
   const presentSum = depts.reduce((s, d) => s + d.present, 0)
+  const lateSum = depts.reduce((s, d) => s + d.late, 0)
+  const earlySum = depts.reduce((s, d) => s + d.early, 0)
+  const staffSum = depts.reduce((s, d) => s + d.staff, 0)
+  // ตัวเลขบนหัวเรื่อง: กรองแผนกอยู่ = นับเฉพาะแผนกนั้น / ไม่กรอง = ใช้ยอดรวมของทั้งโรง
+  const staffTotal = dept ? staffSum : (ana?.total_staff ?? staffSum)
+
   // โดนัทมาสาย: เฉพาะแผนกที่มีคนสาย เรียงมาก→น้อย สีวนตามลำดับ
   const lateSegs = depts.filter((d) => d.late > 0).sort((a, b) => b.late - a.late)
     .map((d, i) => ({ v: d.late, color: CYCLE[i % CYCLE.length], label: deptName(d.dept) }))
 
-  const days = ana?.summary.days ?? 1
-  const multiDay = days > 1
-  const KPIS = [
-    { label: 'พนักงานทั้งหมด', v: ana?.total_staff, sub: 'คน', c: 'var(--text)' },
-    { label: multiDay ? 'มาทำงาน (คนที่มาอย่างน้อย 1 วัน)' : 'มาทำงาน', v: ana ? presentSum : undefined, sub: 'คน', c: 'var(--ok)' },
-    { label: 'มาสาย', v: ana?.summary.late, sub: multiDay ? 'ครั้ง' : 'คน', c: 'var(--warn)' },
-    { label: 'ออกก่อน', v: ana?.summary.early, sub: multiDay ? 'ครั้ง' : 'คน', c: 'var(--accent)' },
+  // backend นับ มาสาย/ออกก่อน เป็น "ครั้ง" (คน-วัน) ส่วน พนักงาน/ขาดงาน เป็น "คน"
+  // ช่วงวันเดียวสองอย่างนี้เท่ากัน จึงใช้ คน ทั้งหมด — หลายวันต้องแยกหน่วยไม่งั้นเลขขัดกันเอง
+  const multiDay = (ana?.summary.days ?? 1) > 1
+  const times = multiDay ? 'ครั้ง' : 'คน'
+  const personDays = depts.reduce((s, d) => s + d.person_days, 0)
+  const HERO = [
+    { label: 'พนักงาน', v: ana ? staffTotal : undefined, unit: 'คน', tone: 'accent' as const, icon: 'person' },
+    { label: 'ตรงเวลา', v: ana ? Math.max(0, personDays - lateSum) : undefined, unit: times, tone: 'ok' as const, icon: 'scan' },
+    { label: 'มาสาย', v: ana ? lateSum : undefined, unit: times, tone: 'warn' as const, icon: 'clock-alert' },
+    { label: 'ขาดงาน', v: ana ? Math.max(0, staffTotal - presentSum) : undefined, unit: 'คน', tone: 'danger' as const, icon: 'clock-x' },
+    { label: 'ออกก่อนเวลา', v: ana ? earlySum : undefined, unit: times, tone: 'info' as const, icon: 'time-duration-off' },
+  ]
+
+  // ป้ายสรุปตัวกรองมุมขวาของหัวแผง — ให้รู้ว่าเลขที่เห็นมาจากช่วงวัน/แผนกไหน
+  const filterMeta = `${thShort(from)} – ${thShort(to)} · ${dept || 'ทุกแผนก'}`
+
+  // Figma: header สูง 40 · แถวสูง 53 · ชิดซ้ายทุกคอลัมน์ · แผนกตัวหนา · อัตราเข้าทำงานมีสีตามเกณฑ์
+  const cols: Column<DeptRow>[] = [
+    { key: 'dept', header: 'แผนก', tdStyle: { ...TEXT.bodyMed, color: 'var(--text)' }, cell: (d) => deptName(d.dept) },
+    { key: 'staff', header: 'ทั้งหมด', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.staff) },
+    { key: 'present', header: 'มาทำงาน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.present) },
+    { key: 'late', header: 'มาสาย', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.late) },
+    { key: 'absent', header: 'ขาดงาน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(absentOf(d)) },
+    { key: 'early', header: 'ออกก่อน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.early) },
+    {
+      key: 'rate', header: 'อัตราเข้าทำงาน',
+      cell: (d) => <span style={{ ...TEXT.bodyMed, color: rateColor(d.rate) }}>{fmtRate(d.rate)}</span>,
+    },
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 'var(--page-max)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)' }}>ดูสถิติและเปรียบเทียบข้อมูลการเข้า-ออกงานของแต่ละแผนก</p>
-        <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            <DatePicker value={from} min={isoAddDays(to, -30)} max={to} onChange={setFrom} />
-            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ถึง</span>
-            <DatePicker value={to} min={from} max={localISO()}
-              onChange={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง (Figma Frame 93) ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        {/* ภาพประกอบทีมแพทย์ (Figma image 10) — 328x328 ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
+        <img src="/hero-dept.png" alt="" aria-hidden width={328} height={328}
+          className="hide-sm pointer-events-none select-none"
+          style={{ position: 'absolute', right: 8, top: 0 }} />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">รายแผนก</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              ดูสถิติและเปรียบเทียบข้อมูลการเข้า-ออกงานของแต่ละแผนก
+            </p>
+          </div>
+          <span className="inline-flex gap-2 items-center flex-wrap">
+            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+              icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+              รีเฟรชข้อมูลล่าสุด
+            </Button>
+            <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
+              <SearchSelect bare hideCaret value={dept} onChange={setDept} options={deptOpts}
+                placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
+            </FilterChip>
           </span>
-          <RefreshButton busy={anaF.loading} onClick={() => setReload((r) => r + 1)} />
-        </span>
+        </div>
+
+        {/* การ์ดสรุป 5 ใบ (Figma 130x142 · เรียงแถวเดียว ห่าง 8) */}
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          {HERO.map((k) => (
+            <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit}
+              icon={<Icon name={k.icon} size={24} color="currentColor" />}
+              value={k.v != null ? nf(k.v) : anaF.loading ? '…' : '—'} />
+          ))}
+        </div>
       </div>
 
-      {anaF.err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
 
-      {/* KPI */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 12 }}>
-        {KPIS.map((k) => (
-          <div key={k.label} style={{ ...card, padding: '15px 16px' }}>
-            <div style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{k.label}</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 4 }}>
-              <span style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--mono)', color: k.c }}>{nf(k.v)}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{k.sub}</span>
-            </div>
-          </div>
-        ))}
+      {/* ---------- 2 แผงกราฟ (Figma Frame 117) ---------- */}
+      <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
+        <SectionPanel title="เปรียบเทียบการมาทำงานของแต่ละแผนก" meta={filterMeta}>
+          {!ana && !anaF.err
+            ? <Loading />
+            : depts.length === 0
+              ? <Empty />
+              : <PercentBars colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
+        </SectionPanel>
+
+        <SectionPanel title="สัดส่วนการมาสาย" meta={filterMeta}>
+          {!ana && !anaF.err
+            ? <Loading />
+            : lateSegs.length === 0
+              ? <Empty text="ไม่มีการมาสายในช่วงที่เลือก" />
+              : <Donut segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} คน`} size={200} />}
+        </SectionPanel>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16, alignItems: 'start' }}>
-        <div style={{ ...card, padding: '16px 18px' }}>
-          <h2 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>เปรียบเทียบแต่ละแผนก (อัตรามาทำงาน)</h2>
-          <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginBottom: 14 }}>
-            เฉลี่ยต่อวัน = คน-วันที่ลงเวลา ÷ (พนักงานในแผนก × {days} วัน)
-          </div>
-          {!ana && !anaF.err ? <Loading /> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-              {depts.map((d) => (
-                <MeterRow key={d.dept || '(none)'} label={deptName(d.dept)}
-                  value={fmtRate(d.rate)} pct={d.rate ?? 0} color="var(--accent)" />
-              ))}
-              {ana && depts.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ไม่มีข้อมูลในช่วงที่เลือก</span>}
-            </div>
+      {/* ---------- ตารางสรุปรายแผนก (Figma Group 21) ---------- */}
+      <SectionPanel title="สรุปจำนวนพนักงานรายแผนก">
+        <div className="table-rounded rounded-lg" style={{ border: '1px solid var(--control-border)' }}>
+          <DataTable
+            columns={cols}
+            rows={dPaged.pageRows}
+            rowKey={(d) => d.dept || '(none)'}
+            minWidth={880}
+            loading={anaF.loading && !ana ? <Loading /> : undefined}
+            empty="ไม่มีข้อมูลในช่วงที่เลือก"
+            emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }}
+          />
+          {depts.length > PAGE_SIZE && (
+            <Pagination page={dPaged.page} pageSize={PAGE_SIZE} total={dPaged.total}
+              shown={dPaged.pageRows.length} onPage={dPaged.setPage} />
           )}
         </div>
-        <div style={{ ...card, padding: '16px 18px' }}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700 }}>สัดส่วนการมาสาย</h2>
-          {!ana && !anaF.err ? <Loading /> : (
-            <Donut segs={lateSegs} centerLabel="รวม" centerValue={nf(ana?.summary.late)} size={118} />
-          )}
-        </div>
-      </div>
-
-      {/* ตารางสรุปรายแผนก */}
-      <div style={{ ...card, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 700 }}>สรุปรายแผนก</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
-            <thead><tr style={theadTr}>
-              <th style={{ ...th, padding: '10px 20px', textAlign: 'right', width: 56 }}>ลำดับ</th>
-              <th style={{ ...th, padding: '10px 20px' }}>แผนก</th>
-              <th style={{ ...th, textAlign: 'center' }}>พนักงาน</th>
-              <th style={{ ...th, textAlign: 'center' }}>มาทำงาน</th>
-              {multiDay && <th style={{ ...th, textAlign: 'center' }}>คน-วัน</th>}
-              <th style={{ ...th, textAlign: 'center' }}>มาสาย</th>
-              <th style={{ ...th, textAlign: 'center' }}>ออกก่อน</th>
-              <th style={{ ...th, textAlign: 'center' }}>ลืมออก</th>
-              <th style={{ ...th, padding: '10px 20px', textAlign: 'right' }}>อัตรามาทำงาน</th>
-            </tr></thead>
-            <tbody>
-              {depts.map((d, i) => (
-                <tr key={d.dept || '(none)'} className="row-hover" style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }}>{nf(i + 1)}</td>
-                  <td style={{ ...td, padding: '11px 20px', fontWeight: 600 }}>{deptName(d.dept)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)' }}>{nf(d.staff)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--ok)' }}>{nf(d.present)}</td>
-                  {multiDay && <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{nf(d.person_days)}</td>}
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--warn)' }}>{nf(d.late)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--accent)' }}>{nf(d.early)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontFamily: 'var(--mono)', color: 'var(--info)' }}>{nf(d.no_out)}</td>
-                  <td style={{ ...td, padding: '11px 20px', textAlign: 'right', fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmtRate(d.rate)}</td>
-                </tr>
-              ))}
-              {ana && depts.length === 0 && <tr><td colSpan={multiDay ? 9 : 8} style={{ ...td, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}>ไม่มีข้อมูลในช่วงที่เลือก</td></tr>}
-              {anaF.loading && !ana && <tr><td colSpan={8} style={{ padding: 0 }}><Loading /></td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--text-faint)' }}>
-          โรงที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก"
-        </div>
-      </div>
+        <p className="text-sm-fig mt-3 mb-0 text-text-dim">
+          โรงที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก" · ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน
+        </p>
+      </SectionPanel>
     </div>
   )
+}
+
+function Empty({ text = 'ไม่มีข้อมูลในช่วงที่เลือก' }: { text?: string }) {
+  return <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>{text}</div>
 }

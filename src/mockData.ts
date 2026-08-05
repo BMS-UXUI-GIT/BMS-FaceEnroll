@@ -32,7 +32,11 @@ function dateRange(from: string, to: string): string[] {
   for (const d = new Date(a); d <= b && out.length < 62; d.setDate(d.getDate() + 1)) out.push(iso(d))
   return out
 }
-const hhmm = (mins: number) => `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+// wrap ให้อยู่ 0..1439 เสมอ — เวรดึก (start=0) มาก่อนเวลาได้ inMin ติดลบ ต้องม้วนกลับเป็น 23:xx
+const hhmm = (mins: number) => {
+  const m = ((Math.round(mins) % 1440) + 1440) % 1440
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+}
 
 // ── ข้อมูลตั้งต้น ───────────────────────────────────────────────────────────
 const FIRST = ['สมชาย', 'สมหญิง', 'อนันต์', 'ปรียา', 'วิชัย', 'มาลี', 'ณัฐพล', 'ศิริพร', 'ธนากร', 'กนกนิษฐ์', 'ประเสริฐ', 'จันทรา', 'ภูมิ', 'อารยา', 'เอกชัย', 'พิมพ์ใจ']
@@ -47,7 +51,7 @@ const POSITIONS = ['พยาบาลวิชาชีพ', 'นักวิ�
 const EMP_TYPES = ['ข้าราชการ', 'พนักงานราชการ', 'ลูกจ้างชั่วคราว', 'พนักงานกระทรวง']
 
 export type MockEmp = {
-  emp: string; name: string; dept: string; position: string; phone: string
+  emp: string; name: string; dept: string; position: string; phone: string; email: string
   start_date: string; emp_type: string; shift: (typeof SHIFTS)[number]; enrolled: boolean
 }
 
@@ -59,6 +63,8 @@ const EMPLOYEES: MockEmp[] = Array.from({ length: 48 }, (_, i) => {
     dept: pick(DEPTS, r()),
     position: pick(POSITIONS, r()),
     phone: `08${int(r(), 1, 9)}-${String(int(r(), 100, 999))}-${String(int(r(), 1000, 9999))}`,
+    // อีเมลตัวอย่าง — ใช้ emp_id เป็นชื่อกล่อง (ชื่อไทยเอามาทำ local part ไม่ได้)
+    email: `staff${10001 + i}@hospital.example.com`,
     start_date: `${int(r(), 2012, 2023)}-${String(int(r(), 1, 12)).padStart(2, '0')}-${String(int(r(), 1, 28)).padStart(2, '0')}`,
     emp_type: pick(EMP_TYPES, r()),
     shift: pick(SHIFTS, r()),
@@ -67,6 +73,8 @@ const EMPLOYEES: MockEmp[] = Array.from({ length: 48 }, (_, i) => {
 })
 const ENROLLED = EMPLOYEES.filter((e) => e.enrolled)
 const deptOf = (e: MockEmp) => e.dept
+// จำนวนใบหน้าคงที่ต่อคน (seed จาก emp) — ใช้ทั้งตารางและนับ "ลงทะเบียนไม่ครบ" ให้ตรงกัน
+const faceCountOf = (e: MockEmp) => int(rand(Number(e.emp) || 1)(), 1, 5)
 
 // จุดลงเวลา (พิกัดตัวอย่าง — โรงพยาบาลสมมติ)
 const FENCES = [
@@ -514,22 +522,23 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
     const rows = EMPLOYEES.filter((e) => like(`${e.emp} ${e.name} ${e.dept}`, q))
     return {
       total: rows.length, count: rows.length,
-      rows: page(rows, qs).map(({ emp, name, dept, position, phone, start_date, emp_type }) =>
-        ({ emp, name, dept, position, phone, start_date, emp_type })),
+      rows: page(rows, qs).map(({ emp, name, dept, position, phone, email, start_date, emp_type }) =>
+        ({ emp, name, dept, position, phone, email, start_date, emp_type })),
     }
   }
 
   // ── ใบหน้า ─────────────────────────────────────────────────────────────
   if (p === '/admin/face/subjects' && m === 'GET') {
     const q = qs.get('q')
-    const rows = ENROLLED.filter((e) => like(`${e.emp} ${e.name}`, q))
+    let rows = ENROLLED.filter((e) => like(`${e.emp} ${e.name}`, q))
+    if (qs.get('incomplete')) rows = rows.filter((e) => faceCountOf(e) < 3)
     return {
       total: rows.length,
       subjects: page(rows, qs).map((e, i) => ({
         subject_id: `10670-${e.emp}`, hcode: '10670', hospital_name: 'โรงพยาบาลสาธิต (Mock)',
         metadata: { emp_id: e.emp, name: e.name, dept: deptOf(e), position: e.position },
         status: i % 11 === 3 ? 'inactive' : 'active',
-        face_count: int(rand(300 + i)(), 1, 5),
+        face_count: faceCountOf(e),
         updated_at: `${today()} ${hhmm(int(rand(400 + i)(), 8 * 60, 17 * 60))}`,
       })),
     }
@@ -542,6 +551,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
     return {
       active_staff: EMPLOYEES.length, enrolled: ENROLLED.length,
       not_enrolled_count: missing.length, total: missing.length,
+      incomplete: ENROLLED.filter((e) => faceCountOf(e) < 3).length,
       not_enrolled: page(missing, qs).map((e) => ({ emp_id: e.emp, name: e.name })),
     }
   }

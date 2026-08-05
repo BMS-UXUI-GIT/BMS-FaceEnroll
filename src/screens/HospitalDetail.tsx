@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ROLE_TH } from '../state'
 import { thDate, thDateTime } from '../hooks'
 import { Loading } from '../components/Spinner'
+import { DataTable } from '../components/data-display/DataTable'
+import { toast } from '../components/dialog'
 import { api } from '../api'
 import { card, HEALTH_TH, Pill, td, th, theadTr, type Flag, type Tenant } from './tenantsCommon'
 
@@ -21,7 +23,7 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '9px 12px' }}>
       <div style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2, wordBreak: 'break-word' }}>{value || '—'}</div>
+      <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2, wordBreak: 'break-word' }}>{value || '—'}</div>
     </div>
   )
 }
@@ -45,6 +47,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
     try {
       await api.post(`/admin/tenants/${hcode}/meta`, body)
       setSaved(true); setTimeout(() => setSaved(false), 1500)
+      toast.success('บันทึกแล้ว')
       onChanged()
       if (d) setD({ ...d, tenant: { ...d.tenant,
         ...(body.health ? { health: body.health as Tenant['health'] } : {}),
@@ -74,17 +77,17 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 780, maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{t?.name ?? hcode} <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', fontWeight: 400 }}>{hcode}</span></div>
+            <div style={{ fontWeight: 500, fontSize: 15 }}>{t?.name ?? hcode} <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', fontWeight: 400 }}>{hcode}</span></div>
           </div>
           {t && (
             <select className="nice-select" value={t.health} disabled={busy}
               onChange={(e) => saveMeta({ health: e.target.value })}
               title="ธงติดตามลูกค้า (มุมมองทีมดูแล)"
-              style={{ color: hb.color, fontWeight: 700 }}>
+              style={{ color: hb.color, fontWeight: 500 }}>
               {Object.entries(HEALTH_TH).map(([v, h]) => <option key={v} value={v}>{h.label}</option>)}
             </select>
           )}
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
@@ -107,12 +110,12 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
 
               {/* ค่าความปลอดภัยรายโรง (ย้ายมาจากตารางรวม) */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>ค่าความปลอดภัยรายโรง <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— • = ตั้งเฉพาะโรงนี้ ต่างจากค่ากลาง</span></div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ค่าความปลอดภัยรายโรง <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— • = ตั้งเฉพาะโรงนี้ ต่างจากค่ากลาง</span></div>
                 <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}>
                     โหมดทดสอบ
                     <span title="แสดงอย่างเดียว — โหมดทดสอบตั้งผ่านระบบ (deploy) · เปิด = ลงเวลาผ่านทุกขั้นแต่ไม่บันทึกฐานโรงจริง"
-                      style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: t.dry_run.value ? 'var(--danger-light)' : 'var(--ok-light)', color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)', border: `1px solid ${t.dry_run.value ? 'var(--danger)' : 'var(--ok)'}` }}>
+                      style={{ fontSize: 11.5, fontWeight: 500, padding: '4px 12px', borderRadius: 20, background: t.dry_run.value ? 'var(--danger-light)' : 'var(--ok-light)', color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)', border: `1px solid ${t.dry_run.value ? 'var(--danger)' : 'var(--ok)'}` }}>
                       {t.dry_run.value ? 'ทดสอบ' : 'ใช้จริง'}{t.dry_run.override ? ' •' : ''}
                     </span>
                   </span>
@@ -135,11 +138,11 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
 
               {/* การใช้งาน */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>การใช้งาน</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>การใช้งาน</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 10 }}>
                   {([['พนักงานทั้งหมด', d!.usage.active_staff], ['ลงทะเบียนหน้าแล้ว', d!.usage.enrolled], ['ลงเวลาวันนี้', d!.usage.punched_today]] as const).map(([l, v]) => (
                     <div key={l} style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 19, fontWeight: 700, fontFamily: 'var(--mono)' }}>{v ?? '—'}</div>
+                      <div style={{ fontSize: 19, fontWeight: 500, fontFamily: 'var(--mono)' }}>{v ?? '—'}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{l}</div>
                     </div>
                   ))}
@@ -149,35 +152,39 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
 
               {/* ผู้ใช้ของโรง */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>ผู้ใช้ dashboard ของโรงนี้</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ผู้ใช้ dashboard ของโรงนี้</div>
                 {d!.users.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ยังไม่มี — สร้างได้ที่ "ผู้ใช้และสิทธิ์"</div>
                 ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                    <thead><tr style={theadTr}><th style={{ ...th, textAlign: 'right', width: 56 }}>ลำดับ</th><th style={th}>ผู้ใช้</th><th style={th}>บทบาท</th><th style={th}>สถานะ</th><th style={{ ...th, textAlign: 'right' }}>เข้าระบบล่าสุด</th></tr></thead>
-                    <tbody>
-                      {d!.users.map((u, i) => (
-                        <tr key={u.username} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={{ ...td, textAlign: 'right', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5 }}>{i + 1}</td>
-                          <td style={td}><b>{u.display_name || u.username}</b> <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-faint)' }}>@{u.username}</span></td>
-                          <td style={td}>{ROLE_TH[u.role] ?? u.role}</td>
-                          <td style={{ ...td, color: u.active ? 'var(--ok)' : 'var(--danger)' }}>{u.active ? 'ใช้งาน' : 'ปิด'}</td>
-                          <td style={{ ...td, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-dim)' }}>{u.last_login_at ? thDateTime(u.last_login_at) : 'ยังไม่เคย'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <DataTable<User>
+                    rows={d!.users} rowKey={(u) => u.username} stickyTop={0}
+                    divider="top" hover={false} theadRowStyle={theadTr} thBase={th} tdBase={{ ...td, fontSize: 12.5 }}
+                    columns={[
+                      { key: 'no', header: 'ลำดับ', align: 'right', width: 56,
+                        tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5 },
+                        cell: (_u, i) => i + 1 },
+                      { key: 'user', header: 'ผู้ใช้',
+                        cell: (u) => <><b>{u.display_name || u.username}</b> <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-faint)' }}>@{u.username}</span></> },
+                      { key: 'role', header: 'บทบาท', cell: (u) => ROLE_TH[u.role] ?? u.role },
+                      { key: 'active', header: 'สถานะ',
+                        tdStyle: (u) => ({ color: u.active ? 'var(--ok)' : 'var(--danger)' }),
+                        cell: (u) => (u.active ? 'ใช้งาน' : 'ปิด') },
+                      { key: 'last', header: 'เข้าระบบล่าสุด', align: 'right',
+                        tdStyle: { fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-dim)' },
+                        cell: (u) => (u.last_login_at ? thDateTime(u.last_login_at) : 'ยังไม่เคย') },
+                    ]}
+                  />
                 )}
               </div>
 
               {/* โน้ตภายใน */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>โน้ตภายใน <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— ทีมดูแลเห็นเท่านั้น โรงไม่เห็น</span></div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>โน้ตภายใน <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— ทีมดูแลเห็นเท่านั้น โรงไม่เห็น</span></div>
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="เช่น โทรคุยแล้ว สนใจเปิดใช้งานจริง รอใบเสนอราคา…"
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none', resize: 'vertical' }} />
                 <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
                   <button onClick={() => saveMeta({ note })} disabled={busy || note === (t.note ?? '')}
-                    style={{ fontSize: 12.5, fontWeight: 700, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer', opacity: note === (t.note ?? '') ? 0.5 : 1 }}>
+                    style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer', opacity: note === (t.note ?? '') ? 0.5 : 1 }}>
                     {busy ? 'กำลังบันทึก…' : 'บันทึกโน้ต'}
                   </button>
                 </div>
@@ -185,12 +192,12 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
 
               {/* ประวัติเฉพาะโรงนี้ */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>ประวัติการจัดการล่าสุด</div>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ประวัติการจัดการล่าสุด</div>
                 {d!.audit.length === 0 ? <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ยังไม่มีรายการ</div> : (
                   d!.audit.map((a, i) => (
                     <div key={i} style={{ display: 'flex', gap: 10, padding: '7px 0', borderTop: i ? '1px solid var(--border)' : 'none', fontSize: 12.5 }}>
                       <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5, flex: 'none' }}>{a.ts}</span>
-                      <span style={{ fontWeight: 600 }}>{a.actor}</span>
+                      <span style={{ fontWeight: 500 }}>{a.actor}</span>
                       <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{a.action}</span>
                       <span style={{ color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.detail}</span>
                     </div>
