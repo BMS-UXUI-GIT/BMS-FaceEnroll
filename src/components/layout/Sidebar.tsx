@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
 import { Icon } from '../../icons'
-import { useApp, type Nav } from '../../state'
+import { useApp, isCentral, type Nav } from '../../state'
+import { ProfileMenu } from '../ProfileMenu'
 import { MenuItem } from './MenuItem'
 import { SectionHeader } from './SectionHeader'
 
@@ -25,38 +26,29 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
   const tabs = session?.tabs ?? []
   const has = (t: string) => tabs.includes(t)
   // จัดการบัญชี — แท็บ 'users' (superadmin ผ่านเสมอ กัน session เก่าที่ยังไม่มีแท็บนี้)
-  const central = session?.role === 'superadmin' || session?.role === 'bmsadmin'
+  const central = !!session && isCentral(session)
   const canUsers = has('users') || session?.role === 'superadmin'
   // กลุ่มงานส่วนกลาง — เฉพาะ role ส่วนกลาง และต้องมีสิทธิ์ใบใดใบหนึ่ง
   const anyCentral = central && (['approve', 'tenants', 'audit', 'health'].some(has) || canUsers)
   const [pending, setPending] = useState(0)
 
-  useEffect(() => {
-    if (!has('approve')) return
-    const load = () => api.get<{ pending_hospitals: number }>('/admin/badges')
-      .then((d) => setPending(d.pending_hospitals ?? 0)).catch(() => {})
-    load()
-    window.addEventListener('fh-badges', load)
-    return () => window.removeEventListener('fh-badges', load)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, nav])
-
   const aside = (
     <aside style={{
+      position: mobile ? 'fixed' : 'relative',
       width: 'var(--sidebar-w)', flex: 'none',
       background: 'var(--bg)',
       display: 'flex', flexDirection: 'column',
       paddingTop: mobile ? 0 : 'var(--topbar-h)',
       ...(mobile
         ? {
-            position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 120, boxShadow: open ? 'var(--shadow-lg)' : 'none',
+            top: 0, left: 0, bottom: 0, zIndex: 120, boxShadow: open ? 'var(--shadow-lg)' : 'none',
             transform: open ? 'translateX(0)' : 'translateX(-105%)', transition: 'transform .22s ease',
           }
         : { alignSelf: 'stretch' }),
     }}>
       {/* Figma ไม่มีบล็อกโลโก้ในแถบข้าง — โลโก้/ชื่อระบบอยู่บน Topbar แล้ว
           เหลือไว้แค่ปุ่มปิด drawer ของจอเล็ก (จอใหญ่ไม่แสดงอะไรเลย) */}
-      <div style={{ padding: mobile ? 'var(--sp-3) var(--sp-6) 0' : 'var(--sp-3) 0 0', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ padding: mobile ? 'var(--sp-3) var(--sp-4) 0' : 'var(--sp-3) 0 0', display: 'flex', justifyContent: 'flex-end' }}>
         {mobile && (
           <button onClick={onClose} title="ปิดเมนู" style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', padding: 'var(--sp-1)' }}>
             <Icon name="close" size={18} width={2} />
@@ -66,7 +58,16 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
 
       {/* mobile: เลือกเมนูแล้วปิด drawer เอง */}
       <nav className="no-scrollbar" onClick={(e) => { if (mobile && (e.target as HTMLElement).closest('button')) onClose?.() }}
-        style={{ padding: '0 var(--sp-6)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-0)', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        style={{
+          padding: '0 var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-0)',
+          overflowY: 'auto', flex: 1, minHeight: 0,
+          // เมนูจางหายที่ขอบบน/ล่างตอนเลื่อน — บอกว่ายังมีเมนูต่อ (ไม่ต้องมีเส้นคั่น)
+          // เว้นที่ให้การ์ดโปรไฟล์ที่ลอยทับอยู่ + จางหายบาง ๆ ตรงขอบล่าง
+          // (เมนูที่เหลือยังโผล่ให้เห็นหลังการ์ด บอกว่ายังเลื่อนลงได้อีก)
+          paddingBottom: 96,   // เว้นให้พ้นการ์ดโปรไฟล์ที่ลอยทับอยู่ (เลื่อนถึงเมนูสุดท้ายได้จริง)
+          maskImage: 'linear-gradient(to bottom, #000 calc(100% - 12px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, #000 calc(100% - 12px), transparent 100%)',
+        }}>
         {(has('overview') || has('face') || has('attendance')) && <SectionHeader>มอนิเตอร์</SectionHeader>}
         {has('overview') && <NavItem id="overview" label="หน้าหลัก" icon="overview" />}
         {has('face') && <NavItem id="face" label="ลงทะเบียนใบหน้า" icon="face" />}
@@ -79,7 +80,9 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
             <NavItem id="rp-dept" label="รายแผนก" icon="people" />
             <NavItem id="rp-shift" label="รายเวร" icon="calendar" />
             <NavItem id="rp-late" label="การมาสาย / ออกก่อน" icon="clock-alert" />
-            <NavItem id="rp-reports" label="รายงาน" icon="report" />
+            {/* ซ่อนหน้า "รายงาน" ไว้ก่อน (ยังไม่เปิดใช้) — หน้าจอ/route ยังอยู่ครบ เปิดคืนได้ทันที
+                ⚠️ ปลดคอมเมนต์แล้วต้องเอา 'rp-reports' กลับเข้า NAV_ORDER + allowed() ใน App.tsx ด้วย */}
+            {/* <NavItem id="rp-reports" label="รายงาน" icon="report" /> */}
           </>
         )}
 
@@ -104,6 +107,14 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
           </>
         )}
       </nav>
+
+      {/* การ์ดโปรไฟล์ — ลอยทับท้ายแถบเมนูจริง ๆ (absolute) เมนูที่เหลือจึงโผล่ลอดข้างหลังให้เห็น */}
+      <div className="sidebar-profile" style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 2,
+        padding: 'var(--sp-3) var(--sp-4) var(--sp-4)',
+      }}>
+        <ProfileMenu fullWidth />
+      </div>
     </aside>
   )
 

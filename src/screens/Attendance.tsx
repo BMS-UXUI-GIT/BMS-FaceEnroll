@@ -168,12 +168,12 @@ export function Attendance() {
         </FilterChip>
 
         <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
-          <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))}
+          <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])}
             options={shiftOpts} placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
         </FilterChip>
 
         <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-          <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))}
+          <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])}
             options={deptOpts} placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
         </FilterChip>
 

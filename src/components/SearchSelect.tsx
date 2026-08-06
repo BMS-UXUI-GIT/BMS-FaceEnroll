@@ -6,17 +6,22 @@ import { createPortal } from 'react-dom'
 
 export type SelectOpt = { value: string; label: string; sub?: string }
 
+// ชิปที่โชว์บนปุ่มตอนเลือกหลายอัน — เกินนี้ยุบเป็น +N
+const CHIP_MAX = 3
+
 const caret = (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: 0.6 }}><path d="m6 9 6 6 6-6" /></svg>
 )
 
-export function SearchSelect({ options, value, onChange, multi, values, onToggle, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, hideCaret, width, maxTriggerWidth, disabled, allowCustom, onSearch }: {
+export function SearchSelect({ options, value, onChange, multi, values, onToggle, onClear, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, hideCaret, width, maxTriggerWidth, disabled, allowCustom, onSearch, renderTrigger, triggerStyle }: {
   options: SelectOpt[]
   value?: string
   onChange?: (v: string) => void
   multi?: boolean            // เลือกได้หลายอัน (toggle) — panel ไม่ปิดตอนเลือก
   values?: string[]
   onToggle?: (v: string) => void
+  /** ล้างทุกค่าที่เลือก — มีค่านี้ถึงจะโชว์ปุ่ม "ล้างตัวเลือก" ในเมนู */
+  onClear?: () => void
   placeholder?: string
   searchPlaceholder?: string
   bare?: boolean             // trigger โปร่ง ไม่มีกรอบ (ฝังใน pill เดิมได้)
@@ -26,6 +31,9 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
   disabled?: boolean
   allowCustom?: boolean      // พิมพ์รหัสตัวเลข 4-6 หลักที่ไม่มีในรายการแล้วเลือกใช้ได้
   onSearch?: (q: string) => Promise<SelectOpt[]>  // ค้นสดจาก backend (เช่นทะเบียนโรงทั้งประเทศ) — ผลค้นแทน options ตอนพิมพ์
+  /** วาด trigger เอง (เช่นการ์ดบน header) — ทั้งก้อนกลายเป็นปุ่มเปิดเมนู */
+  renderTrigger?: (selected: SelectOpt | undefined) => React.ReactNode
+  triggerStyle?: React.CSSProperties
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -59,7 +67,8 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
     const w = Math.max(r.width, 280)
     const up = window.innerHeight - r.bottom < 360 && r.top > 360
     const centered = r.left + r.width / 2 - w / 2
-    setPos({ top: up ? r.top - 24 : r.bottom + 24, left: Math.max(8, Math.min(centered, window.innerWidth - w - 12)), width: w, up })
+    // เว้นจาก trigger 8px (24 ห่างจนดูหลุดจากปุ่ม)
+    setPos({ top: up ? r.top - 8 : r.bottom + 8, left: Math.max(8, Math.min(centered, window.innerWidth - w - 12)), width: w, up })
     setQ(''); setAct(0); setOpen(true)
   }
 
@@ -106,25 +115,37 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
   // ค่าที่เลือกแต่ไม่อยู่ใน options (เช่นรหัสที่พิมพ์เอง) — โชว์เป็นเลขตรงๆ
   const extraVals = multi ? (values ?? []).filter((v) => !options.some((o) => o.value === v)) : []
 
-  const trigger: React.CSSProperties = bare
-    ? { display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--text)', padding: 0, minWidth: 0, width }
+  const trigger: React.CSSProperties = renderTrigger
+    ? { border: 'none', background: 'transparent', padding: 0, cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', textAlign: 'left', ...triggerStyle }
+    : bare
+    ? { display: 'flex', alignItems: 'center', gap: 7, textAlign: 'left', border: 'none', background: 'transparent', cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--text)', padding: 0, minWidth: 0, width }
     : {
         display: 'flex', alignItems: 'center', gap: 8, width: width ?? '100%', minHeight: 36, padding: '6px 11px',
         border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)',
         fontFamily: 'var(--sans)', fontSize: 13, cursor: disabled ? 'default' : 'pointer', textAlign: 'left', opacity: disabled ? 0.6 : 1,
       }
 
-  const chips = multi && (selected as SelectOpt[]).length + extraVals.length > 0
+  const allChips = multi
+    ? [...(selected as SelectOpt[]).map((o) => ({ key: o.value, text: o.sub ? `${o.sub} ${o.label}` : o.label })),
+       ...extraVals.map((v) => ({ key: v, text: v }))]
+    : []
+  const chips = allChips.length > 0
   return (
     <>
       <button type="button" ref={btnRef} onClick={() => (open ? setOpen(false) : openPanel())} disabled={disabled}
         aria-haspopup="listbox" aria-expanded={open} style={trigger}>
-        {chips ? (
+        {renderTrigger ? renderTrigger(multi ? undefined : (selected as SelectOpt | undefined)) : chips ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-            {[...(selected as SelectOpt[]).map((o) => ({ key: o.value, text: o.sub ? `${o.sub} ${o.label}` : o.label })), ...extraVals.map((v) => ({ key: v, text: v }))]
-              .map((c) => (
-                <span key={c.key} style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.6, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-light)', color: 'var(--accent-active)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
-              ))}
+            {allChips.slice(0, CHIP_MAX).map((c) => (
+              <span key={c.key} style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.6, padding: '2px 8px', borderRadius: 6, background: 'var(--accent-light)', color: 'var(--accent-active)', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.text}</span>
+            ))}
+            {/* เลือกเกิน CHIP_MAX → ยุบส่วนเกินเป็น +N (ชื่อเต็มดูได้จาก tooltip) กันชิปล้นหลายบรรทัด */}
+            {allChips.length > CHIP_MAX && (
+              <span title={allChips.slice(CHIP_MAX).map((c) => c.text).join(', ')}
+                style={{ fontSize: 11.5, fontWeight: 500, lineHeight: 1.6, padding: '2px 8px', borderRadius: 6, background: 'var(--surface-alt)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                +{allChips.length - CHIP_MAX}
+              </span>
+            )}
           </span>
         ) : (
           <span style={{ flex: 1, minWidth: 0, lineHeight: 1.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: maxTriggerWidth, color: (multi ? false : !!selected) ? 'var(--text)' : 'var(--text-faint)', fontWeight: bare ? 500 : 500 }}>
@@ -147,6 +168,21 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
               style={{ width: '100%', padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }}
             />
           </div>
+          {/* แถบสรุป + ล้างตัวเลือก — โผล่เมื่อเลือกไว้แล้วและเจ้าของ component ส่ง onClear มา */}
+          {onClear && (multi ? (values ?? []).length > 0 : !!value) && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+              padding: '6px 10px 6px 12px', borderBottom: '1px solid var(--border)',
+            }}>
+              <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>
+                {multi ? `เลือกแล้ว ${(values ?? []).length}` : 'เลือกแล้ว 1'}
+              </span>
+              <button type="button" onClick={() => { onClear(); setOpen(false) }} style={{
+                border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)',
+                fontSize: 12, fontWeight: 500, color: 'var(--danger)', padding: '4px 6px', borderRadius: 6,
+              }}>ล้างตัวเลือก</button>
+            </div>
+          )}
           <div style={{ overflowY: 'auto', maxHeight: 272, padding: 4 }}>
             {searching && <div style={{ padding: '8px 12px', fontSize: 11.5, color: 'var(--text-faint)' }}>กำลังค้นหา…</div>}
             {!searching && list.length === 0 && (

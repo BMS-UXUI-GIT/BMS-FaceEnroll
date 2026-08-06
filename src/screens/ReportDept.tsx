@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { nf, useFetch } from '../hooks'
-import { daysAgoISO, localISO } from '../components/AttFilters'
+import { daysAgoISO, localISO, selLabel, toggle } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
 import { Donut, PercentBars } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
@@ -45,13 +45,14 @@ export function ReportDept() {
   const { currentHcode } = useApp()
   const hcode = currentHcode === '*' ? '' : currentHcode
   const [reload, setReload] = useState(0)
-  const [dept, setDept] = useState('')
+  // เลือกได้หลายแผนก (ว่าง = ทุกแผนก)
+  const [fDepts, setFDepts] = useState<string[]>([])
   // default = 7 วันล่าสุด (ภาพรวม/เทียบสัดส่วน ต้องมีหลายวันถึงจะมีความหมาย)
   const [from, setFrom] = useState(daysAgoISO(6))
   const [to, setTo] = useState(localISO())
 
   // สลับโรง = กลับไปช่วงตั้งต้น + ล้างตัวกรองแผนก
-  useEffect(() => { setFrom(daysAgoISO(6)); setTo(localISO()); setDept('') }, [hcode])
+  useEffect(() => { setFrom(daysAgoISO(6)); setTo(localISO()); setFDepts([]) }, [hcode])
 
   const anaF = useFetch<Analytics>(
     hcode ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}` : null, reload)
@@ -59,11 +60,11 @@ export function ReportDept() {
 
   // เรียงอัตรามาทำงานมาก→น้อย (แบบเดียวกับดีไซน์) ใช้ทั้งกราฟเทียบ + ตาราง
   const all = useMemo(() => [...(ana?.depts ?? [])].sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1)), [ana])
-  const depts = dept ? all.filter((d) => deptName(d.dept) === dept) : all
+  const depts = fDepts.length ? all.filter((d) => fDepts.includes(deptName(d.dept))) : all
   const dPaged = usePaged(depts)
 
   const deptOpts = useMemo(
-    () => [{ value: '', label: 'ทั้งหมด' }, ...all.map((d) => ({ value: deptName(d.dept), label: deptName(d.dept) }))],
+    () => all.map((d) => ({ value: deptName(d.dept), label: deptName(d.dept) })),
     [all],
   )
 
@@ -74,7 +75,7 @@ export function ReportDept() {
   const earlySum = depts.reduce((s, d) => s + d.early, 0)
   const staffSum = depts.reduce((s, d) => s + d.staff, 0)
   // ตัวเลขบนหัวเรื่อง: กรองแผนกอยู่ = นับเฉพาะแผนกนั้น / ไม่กรอง = ใช้ยอดรวมของทั้งโรง
-  const staffTotal = dept ? staffSum : (ana?.total_staff ?? staffSum)
+  const staffTotal = fDepts.length ? staffSum : (ana?.total_staff ?? staffSum)
 
   // โดนัทมาสาย: เฉพาะแผนกที่มีคนสาย เรียงมาก→น้อย สีวนตามลำดับ
   const lateSegs = depts.filter((d) => d.late > 0).sort((a, b) => b.late - a.late)
@@ -94,7 +95,7 @@ export function ReportDept() {
   ]
 
   // ป้ายสรุปตัวกรองมุมขวาของหัวแผง — ให้รู้ว่าเลขที่เห็นมาจากช่วงวัน/แผนกไหน
-  const filterMeta = `${thShort(from)} – ${thShort(to)} · ${dept || 'ทุกแผนก'}`
+  const filterMeta = `${thShort(from)} – ${thShort(to)} · ${selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก')}`
 
   // Figma: header สูง 40 · แถวสูง 53 · ชิดซ้ายทุกคอลัมน์ · แผนกตัวหนา · อัตราเข้าทำงานมีสีตามเกณฑ์
   const cols: Column<DeptRow>[] = [
@@ -132,7 +133,7 @@ export function ReportDept() {
               รีเฟรชข้อมูลล่าสุด
             </Button>
             <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-              <SearchSelect bare hideCaret value={dept} onChange={setDept} options={deptOpts}
+              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} options={deptOpts}
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
             </FilterChip>
           </span>
@@ -187,7 +188,7 @@ export function ReportDept() {
           )}
         </div>
         <p className="text-sm-fig mt-3 mb-0 text-text-dim">
-          โรงที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก" · ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน
+          โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก" · ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน
         </p>
       </SectionPanel>
     </div>

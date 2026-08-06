@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { nf, useFetch } from '../hooks'
 import { Info } from '../components/Info'
-import { Loading } from '../components/Spinner'
+import { SkelRows } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { Button } from '../components/inputs/Button'
 import { StatCard } from '../components/data-display/StatCard'
@@ -67,13 +67,13 @@ function kpisOf(d?: Data | null): Kpi[] {
   const c = d?.counts ?? {}
   return [
     { v: d?.total, label: 'โรงพยาบาลทั้งหมด', tone: 'accent', icon: 'hospital', tip: 'จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน' },
-    { v: c.pending, label: 'รออนุมัติ', tone: 'warn', icon: 'hourglass', tip: 'โรงที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดการ์ดนี้เพื่อไปหน้าอนุมัติ', nav: 'sys-approve' },
-    { v: c.demo, label: 'ทดลองใช้', tone: 'info', icon: 'flask', tip: 'โรงที่อนุมัติแบบทดลองใช้ (ฟรี 60 วัน) และยังเหลือเวลาเกิน 7 วัน' },
-    { v: c.demo_expiring, label: 'ใกล้หมดอายุ', tone: 'warn', icon: 'hourglass-low', tip: 'โรงทดลองใช้ที่เหลือเวลาไม่เกิน 7 วันก่อนหมดอายุ — ควรติดต่อเพื่อต่ออายุหรือเปิดใช้งานจริง' },
-    { v: c.demo_expired, label: 'หมดอายุทดลอง', tone: 'danger', icon: 'hourglass-off', tip: 'โรงทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
-    { v: c.real, label: 'ใช้งานจริง', tone: 'ok', icon: 'rosette-check', tip: 'โรงที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)' },
-    { v: c.suspended, label: 'พักใช้', tone: 'neutral', icon: 'player-pause', tip: 'โรงที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
-    { v: c.rejected, label: 'ปฏิเสธ', tone: 'neutral', icon: 'ban', tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงยื่นคำขอใหม่ได้' },
+    { v: c.pending, label: 'รออนุมัติ', tone: 'warn', icon: 'hourglass', tip: 'โรงพยาบาลที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดการ์ดนี้เพื่อไปหน้าอนุมัติ', nav: 'sys-approve' },
+    { v: c.demo, label: 'ทดลองใช้', tone: 'info', icon: 'flask', tip: 'โรงพยาบาลที่อนุมัติแบบทดลองใช้ (ฟรี 60 วัน) และยังเหลือเวลาเกิน 7 วัน' },
+    { v: c.demo_expiring, label: 'ใกล้หมดอายุ', tone: 'warn', icon: 'hourglass-low', tip: 'โรงพยาบาลทดลองใช้ที่เหลือเวลาไม่เกิน 7 วันก่อนหมดอายุ — ควรติดต่อเพื่อต่ออายุหรือเปิดใช้งานจริง' },
+    { v: c.demo_expired, label: 'หมดอายุทดลอง', tone: 'danger', icon: 'hourglass-off', tip: 'โรงพยาบาลทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
+    { v: c.real, label: 'ใช้งานจริง', tone: 'ok', icon: 'rosette-check', tip: 'โรงพยาบาลที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)' },
+    { v: c.suspended, label: 'พักใช้', tone: 'neutral', icon: 'player-pause', tip: 'โรงพยาบาลที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
+    { v: c.rejected, label: 'ปฏิเสธ', tone: 'neutral', icon: 'ban', tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงพยาบาลยื่นคำขอใหม่ได้' },
   ]
 }
 
@@ -84,7 +84,7 @@ export function PlatformStats({ d, loading }: { d?: Data | null; loading?: boole
     // Figma: แถวละ 4 ใบ (8 ใบ = 2 แถวพอดี) จอแคบค่อยลดเป็น 2/1
     <div className="stat-grid-4 grid gap-2">
       {kpisOf(d).map((k) => (
-        <StatCard key={k.label} tone={k.tone} unit="โรง"
+        <StatCard key={k.label} tone={k.tone} unit="แห่ง"
           label={<>{k.label}<Info text={k.tip} /></>}
           icon={<Icon name={k.icon} size={24} color="currentColor" />}
           value={k.v != null ? nf(k.v) : loading ? '…' : '—'}
@@ -112,7 +112,7 @@ export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | nul
                 ไปหน้าอนุมัติ
               </Button>
             }>
-            {!d ? <Loading /> : d.recent.length === 0 ? (
+            {!d ? <SkelRows rows={5} avatar={false} /> : d.recent.length === 0 ? (
               <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>ยังไม่มีคำขอ</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
@@ -135,8 +135,8 @@ export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | nul
 
         {/* ---------- ต้องติดตาม ---------- */}
         <SectionPanel
-          title={<span style={{ color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></span>}
-          meta={d ? `${nf(d.follow_up.length)} โรง` : undefined}>
+          title={<span style={{ color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงพยาบาลทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></span>}
+          meta={d ? `${nf(d.follow_up.length)} แห่ง` : undefined}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)',
             padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)',
@@ -146,8 +146,8 @@ export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | nul
             ทดลองใช้ใกล้หมดอายุ / หมดอายุแล้ว — ติดต่อโรงเพื่อต่ออายุหรือเปิดใช้งานจริง
           </div>
 
-          {!d ? <Loading /> : d.follow_up.length === 0 ? (
-            <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--ok)', textAlign: 'center' }}>ไม่มีโรงที่ต้องติดตาม — เรียบร้อยดี</div>
+          {!d ? <SkelRows rows={3} avatar={false} /> : d.follow_up.length === 0 ? (
+            <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--ok)', textAlign: 'center' }}>ไม่มีโรงพยาบาลที่ต้องติดตาม — เรียบร้อยดี</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               {d.follow_up.map((r) => (

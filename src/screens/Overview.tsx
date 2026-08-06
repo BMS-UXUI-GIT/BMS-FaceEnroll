@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { clock, nf, useFetch } from '../hooks'
-import { daysAgoISO, filterQS, isoAddDays, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { daysAgoISO, filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { Donut, SegmentBar, StackedColumns, TrendLine } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
-import { Loading } from '../components/Spinner'
+import { Skel, SkelChart, SkelDonut, SkelRows, SkelSummary } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
@@ -164,14 +164,15 @@ export function Overview() {
   // default = 7 วันล่าสุด — กราฟแนวโน้มต้องมีหลายวันถึงจะอ่านออก
   const [from, setFrom] = useState(daysAgoISO(6))
   const [to, setTo] = useState(localISO())
-  const [shift, setShift] = useState('')
-  const [dept, setDept] = useState('')
+  // เวร/แผนก เลือกได้หลายอัน (backend รับเป็น shifts=/depts= คั่นด้วยจุลภาค)
+  const [fShifts, setFShifts] = useState<string[]>([])
+  const [fDepts, setFDepts] = useState<string[]>([])
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
 
-  useEffect(() => { setShift(''); setDept(''); setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
+  useEffect(() => { setFShifts([]); setFDepts([]); setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
 
   const q = hcode ? `hcode=${encodeURIComponent(hcode)}` : ''
-  const fq = filterQS(shift ? [shift] : [], dept ? [dept] : [])
+  const fq = filterQS(fShifts, fDepts)
   // analytics = สรุป+กราฟ+เข้าเวรล่าสุด จบใน endpoint เดียว
   const anaF = useFetch<Analytics>(hcode ? `/admin/attendance/analytics?${q}&date_from=${from}&date_to=${to}${fq}` : null, reload)
   const tstatF = useFetch<TenantStatus>(hcode ? `/admin/tenant-status?${q}` : null, reload)
@@ -236,8 +237,8 @@ export function Overview() {
     ['recent', 'การเข้า/ออกงานล่าสุด', 'scan'],
   ]
   const filterMeta = [dayLabel,
-    shift ? (shiftOpts.find((o) => o.value === shift)?.label ?? shift) : 'ทุกเวร',
-    dept ? (deptOpts.find((o) => o.value === dept)?.label ?? dept) : 'ทุกแผนก',
+    selLabel(shiftOpts, fShifts, 'ทุกเวร', 'เวร'),
+    selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก'),
   ].join(' · ')
 
   // แถบเตือนเวลาทดลองใช้ (admin โรงเห็นเอง)
@@ -259,12 +260,36 @@ export function Overview() {
       {/* ---------- การ์ดหัวเรื่อง: แท็บ + ชิป + ตัวเลขสรุป ---------- */}
       <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
         {tab === 'system' && <Clouds />}
-        {/* ภาพประกอบ — สลับตามแท็บ (Figma node 43:13821 / 43:14979) */}
-        {/* แท็บภาพรวมระบบไม่มีภาพประกอบ (หัวเรื่องเตี้ย ภาพจะไปทับปุ่ม) */}
-        {tab !== 'system' && <img src={asset(tab === 'recent' ? '/hero-scan.svg' : '/hero-dash.svg')} alt="" aria-hidden
+        {/* ภาพประกอบ — สลับตามแท็บ (Figma node 43:13821 / 43:14979)
+            ยังไม่เลือกโรง = ยังไม่มีข้อมูล → ภาพเป็นขาวดำจาง ๆ สื่อว่ายัง "ไม่ปลดล็อก" */}
+        {tab !== 'overview' && <img src={asset(tab === 'recent' ? '/hero-scan.svg' : '/hero-dash.svg')} alt="" aria-hidden
           width={tab === 'recent' ? 343 : 480} height={176}
           className="hide-sm pointer-events-none select-none"
-          style={{ position: 'absolute', right: 0, bottom: 0 }} />}
+          style={{
+            position: 'absolute', right: 0, bottom: 0,
+            filter: tab === 'system' || hcode ? undefined : 'grayscale(1)',
+            opacity: tab === 'system' || hcode ? 1 : 0.45,
+            transition: 'filter .3s ease, opacity .3s ease',
+          }} />}
+
+        {/* แท็บภาพรวมการเข้า/ออกงาน — ตึกเป็นฉากหลัง พยาบาลเป็นฉากหน้า (Figma 379:19842) */}
+        {tab === 'overview' && (
+          <span aria-hidden className="hide-sm pointer-events-none select-none"
+            style={{
+              position: 'absolute', right: 0, bottom: -64, lineHeight: 0,
+              filter: hcode ? undefined : 'grayscale(1)',
+              opacity: hcode ? 1 : 0.45,
+              transition: 'filter .3s ease, opacity .3s ease',
+            }}>
+            <span className="hero-rise" style={{ display: 'block', lineHeight: 0 }}>
+              <img src={asset("/hero-hospital.svg")} alt="" width={300} height={300}
+                className="hero-bg" style={{ opacity: 0.72 }} />
+            </span>
+            <span className="hero-fg" style={{ position: 'absolute', right: 0, bottom: 24, lineHeight: 0 }}>
+              <img src={asset("/nurse-scan.svg")} alt="" width={230} height={230} />
+            </span>
+          </span>
+        )}
 
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           {/* แท็บ 2 อัน (Figma Frame 25) — อันที่เลือกเป็นปุ่มทึบสีหลัก */}
@@ -296,13 +321,12 @@ export function Overview() {
         <div key={tab} className="tab-in">
         {tab === 'system' ? (
           /* ภาพประกอบโรงพยาบาล (Figma 359:9444) วางขวา การ์ดสรุปกินที่เหลือ — จอแคบซ่อนภาพ */
-          <div className="relative mt-4 flex items-end gap-2">
-            <div style={{ flex: 1, minWidth: 0 }}><PlatformStats d={platF.data} loading={platF.loading} /></div>
-            {/* ล้นออกนอกขอบล่าง/ขวาของหัวเรื่อง (การ์ดตัด overflow อยู่แล้ว) */}
-            <img src={asset("/hero-hospital.svg")} alt="" aria-hidden width={360} height={360}
-              className="hide-sm pointer-events-none select-none"
-              style={{ flex: 'none', marginBottom: -64, marginRight: 'calc(var(--sp-6) * -1)' }} />
+          <div className="relative mt-4 hero-reserve">
+            <PlatformStats d={platF.data} loading={platF.loading} />
           </div>
+        ) : !hcode ? (
+          /* ยังไม่เลือกโรง — ตัวเลขสรุปไม่มีความหมาย ปล่อยหัวเรื่องว่าง (แผงล่างมีตัวเลือกโรงให้) */
+          null
         ) : tab === 'recent' ? (
           <div className="relative mt-4 flex gap-2 items-center flex-wrap">
             {(ana?.recent ?? []).slice(0, 5).map((r) => (
@@ -313,7 +337,15 @@ export function Overview() {
                 {isToday ? 'ยังไม่มีคนเข้าเวรวันนี้' : `ไม่มีข้อมูลเข้าเวรช่วง ${dayLabel}`}
               </div>
             )}
-            {!ana && <div className="bg-bg rounded-xl" style={{ padding: 'var(--sp-4) var(--sp-6)' }}><Loading /></div>}
+            {!ana && Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="bg-bg rounded-xl" style={{
+                width: 136, flex: 'none', padding: 'var(--sp-3) var(--sp-2)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)',
+              }}>
+                <Skel w={50} h={50} r="var(--r-full)" />
+                <Skel w="80%" h={12} /><Skel w="60%" h={11} /><Skel w="70%" h={24} r="var(--r-md)" />
+              </div>
+            ))}
           </div>
         ) : (
         <div className="relative mt-4 flex gap-2 flex-wrap">
@@ -333,7 +365,7 @@ export function Overview() {
 
       <div key={tab} className="tab-in tab-in-late flex flex-col gap-4">
       {/* แถวตัวกรอง — อยู่เหนือแผงเนื้อหา (แท็บภาพรวมระบบไม่ได้ใช้ตัวกรองของโรง) */}
-      {tab !== 'system' && (
+      {tab !== 'system' && hcode && (
         <div className="flex gap-2 items-center flex-wrap">
           <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
             {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
@@ -342,13 +374,13 @@ export function Overview() {
               onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
           </FilterChip>
           <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
-            <SearchSelect bare hideCaret value={shift} onChange={setShift}
-              options={[{ value: '', label: 'ทั้งหมด' }, ...shiftOpts]}
+            <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])}
+              options={shiftOpts}
               placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
           </FilterChip>
           <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-            <SearchSelect bare hideCaret value={dept} onChange={setDept}
-              options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+            <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])}
+              options={deptOpts}
               placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
           </FilterChip>
         </div>
@@ -361,7 +393,7 @@ export function Overview() {
       ) : tab === 'recent' ? (
         /* ---------- แท็บ 2: การเข้า/ออกงานล่าสุด ---------- */
         <SectionPanel title="การเข้า/ออกงานล่าสุด" meta={filterMeta}>
-          {!ana ? <Loading /> : (ana.recent.length === 0 ? (
+          {!ana ? <SkelRows rows={6} /> : (ana.recent.length === 0 ? (
             <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
               {isToday ? 'ยังไม่มีคนเข้าเวรวันนี้' : `ไม่มีข้อมูลเข้าเวรช่วง ${dayLabel}`}
             </div>
@@ -395,7 +427,7 @@ export function Overview() {
           <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(460px,100%), 1fr))' }}>
             <SectionPanel title="สถิติการเข้า-ออกงาน"
               meta={<Legend items={IO_SERIES} />}>
-              {!ana ? <Loading /> : (
+              {!ana ? <SkelChart /> : (
                 /* columnWidth 56 = แท่งกว้างคงที่ วันเยอะเกินกล่องแล้วเลื่อนแนวนอนเอา */
                 <StackedColumns groups={dayGroups} series={IO_SERIES} height={185} unit={u} axisLabel="วันที่" columnWidth={56} />
               )}
@@ -412,7 +444,7 @@ export function Overview() {
                   เฉลี่ย {nf(ana.avg_late_min)} นาที
                 </span>
               ) : undefined}>
-              {!ana ? <Loading /> : (
+              {!ana ? <SkelChart /> : (
                 <TrendLine points={trend} height={185} />
               )}
             </SectionPanel>
@@ -421,7 +453,7 @@ export function Overview() {
           {/* ---------- แถว 2: สถิติแบ่งตามเวร + สรุปการขาดงาน ---------- */}
           <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
             <SectionPanel title="สถิติแบ่งตามเวร" meta={filterMeta}>
-              {!ana ? <Loading /> : shiftTotal === 0 ? (
+              {!ana ? <SkelSummary /> : shiftTotal === 0 ? (
                 <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>ไม่มีข้อมูลในช่วงที่เลือก</div>
               ) : (
                 /* สูงเต็มแผง — การ์ดล่างยืดกินที่ว่างที่เหลือ (แผงคู่ข้างสูงกว่า) */
@@ -446,7 +478,7 @@ export function Overview() {
             </SectionPanel>
 
             <SectionPanel title="สรุปการขาดงาน" meta={filterMeta}>
-              {!ana ? <Loading /> : (
+              {!ana ? <SkelDonut /> : (
                 <div style={{ padding: 'var(--sp-4) 0' }}>
                   <Donut segs={absSegs} size={200} unit="คน" legendSize={14}
                     centerLabel="รวมทั้งหมด" centerValue={nf(absent)} />
@@ -467,7 +499,7 @@ export function Overview() {
                   ดูทั้งหมด
                 </Button>
               }>
-              {!ana ? <Loading /> : top5.length === 0 ? (
+              {!ana ? <SkelRows rows={5} /> : top5.length === 0 ? (
                 <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--ok)', textAlign: 'center' }}>ไม่มีคนมาสายในช่วงที่เลือก — เยี่ยมมาก</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
@@ -509,7 +541,7 @@ export function Overview() {
             </SectionPanel>
 
             <SectionPanel title="สรุปสถานะการมาทำงาน" meta={filterMeta}>
-              {!ana || !s ? <Loading /> : (
+              {!ana || !s ? <SkelSummary cards={4} /> : (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-4)' }}>
                     <Headline label="มากที่สุด" value="มาทำงานแล้ว" unit={`${nf(s.punched)} ${u}`} />

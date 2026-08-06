@@ -27,7 +27,16 @@ export function useAttFilterOptions(hcode: string) {
   return { shiftOpts, deptOpts }
 }
 
-const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+// เลือก/เอาออกจากรายการที่เลือกไว้ (ตัวกรองแบบเลือกได้หลายอัน)
+export const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+
+// ข้อความสรุปตัวกรองหลายค่า (ใช้ในหัวตาราง/ชื่อไฟล์รายงาน)
+//   ไม่เลือก → allLabel · 1–2 อัน → ชื่อเต็ม · มากกว่านั้น → นับจำนวน
+export const selLabel = (opts: SelectOpt[], sel: string[], allLabel: string, unit: string) => {
+  if (sel.length === 0) return allLabel
+  if (sel.length <= 2) return sel.map((v) => opts.find((o) => o.value === v)?.label ?? v).join(', ')
+  return `${sel.length} ${unit}`
+}
 
 export function ShiftDeptFilters({ shiftOpts, deptOpts, shifts, depts, onShifts, onDepts }: {
   shiftOpts: SelectOpt[]
@@ -39,9 +48,9 @@ export function ShiftDeptFilters({ shiftOpts, deptOpts, shifts, depts, onShifts,
 }) {
   return (
     <>
-      <SearchSelect multi values={shifts} onToggle={(v) => onShifts(toggle(shifts, v))}
+      <SearchSelect multi values={shifts} onToggle={(v) => onShifts(toggle(shifts, v))} onClear={() => onShifts([])}
         options={shiftOpts} placeholder="เวร: ทั้งหมด" searchPlaceholder="ค้นเวร…" width={150} />
-      <SearchSelect multi values={depts} onToggle={(v) => onDepts(toggle(depts, v))}
+      <SearchSelect multi values={depts} onToggle={(v) => onDepts(toggle(depts, v))} onClear={() => onDepts([])}
         options={deptOpts} placeholder="แผนก: ทั้งหมด" searchPlaceholder="ค้นแผนก…" width={150} />
     </>
   )

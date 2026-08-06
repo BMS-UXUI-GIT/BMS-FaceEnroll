@@ -1,19 +1,29 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { nf } from '../hooks'
-import { Pager } from '../components/Pager'
-import { Loading } from '../components/Spinner'
-import { RefreshButton } from '../components/RefreshButton'
 import { useApp } from '../state'
 import { DataTable, type Column } from '../components/data-display/DataTable'
-import { card, td, th, theadTr } from './tenantsCommon'
+import { Pagination } from '../components/data-display/Pagination'
+import { HeroArt } from '../components/HeroArt'
+import { SkelRows } from '../components/Skeleton'
+import { StatCard } from '../components/data-display/StatCard'
+import { Button } from '../components/inputs/Button'
+import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { DateRangePicker } from '../components/inputs/DateRangePicker'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 
 // ประวัติการจัดการ — audit log + ฟิลเตอร์ (ผู้ทำ/ประเภท/ช่วงวัน)
 // super ดูรวมทุกโรงหรือกรองตามโรงที่เลือกใน header · admin โรงถูก backend ล็อกให้เห็นเฉพาะโรงตัวเอง
+// โครงหน้าเดียวกับหน้าอื่น: การ์ดหัวเรื่องไล่สี + ภาพประกอบ แล้วตามด้วย SectionPanel
 
 type AuditRow = { ts: string; actor: string; role: string; action: string; target: string; detail: string; ip: string }
 
-const inputSt: React.CSSProperties = { padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 12.5, outline: 'none' }
+const chipInput: React.CSSProperties = {
+  border: 'none', background: 'transparent', outline: 'none',
+  fontFamily: 'var(--sans)', fontSize: 13, fontWeight: 500, color: 'var(--text)', minWidth: 0,
+}
 
 export function SystemAudit() {
   const PAGE = 20
@@ -52,50 +62,92 @@ export function SystemAudit() {
   }, [reload, actor, action, q2, from, to, page, currentHcode])
 
   const cols: Column<AuditRow>[] = [
-    { key: 'no', header: 'ลำดับ', align: 'right', width: 56, thStyle: { padding: '10px 20px' }, tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 }, cell: (_r, i) => nf(page * PAGE + i + 1) },
-    { key: 'ts', header: 'เวลา', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)', fontSize: 12 }, cell: (r) => r.ts },
-    { key: 'actor', header: 'ผู้ทำ', cell: (r) => <>{r.actor} <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({r.role})</span></> },
-    { key: 'action', header: 'การกระทำ', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (r) => r.action },
-    { key: 'target', header: 'เป้าหมาย', tdStyle: { fontFamily: 'var(--mono)' }, cell: (r) => r.target },
-    { key: 'detail', header: 'รายละเอียด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (r) => r.detail },
-    { key: 'ip', header: 'IP', thStyle: { padding: '10px 20px' }, tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-faint)' }, cell: (r) => r.ip || '—' },
+    { key: 'no', header: 'ลำดับ', align: 'right', width: 64, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)' }, cell: (_r, i) => nf(page * PAGE + i + 1) },
+    { key: 'ts', header: 'เวลา', width: 160, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }, cell: (r) => r.ts },
+    {
+      key: 'actor', header: 'ผู้ทำ', width: 190, cell: (r) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)', minWidth: 0 }}>
+          <span style={{ ...TEXT.bodyMed, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.actor}</span>
+          <span style={{ ...TEXT.caption, color: 'var(--text-dim)', background: 'var(--surface-alt)', padding: '2px 8px', borderRadius: 'var(--r-full)', flex: 'none' }}>{r.role}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'action', header: 'การกระทำ', width: 200, cell: (r) => (
+        <span style={{
+          ...TEXT.sm, fontFamily: 'var(--mono)', fontWeight: 500, whiteSpace: 'nowrap',
+          padding: '3px 10px', borderRadius: 'var(--r-full)',
+          background: 'var(--accent-light)', color: 'var(--accent-active)',
+        }}>{r.action}</span>
+      ),
+    },
+    { key: 'target', header: 'เป้าหมาย', width: 140, tdStyle: { fontFamily: 'var(--mono)' }, cell: (r) => r.target },
+    { key: 'detail', header: 'รายละเอียด', tdStyle: { color: 'var(--text-dim)' }, cell: (r) => r.detail },
+    { key: 'ip', header: 'IP', width: 132, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)', whiteSpace: 'nowrap' }, cell: (r) => r.ip || '—' },
   ]
 
-  return (
-    <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {err && <div style={{ ...card, padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
+  const hasFilter = !!(actor || action || q2 || from || to)
+  const clear = () => { setActor(''); setAction(''); setQ2(''); setFrom(''); setTo('') }
 
-      <div style={{ ...card }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500, marginRight: 4 }}>ประวัติการจัดการ</h2>
-          <input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="ผู้ทำ…" style={{ ...inputSt, width: 120 }} />
-          <input value={action} onChange={(e) => setAction(e.target.value)} placeholder="การกระทำ เช่น approve…" style={{ ...inputSt, width: 160 }} />
-          <input value={q2} onChange={(e) => setQ2(e.target.value)} placeholder="ค้นเป้าหมาย/รายละเอียด…" style={{ ...inputSt, width: 160 }} />
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={inputSt} title="ตั้งแต่วันที่" />
-          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>ถึง</span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={inputSt} title="ถึงวันที่" />
-          {(actor || action || q2 || from || to) && (
-            <button onClick={() => { setActor(''); setAction(''); setQ2(''); setFrom(''); setTo('') }}
-              style={{ fontSize: 11.5, border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', textDecoration: 'underline' }}>ล้าง</button>
-          )}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' }}>
-            <Pager page={page} total={total} pageSize={PAGE} onPage={setPage} />
-            <RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} />
+  return (
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <HeroArt icon="clock" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">ประวัติการจัดการ</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              บันทึกทุกการกระทำของผู้ดูแล — ใครทำอะไร กับใคร เมื่อไร
+              {currentHcode !== '*' ? ` · เฉพาะโรงพยาบาล ${currentHcode}` : ' · ทุกโรงพยาบาล'}
+            </p>
           </div>
+          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+            รีเฟรชข้อมูลล่าสุด
+          </Button>
         </div>
-        <DataTable
-          columns={cols}
-          rows={audit ?? []}
-          rowKey={(_r, i) => String(i)}
-          divider="top"
-          theadRowStyle={theadTr}
-          thBase={th}
-          tdBase={{ ...td, fontSize: 13 }}
-          minWidth={860}
-          loading={!audit && !err ? <Loading /> : undefined}
-          empty="ไม่พบรายการตามเงื่อนไข"
-          emptyStyle={{ ...td, fontSize: 13, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }}
-        />
+
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          <StatCard tone="accent" label="รายการทั้งหมด" unit="รายการ"
+            icon={<Icon name="report" size={24} color="currentColor" />}
+            value={audit ? nf(total) : '…'} />
+          <StatCard tone="info" label="แสดงอยู่หน้านี้" unit="รายการ"
+            icon={<Icon name="clock" size={24} color="currentColor" />}
+            value={audit ? nf(audit.length) : '…'} />
+        </div>
+      </div>
+
+      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+
+      {/* ---------- แถวตัวกรอง ---------- */}
+      <div className="flex gap-2 items-center flex-wrap">
+        <SearchInput grow value={q2} onChange={setQ2} placeholder="ค้นหา เป้าหมาย / รายละเอียด" />
+        <FilterChip icon={<Icon name="person" size={24} width={1.8} />} label="ผู้ทำ">
+          <input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="ทั้งหมด" style={{ ...chipInput, width: 100 }} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="progress-alert" size={24} width={1.8} />} label="การกระทำ">
+          <input value={action} onChange={(e) => setAction(e.target.value)} placeholder="ทั้งหมด" style={{ ...chipInput, width: 130 }} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+          <DateRangePicker bare from={from} to={to} onFrom={setFrom} onTo={setTo} />
+        </FilterChip>
+        {hasFilter && <Button variant="ghost" size="sm" onClick={clear}>ล้างตัวกรอง</Button>}
+      </div>
+
+      {/* ---------- ตาราง (กรอบบาง ไม่ห่อการ์ด — ทรงเดียวกับหน้ารายบุคคล) ---------- */}
+      <div className="bg-bg border border-control-border rounded-lg">
+        {!audit ? (
+          <div style={{ padding: 'var(--sp-4)' }}><SkelRows rows={8} avatar={false} /></div>
+        ) : (
+          <>
+            <DataTable columns={cols} rows={audit} rowKey={(_r, i) => String(i)} minWidth={1040}
+              empty={hasFilter ? 'ไม่พบรายการตามเงื่อนไข' : 'ยังไม่มีประวัติการจัดการ'}
+              emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }} />
+            <Pagination page={page} pageSize={PAGE} total={total} shown={audit.length} onPage={setPage} />
+          </>
+        )}
       </div>
     </div>
   )

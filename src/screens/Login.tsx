@@ -1,13 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useScreenZoom } from '../hooks'
 import { Icon } from '../icons'
 import { useApp } from '../state'
 import { asset } from '../assets'
+import { SearchSelect } from '../components/SearchSelect'
+import { Button } from '../components/inputs/Button'
+import { TEXT } from '../typography'
 
 // หน้า login มี 2 แท็บ:
 //   ผู้ดูแลระบบ = บัญชี dashboard (app_user)
-//   ผู้ใช้งาน   = พนักงานโรง login ด้วยบัญชี HOSxP (เลือกโรงก่อน — เฉพาะโรงที่เปิดใช้งานแล้ว)
+//   HOSxP      = พนักงานโรง login ด้วยบัญชี HOSxP (เลือกโรงก่อน — เฉพาะโรงที่เปิดใช้งานแล้ว)
 //                เข้ามาเป็น role user ดูอย่างเดียว
+//
+// เลย์เอาต์เดียวกับหน้าอื่นในระบบ: การ์ดใบเดียว 2 คอลัมน์
+//   ซ้าย = แผงแบรนด์ไล่สี + ภาพประกอบ · ขวา = ฟอร์ม (แท็บ → ช่องกรอก → ปุ่มหลัก)
 
 const BASE = window.__API_BASE__ || (import.meta.env.VITE_API_BASE as string | undefined) || 'http://localhost:8300'
 
@@ -33,17 +39,20 @@ function clearRemembered() {
 }
 
 const field: React.CSSProperties = {
-  width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 10,
-  background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13.5, outline: 'none',
+  width: '100%', padding: 'var(--sp-3)', minHeight: 48,
+  border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
+  background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 14, outline: 'none',
 }
-const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6 }
+const lbl: React.CSSProperties = { ...TEXT.sm, display: 'block', color: 'var(--text-dim)', marginBottom: 'var(--sp-1)' }
 
 export function Login() {
-  const { theme, toggleTheme, login, loginStaff } = useApp()
+  const { login, loginStaff } = useApp()
   const zoom = useScreenZoom()
   const [remembered] = useState<Remembered>(loadRemembered)
   const [remember, setRemember] = useState<boolean>(remembered.remember ?? true) // จำฉันไว้ (default ติ๊ก)
-  const [tab, setTab] = useState<'admin' | 'user'>(remembered.tab === 'user' ? 'user' : 'admin')
+  // เปิดมาเจอฟอร์ม HOSxP (พนักงานโรง) เสมอ — ผู้ดูแลระบบกดสลับจากลิงก์ท้ายฟอร์ม
+  // (ไม่จำโหมดล่าสุด: คนใช้งานส่วนใหญ่คือพนักงานโรง)
+  const [tab, setTab] = useState<'admin' | 'user'>('user')
   const [u, setU] = useState(remembered.adminUser ?? '')
   const [p, setP] = useState(remembered.adminPass ?? '')
   const [err, setErr] = useState<string | null>(null)
@@ -51,26 +60,18 @@ export function Login() {
   const [showP, setShowP] = useState(false)   // โชว์/ซ่อนรหัส (ปุ่มลูกตา)
   const [showUp, setShowUp] = useState(false)
 
-  // แท็บผู้ใช้งาน (พนักงานโรง — บัญชี HOSxP)
-  const [hq, setHq] = useState('')
-  const [hres, setHres] = useState<Hosp[]>([])
+  // แท็บ HOSxP (พนักงานโรง)
   const [hosp, setHosp] = useState<Hosp | null>(remembered.hosp?.hcode ? remembered.hosp : null)
   const [uu, setUu] = useState(remembered.staffUser ?? '')
   const [up, setUp] = useState(remembered.staffPass ?? '')
   const [notice, setNotice] = useState<string | null>(null)
 
-  // ค้นเฉพาะโรงที่เปิดใช้งานแล้ว (endpoint เดียวกับแอปมือถือ) — debounce ตอนยังไม่เลือก
-  useEffect(() => {
-    if (tab !== 'user' || hosp || hq.trim().length < 1) { setHres([]); return }
-    let alive = true
-    const t = setTimeout(() => {
-      fetch(`${BASE}/hospitals?q=${encodeURIComponent(hq.trim())}&limit=8`)
-        .then((r) => r.json())
-        .then((d) => alive && setHres((d?.hospitals as Hosp[]) ?? []))
-        .catch(() => alive && setHres([]))
-    }, 300)
-    return () => { alive = false; clearTimeout(t) }
-  }, [hq, tab, hosp])
+  // ค้นเฉพาะโรงที่เปิดใช้งานแล้ว (endpoint เดียวกับแอปมือถือ) — SearchSelect หน่วงให้เอง
+  const searchHospitals = (q: string) =>
+    fetch(`${BASE}/hospitals?q=${encodeURIComponent(q)}&limit=8`)
+      .then((r) => r.json())
+      .then((d) => ((d?.hospitals as Hosp[]) ?? []).map((h) => ({ value: h.hcode, label: h.name || '(ไม่มีชื่อ)', sub: h.hcode })))
+      .catch(() => [])
 
   // เขียนค่าจำ เฉพาะเมื่อติ๊ก "จำฉันไว้" — ไม่ติ๊ก = ไม่แตะ localStorage เลย
   const persist = (patch: Remembered) => { if (remember) saveRemembered({ ...patch, remember: true }) }
@@ -103,7 +104,7 @@ export function Login() {
     setNotice(null)
     setBusy(true)
     try {
-      await loginStaff(hosp.hcode, uu, up)
+      await loginStaff(hosp.hcode, uu, up, hosp.name)
       if (remember) saveRemembered({ remember: true, tab: 'user', staffUser: uu.trim(), staffPass: up, hosp })
       else clearRemembered()
     } catch (e: any) {
@@ -113,149 +114,196 @@ export function Login() {
     }
   }
 
+  // ไอคอนนำหน้าในช่องกรอก
+  const leadIcon: React.CSSProperties = {
+    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+    color: 'var(--text-faint)', display: 'flex', alignItems: 'center', pointerEvents: 'none',
+  }
+
   const eyeBtn: React.CSSProperties = {
-    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
     border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-faint)',
     display: 'flex', alignItems: 'center', padding: 4,
   }
 
-  const segBtn = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'var(--sans)',
-    fontSize: 13, fontWeight: active ? 500 : 500,
-    background: active ? 'var(--surface)' : 'transparent',
-    color: active ? 'var(--text)' : 'var(--text-faint)',
-    boxShadow: active ? 'var(--shadow)' : 'none',
-  })
-
   // "จำฉันไว้" — ใช้ทั้ง 2 ฟอร์ม · ไม่ติ๊ก = ไม่จำอะไรเลย (ล้างที่เคยจำด้วย)
   const rememberRow = (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 16px', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)', userSelect: 'none' }}>
+    <label style={{
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: 'pointer',
+      ...TEXT.sm, color: 'var(--text-dim)', userSelect: 'none',
+    }}>
       <input type="checkbox" checked={remember} onChange={toggleRemember}
-        style={{ width: 15, height: 15, accentColor: 'var(--accent)', cursor: 'pointer', flex: 'none' }} />
-      Remember me <span style={{ color: 'var(--text-faint)' }}>(จำชื่อผู้ใช้ + รหัสผ่านในเครื่องนี้)</span>
+        style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer', flex: 'none' }} />
+      จำฉันไว้ในเครื่องนี้
     </label>
   )
 
-  return (
-    <div style={{ zoom, width: '100%', minHeight: `${100 / zoom}vh`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
-      <button onClick={toggleTheme} title="สลับโหมดสว่าง/มืด" style={{
-        position: 'absolute', top: 22, right: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 38, height: 38, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer',
-      }}>
-        <Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} width={1.8} />
-      </button>
+  const errorBox = (msg: string) => (
+    <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">{msg}</div>
+  )
 
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26, justifyContent: 'center' }}>
-          <div style={{ width: 42, height: 42, flex: 'none', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <img src={asset("/logo.png")} alt="" width={42} height={42} style={{ display: 'block' }} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 500, fontSize: 19, letterSpacing: '-.3px' }}>FaceCheck Admin</div>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>แดชบอร์ดผู้ดูแลระบบ</div>
+  return (
+    <div style={{ zoom, width: '100%', minHeight: `${100 / zoom}vh`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--sp-6)' }}>
+      <div className="login-card rounded-xl" style={{
+        width: 'min(940px, 100%)', background: 'var(--bg)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+      }}>
+        {/* ---------- ซ้าย: ภาพประกอบเต็มครึ่งการ์ด + โลโก้/ข้อความวางทับ ---------- */}
+        <div className="relative overflow-hidden" style={{ minHeight: 560, padding: 'var(--sp-6)' }}>
+          {/* ภาพประกอบ (Figma 401:25169) — คลุมเต็มแผงซ้าย */}
+          <img aria-hidden src={asset('/login-art.jpg')} alt=""
+            className="pointer-events-none select-none"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center bottom' }} />
+
+          {/* ฝ้าขาวจางจากมุมซ้ายบน — เข้มตรงโลโก้/ข้อความ แล้วจางหายไปทางขวา-ล่าง */}
+          <span aria-hidden style={{
+            position: 'absolute', inset: 0,
+            background: 'radial-gradient(115% 85% at 0% 0%, var(--bg) 0%, color-mix(in srgb, var(--bg) 72%, transparent) 38%, transparent 72%)',
+          }} />
+
+          <div style={{ position: 'relative' }}>
+            {/* ชุดเดียวกับ header: สัญลักษณ์ + wordmark */}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+              <img src={asset('/logo-mark.svg')} alt="" width={56} height={56} style={{ display: 'block', flex: 'none' }} />
+              <img src={asset('/wordmark.svg')} alt="BMS FaceEnroll" style={{ display: 'block', height: 34, width: 'auto', flex: 'none' }} />
+            </span>
+            <p className="text-body mt-3 mb-0 text-text-dim" style={{ whiteSpace: 'nowrap' }}>
+              ระบบสแกนใบหน้าเพื่อลงเวลาปฏิบัติงานของโรงพยาบาล
+            </p>
           </div>
         </div>
 
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-lg)', padding: '28px 28px 26px' }}>
-          <h1 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 500 }}>เข้าสู่ระบบ</h1>
-          <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-dim)' }}>มอนิเตอร์ระบบสแกนหน้า–ลงเวลา รพ.</p>
-
-          <div style={{ display: 'flex', gap: 3, padding: 3, background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20 }}>
-            <button onClick={() => { setTab('admin'); setNotice(null); persist({ tab: 'admin' }) }} style={segBtn(tab === 'admin')}>ผู้ดูแลระบบ</button>
-            <button onClick={() => { setTab('user'); setErr(null); persist({ tab: 'user' }) }} style={segBtn(tab === 'user')}>HOSxP</button>
+        {/* ---------- ขวา: ฟอร์ม ---------- */}
+        {/* การ์ดฟอร์ม — มุมมนทุกด้าน เกยทับภาพฝั่งซ้ายเล็กน้อย (ตามดีไซน์) */}
+        <div style={{
+          position: 'relative', zIndex: 1, background: 'var(--bg)',
+          borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-md)',
+          marginLeft: 'calc(var(--sp-6) * -1)',
+          padding: 'var(--sp-8) var(--sp-6)', display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', gap: 'var(--sp-4)',
+        }}>
+        <div style={{ width: '100%', maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+          {/* หัวฟอร์มจัดกึ่งกลาง — โลโก้บริษัท (BMS) → หัวข้อ → คำอธิบาย */}
+          <div style={{ textAlign: 'center' }}>
+            {/* (โลโก้อยู่นอก key เพราะไม่เปลี่ยนตามโหมด) */}
+            <img src={asset('/bms-icon.png')} alt="BMS" width={52} height={52}
+              style={{ display: 'block', margin: '0 auto var(--sp-3)', borderRadius: 'var(--r-full)' }} />
+            <div key={`h:${tab}`} className="tab-in">
+              <h1 className="text-h2 m-0 text-text">
+                {tab === 'admin' ? 'เข้าสู่ระบบผู้ดูแลระบบ' : 'เข้าสู่ระบบด้วย HOSxP'}
+              </h1>
+              <p className="text-body mt-2 mb-0 text-text-dim">
+                {tab === 'admin' ? 'บัญชีผู้ดูแลของ dashboard' : 'ใช้บัญชี HOSxP ของโรงพยาบาลที่สังกัด'}
+              </p>
+            </div>
           </div>
 
           {tab === 'admin' ? (
             // ติ๊ก "จำฉันไว้" = เก็บชื่อผู้ใช้+รหัสในเครื่อง / browser autocomplete ยังทำงานคู่กันได้
-            <form onSubmit={(e) => { e.preventDefault(); submit() }}>
-              <label style={lbl}>ชื่อผู้ใช้</label>
-              <input value={u} onChange={(e) => setU(e.target.value)} placeholder="เช่น somchai@hospital.go.th"
-                name="username" autoComplete="username"
-                style={{ ...field, marginBottom: 15 }} />
-
-              <label style={lbl}>รหัสผ่าน</label>
-              <div style={{ position: 'relative', marginBottom: err ? 12 : 20 }}>
-                <input value={p} onChange={(e) => setP(e.target.value)} type={showP ? 'text' : 'password'} placeholder="••••••••"
-                  name="password" autoComplete="current-password" autoFocus={!!u}
-                  style={{ ...field, paddingRight: 38 }} />
-                <button type="button" onClick={() => setShowP(!showP)} title={showP ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'} style={eyeBtn}>
-                  <Icon name={showP ? 'eye-off' : 'eye'} size={16} width={1.8} />
-                </button>
+            <form key="f:admin" className="tab-in" onSubmit={(e) => { e.preventDefault(); submit() }} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+              <div>
+                <label style={lbl}>ชื่อผู้ใช้ (อีเมล)</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={leadIcon}><Icon name="mail" size={18} width={1.8} /></span>
+                  <input value={u} onChange={(e) => setU(e.target.value)} placeholder="เช่น somchai@hospital.go.th"
+                    name="username" autoComplete="username" style={{ ...field, paddingLeft: 44 }} />
+                </div>
               </div>
 
-              {err && (
-                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{err}</div>
-              )}
+              <div>
+                <label style={lbl}>รหัสผ่าน</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={leadIcon}><Icon name="lock" size={18} width={1.8} /></span>
+                  <input value={p} onChange={(e) => setP(e.target.value)} type={showP ? 'text' : 'password'} placeholder="กรอกรหัสผ่าน"
+                    name="password" autoComplete="current-password" autoFocus={!!u}
+                    style={{ ...field, paddingLeft: 44, paddingRight: 44 }} />
+                  <button type="button" onClick={() => setShowP(!showP)} title={showP ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'} style={eyeBtn}>
+                    <Icon name={showP ? 'eye-off' : 'eye'} size={18} width={1.8} />
+                  </button>
+                </div>
+              </div>
 
+              {err && errorBox(err)}
               {rememberRow}
 
-              <button type="submit" disabled={busy} style={{
-                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
-                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 500, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.7 : 1,
-              }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
+              <Button variant="primary" size="lg" pill fullWidth type="submit" disabled={busy}>
+                {busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
+              </Button>
             </form>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); submitUser() }}>
-              <label style={lbl}>โรงพยาบาล</label>
-              {hosp ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
-                  <div style={{ ...field, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{hosp.hcode}</span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hosp.name || '(ไม่มีชื่อ)'}</span>
-                    <button type="button" onClick={() => { setHosp(null); setHq('') }} style={{ border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1, flex: 'none' }}>×</button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ position: 'relative', marginBottom: 15 }}>
-                  <input value={hq} onChange={(e) => setHq(e.target.value)} placeholder="พิมพ์รหัส (hcode) หรือชื่อโรงพยาบาล…"
-                    onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} autoComplete="off" style={field} />
-                  {hres.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
-                      {hres.map((h) => (
-                        <button key={h.hcode} type="button" onClick={() => { setHosp(h); setHres([]); persist({ hosp: h }) }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)', color: 'var(--text)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-card)' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)', padding: '2px 7px', borderRadius: 6, flex: 'none' }}>{h.hcode}</span>
-                          <span style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name || '(ไม่มีชื่อ)'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <label style={lbl}>ชื่อผู้ใช้</label>
-              <input value={uu} onChange={(e) => setUu(e.target.value)} placeholder="เช่น somchai"
-                name="username" autoComplete="username"
-                style={{ ...field, marginBottom: 15 }} />
-
-              <label style={lbl}>รหัสผ่าน</label>
-              <div style={{ position: 'relative', marginBottom: notice ? 12 : 20 }}>
-                <input value={up} onChange={(e) => setUp(e.target.value)} type={showUp ? 'text' : 'password'} placeholder="••••••••"
-                  name="password" autoComplete="current-password" autoFocus={!!uu && !!hosp}
-                  style={{ ...field, paddingRight: 38 }} />
-                <button type="button" onClick={() => setShowUp(!showUp)} title={showUp ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'} style={eyeBtn}>
-                  <Icon name={showUp ? 'eye-off' : 'eye'} size={16} width={1.8} />
-                </button>
+            <form key="f:user" className="tab-in" onSubmit={(e) => { e.preventDefault(); submitUser() }} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+              <div>
+                <label style={lbl}>โรงพยาบาล</label>
+                {/* ค้นสดจากทะเบียนโรงที่เปิดใช้งานแล้ว */}
+                <SearchSelect
+                  value={hosp?.hcode}
+                  onChange={(v) => {
+                    // ชื่อโรงมาจากผลค้นล่าสุด — เก็บไว้ใช้ตอน login (โชว์ชื่อบน header)
+                    searchHospitals(v).then((rows) => {
+                      const found = rows.find((r) => r.value === v)
+                      const next = { hcode: v, name: found?.label ?? v }
+                      setHosp(next); persist({ hosp: next })
+                    })
+                  }}
+                  options={hosp ? [{ value: hosp.hcode, label: hosp.name || '(ไม่มีชื่อ)', sub: hosp.hcode }] : []}
+                  onSearch={searchHospitals}
+                  placeholder="พิมพ์รหัส (hcode) หรือชื่อโรงพยาบาล…"
+                  searchPlaceholder="พิมพ์รหัสหรือชื่อโรงพยาบาล…"
+                />
               </div>
 
-              {notice && (
-                <div style={{ margin: '0 0 16px', fontSize: 12.5, color: 'var(--danger)', background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 9, padding: '9px 12px' }}>{notice}</div>
-              )}
+              <div>
+                <label style={lbl}>ชื่อผู้ใช้ HOSxP</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={leadIcon}><Icon name="person" size={18} width={1.8} /></span>
+                  <input value={uu} onChange={(e) => setUu(e.target.value)} placeholder="เช่น somchai"
+                    name="username" autoComplete="username" style={{ ...field, paddingLeft: 44 }} />
+                </div>
+              </div>
 
+              <div>
+                <label style={lbl}>รหัสผ่าน</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={leadIcon}><Icon name="lock" size={18} width={1.8} /></span>
+                  <input value={up} onChange={(e) => setUp(e.target.value)} type={showUp ? 'text' : 'password'} placeholder="กรอกรหัสผ่าน"
+                    name="password" autoComplete="current-password" autoFocus={!!uu && !!hosp}
+                    style={{ ...field, paddingLeft: 44, paddingRight: 44 }} />
+                  <button type="button" onClick={() => setShowUp(!showUp)} title={showUp ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'} style={eyeBtn}>
+                    <Icon name={showUp ? 'eye-off' : 'eye'} size={18} width={1.8} />
+                  </button>
+                </div>
+              </div>
+
+              {notice && errorBox(notice)}
               {rememberRow}
 
-              <button type="submit" disabled={busy || !hosp || !uu.trim() || !up.trim()} style={{
-                width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--accent)', color: 'var(--bg)',
-                fontFamily: 'var(--sans)', fontSize: 14, fontWeight: 500, cursor: busy ? 'default' : 'pointer',
-                opacity: busy || !hosp || !uu.trim() || !up.trim() ? 0.55 : 1,
-              }}>{busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}</button>
+              <Button variant="primary" size="lg" pill fullWidth type="submit"
+                disabled={busy || !hosp || !uu.trim() || !up.trim()}>
+                {busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
+              </Button>
             </form>
           )}
-        </div>
 
-        <div style={{ marginTop: 18, textAlign: 'center', fontSize: 11.5, color: 'var(--text-faint)', fontFamily: 'var(--mono)' }}>
-          เวอร์ชัน {__APP_VERSION__}
+          {/* ท้ายฟอร์ม: ช่วยเหลือซ้าย · เวอร์ชันขวา */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', paddingTop: 'var(--sp-2)', borderTop: '1px solid var(--control-border)' }}>
+            {/* สลับไปฟอร์มอีกแบบ (ผู้ดูแลระบบ ↔ HOSxP) */}
+            <button type="button"
+              onClick={() => {
+                const next = tab === 'admin' ? 'user' : 'admin'
+                setTab(next); setErr(null); setNotice(null); persist({ tab: next })
+              }}
+              style={{
+                ...TEXT.sm, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)',
+                border: 'none', background: 'transparent', color: 'var(--accent-active)',
+                cursor: 'pointer', fontFamily: 'var(--sans)', padding: 0,
+              }}>
+              <Icon name={tab === 'admin' ? 'hospital' : 'lock'} size={16} width={1.8} />
+              {tab === 'admin' ? 'เข้าสู่ระบบด้วย HOSxP' : 'เข้าสู่ระบบผู้ดูแลระบบ'}
+            </button>
+            <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-faint)', marginLeft: 'auto' }}>
+              เวอร์ชัน {__APP_VERSION__}
+            </span>
+          </div>
+        </div>
         </div>
       </div>
     </div>

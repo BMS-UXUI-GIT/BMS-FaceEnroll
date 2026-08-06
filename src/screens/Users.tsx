@@ -3,63 +3,373 @@ import { ROLE_TH, useApp } from '../state'
 import { nf } from '../hooks'
 import { Icon } from '../icons'
 import { Info } from '../components/Info'
-import { Loading } from '../components/Spinner'
 import { api } from '../api'
 import { dialog, toast } from '../components/dialog'
-import { Pager, SearchInput, usePaged } from '../components/Pager'
+import { PAGE_SIZE, usePaged } from '../components/Pager'
+import { Pagination } from '../components/data-display/Pagination'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { HeroArt } from '../components/HeroArt'
+import { SkelRows } from '../components/Skeleton'
+import { StatCard } from '../components/data-display/StatCard'
+import { Button } from '../components/inputs/Button'
+import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterChip } from '../components/inputs/FilterChip'
 import { SearchSelect } from '../components/SearchSelect'
+import { NewUserModal, genPassword } from '../components/NewUserModal'
+import { asset } from '../assets'
+import { TEXT } from '../typography'
 
 // จัดการผู้ใช้และสิทธิ์ (superadmin เท่านั้น) — สร้างบัญชี ตั้งบทบาท เลือกแท็บที่เห็นรายคน
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const field: React.CSSProperties = { padding: '8px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
+// การ์ด popup + ช่องกรอก — ใช้ token ชุดเดียวกับหน้าอื่น
+const card: React.CSSProperties = { background: 'var(--bg)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)' }
+const field: React.CSSProperties = { padding: 'var(--sp-2) var(--sp-3)', minHeight: 40, border: '1px solid var(--control-border)', borderRadius: 'var(--r-md)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
 
 type User = { username: string; display_name: string; role: string; hcodes: string[]; tabs: string[] | null; effective_tabs: string[]; active: boolean; last_login_at: string | null }
 type UsersRes = { users: User[]; roles: string[]; all_tabs: string[]; role_default_tabs: Record<string, string[]>; role_tabs: Record<string, string[]> }
 
 // 1 สิทธิ์ = 1 กลุ่มเมนู — ชื่อตรงกับที่ขึ้นในแถบเมนูซ้าย, tip ขึ้นเป็น tooltip ที่ไอคอน ⓘ
-const TAB_INFO: Record<string, { name: string; tip: string; danger?: boolean }> = {
-  overview: { name: 'หน้าหลัก', tip: 'เปิดเมนู หน้าหลัก' },
-  face: { name: 'ลงทะเบียนใบหน้า', tip: 'เปิดเมนู ลงทะเบียนใบหน้า' },
-  attendance: { name: 'ลงเวลา', tip: 'เปิดเมนู ลงเวลา และกลุ่มรายงาน·วิเคราะห์ทั้งหมด (รายบุคคล · รายแผนก · รายเวร · การมาสาย/ออกก่อน · รายงาน)' },
-  settings: { name: 'ตั้งค่าโรงพยาบาล', tip: 'เปิดเมนู ตั้งค่าแอปสแกน และ จุดลงเวลา — แก้นโยบายการสแกนของโรงได้' },
-  health: { name: 'สถานะระบบ', tip: 'เปิดเมนู สถานะระบบ — ดูว่าแต่ละโรงเชื่อมต่อได้ปกติไหม' },
-  approve: { name: 'อนุมัติโรงพยาบาล', danger: true, tip: 'เปิดเมนู อนุมัติโรงพยาบาล — รับโรงใหม่เข้าระบบ หรือปฏิเสธคำขอได้' },
-  tenants: { name: 'จัดการโรงพยาบาล', danger: true, tip: 'เปิดเมนู จัดการโรงพยาบาล — เปิด–ปิดการใช้งานของโรงไหนก็ได้ในระบบ ต่ออายุเดโม ปักธงเตือน' },
-  audit: { name: 'ประวัติการจัดการ', tip: 'เปิดเมนู ประวัติการจัดการ — ดูอย่างเดียว (admin โรงเห็นเฉพาะโรงตัวเอง)' },
-  users: { name: 'ผู้ใช้และสิทธิ์', danger: true, tip: 'เปิดเมนู ผู้ใช้และสิทธิ์ — สร้าง–ลบบัญชี รีเซ็ตรหัสผ่าน และให้สิทธิ์คนอื่นได้' },
+const TAB_INFO: Record<string, { name: string; tip: string; danger?: boolean; icon?: string }> = {
+  overview: { name: 'หน้าหลัก', icon: 'overview', tip: 'เปิดเมนู หน้าหลัก' },
+  face: { name: 'ลงทะเบียนใบหน้า', icon: 'face', tip: 'เปิดเมนู ลงทะเบียนใบหน้า' },
+  attendance: { icon: 'clock', name: 'ลงเวลา', tip: 'เปิดเมนู ลงเวลา และกลุ่มรายงาน·วิเคราะห์ทั้งหมด (รายบุคคล · รายแผนก · รายเวร · การมาสาย/ออกก่อน · รายงาน)' },
+  settings: { icon: 'system', name: 'ตั้งค่าโรงพยาบาล', tip: 'เปิดเมนู ตั้งค่าแอปสแกน และ จุดลงเวลา — แก้นโยบายการสแกนของโรงได้' },
+  health: { icon: 'health', name: 'สถานะระบบ', tip: 'เปิดเมนู สถานะระบบ — ดูว่าแต่ละโรงพยาบาลเชื่อมต่อได้ปกติไหม' },
+  approve: { icon: 'hospital', name: 'อนุมัติโรงพยาบาล', danger: true, tip: 'เปิดเมนู อนุมัติโรงพยาบาล — รับโรงใหม่เข้าระบบ หรือปฏิเสธคำขอได้' },
+  tenants: { icon: 'hospital', name: 'จัดการโรงพยาบาล', danger: true, tip: 'เปิดเมนู จัดการโรงพยาบาล — เปิด–ปิดการใช้งานของโรงไหนก็ได้ในระบบ ต่ออายุเดโม ปักธงเตือน' },
+  audit: { icon: 'clock', name: 'ประวัติการจัดการ', tip: 'เปิดเมนู ประวัติการจัดการ — ดูอย่างเดียว (admin ของโรงพยาบาลเห็นเฉพาะโรงพยาบาลตัวเอง)' },
+  help: { icon: 'info', name: 'ช่วยเหลือ', tip: 'เปิดเมนู ช่วยเหลือ — คู่มือการใช้งาน (เปิดได้ทุกบทบาทอยู่แล้ว)' },
+  users: { icon: 'people', name: 'ผู้ใช้และสิทธิ์', danger: true, tip: 'เปิดเมนู ผู้ใช้และสิทธิ์ — สร้าง–ลบบัญชี รีเซ็ตรหัสผ่าน และให้สิทธิ์คนอื่นได้' },
 }
 
-// การ์ดติ๊กสิทธิ์ 1 ใบ — สิทธิ์ระดับระบบใช้สีส้ม, ที่เหลือใช้สีหลัก
-function PermCard({ tab, on, busy, onClick }: { tab: string; on: boolean; busy: boolean; onClick: () => void }) {
-  const info = TAB_INFO[tab] ?? { name: tab, tip: tab }
-  const hi = info.danger ? 'var(--warn)' : 'var(--accent)'
+/** ปุ่มจัดการในแถวผู้ใช้ — ทรงแคปซูลพื้นอ่อน ชุดเดียวกับป้ายสถานะหน้าอื่น */
+function ActionPill({ label, tone = 'plain', disabled, onClick }: {
+  label: string; tone?: 'plain' | 'accent' | 'ok' | 'warn'; disabled?: boolean; onClick: () => void
+}) {
+  const c = tone === 'accent' ? { bg: 'var(--accent-light)', fg: 'var(--accent-active)' }
+    : tone === 'ok' ? { bg: 'var(--ok-light)', fg: 'var(--ok)' }
+    : tone === 'warn' ? { bg: 'var(--warn-light)', fg: 'var(--warn)' }
+    : { bg: 'var(--bg)', fg: 'var(--text-dim)' }
   return (
-    <button onClick={onClick} disabled={busy} style={{
-      display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left', padding: '9px 11px',
-      borderRadius: 10, cursor: 'pointer', fontFamily: 'var(--sans)',
-      border: `1px solid ${on ? hi : 'var(--border)'}`,
-      background: on ? `color-mix(in srgb, ${hi} 9%, var(--surface))` : 'var(--surface)',
+    <button type="button" onClick={onClick} disabled={disabled} style={{
+      ...TEXT.sm, fontWeight: 500, fontFamily: 'var(--sans)', whiteSpace: 'nowrap',
+      padding: 'var(--sp-1) var(--sp-3)', minHeight: 32, borderRadius: 'var(--r-full)', border: 'none',
+      background: c.bg, color: c.fg, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1,
+    }}>{label}</button>
+  )
+}
+
+/** สวิตช์เปิด/ปิด — ชุดเดียวกับหน้าตั้งค่าแอปสแกน */
+function Toggle({ on, disabled }: { on: boolean; disabled?: boolean }) {
+  return (
+    <span aria-hidden style={{
+      width: 44, height: 24, borderRadius: 'var(--r-full)', flex: 'none', position: 'relative',
+      opacity: disabled ? 0.6 : 1,
+      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s',
     }}>
       <span style={{
-        flex: 'none', width: 16, height: 16, borderRadius: 5, fontSize: 10.5, fontWeight: 500,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: `1px solid ${on ? 'transparent' : 'var(--border)'}`,
-        background: on ? hi : 'transparent', color: 'var(--bg)',
-      }}>{on ? '✓' : ''}</span>
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 500, color: on ? hi : 'var(--text)' }}>{info.name}</span>
-      <Info text={info.tip} size={13} />
+        position: 'absolute', top: 3, left: on ? 23 : 3, width: 18, height: 18, borderRadius: 'var(--r-full)',
+        background: 'var(--bg)', boxShadow: 'var(--shadow)', transition: 'left .15s',
+      }} />
+    </span>
+  )
+}
+
+// แถวสิทธิ์ 1 กลุ่มเมนู — ไอคอน → ชื่อเมนู → สวิตช์ (สิทธิ์ระดับระบบใช้โทนส้ม)
+function PermCard({ tab, on, busy, onClick }: { tab: string; on: boolean; busy: boolean; onClick: () => void }) {
+  const info = TAB_INFO[tab] ?? { name: tab, tip: tab, icon: 'info' }
+  const hi = info.danger ? 'var(--warn)' : 'var(--accent-active)'
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick} disabled={busy} title={info.tip} style={{
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', width: '100%', textAlign: 'left',
+      padding: 'var(--sp-2) var(--sp-3)', minHeight: 56, cursor: busy ? 'default' : 'pointer',
+      fontFamily: 'var(--sans)', border: 'none', borderRadius: 'var(--r-lg)',
+      // พื้นเทาเสมอ — สถานะเปิด/ปิดดูจากสวิตช์กับสีไอคอน
+      background: 'var(--surface-alt)',
+    }}>
+      <span aria-hidden style={{
+        width: 32, height: 32, flex: 'none', borderRadius: 'var(--r-md)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: on ? hi : 'var(--bg)', color: on ? 'var(--bg)' : 'var(--text-dim)',
+      }}>
+        <Icon name={info.icon ?? 'info'} size={18} width={1.8} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0, ...TEXT.bodyMed, color: on ? hi : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {info.name}
+      </span>
+      <Toggle on={on} disabled={busy} />
     </button>
   )
 }
 
-const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/
-// รหัสผ่าน 6 ตัว ตัดตัวที่อ่านสับสน (0/O, 1/l/I)
-const genPassword = () => {
-  const cs = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
-  const a = new Uint32Array(6)
-  crypto.getRandomValues(a)
-  return [...a].map((n) => cs[n % cs.length]).join('')
+
+// แท็บใน popup จัดการสิทธิ์
+const PERM_TABS: ['scope' | 'perms' | 'account', string][] = [
+  ['scope', 'ขอบเขตโรงพยาบาล'],
+  ['perms', 'สิทธิ์เมนู'],
+  ['account', 'จัดการบัญชี'],
+]
+
+/** popup ตั้งสิทธิ์ของผู้ใช้ 1 คน — ขอบเขตโรง + กลุ่มเมนูที่เปิดใช้ได้ */
+function PermissionsModal({ u, data, busy, isMe, patch, onResetPassword, onRemove, hospOpts, searchHospitals, onClose }: {
+  u: User
+  data: UsersRes | null
+  busy: boolean
+  /** บัญชีของตัวเอง — ลบไม่ได้ */
+  isMe: boolean
+  patch: (username: string, body: Record<string, unknown>) => void
+  onResetPassword: () => void
+  onRemove: () => void
+  hospOpts: { value: string; label: string; sub?: string }[]
+  searchHospitals: (q: string) => Promise<{ value: string; label: string; sub?: string }[]>
+  onClose: () => void
+}) {
+  // แก้ในหน้าต่างก่อน แล้วบันทึกทีเดียวตอนกด "เสร็จสิ้น"
+  const [hcodes, setHcodes] = useState<string[]>(u.hcodes)
+  const [tabs, setTabs] = useState<string[]>(u.effective_tabs)
+  const [useRoleDefault, setUseRoleDefault] = useState(false)   // กด reset แล้วให้ backend ล้าง tabs ที่ตั้งเอง
+  const [tab, setTab] = useState<'scope' | 'perms' | 'account'>('scope')
+
+  const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x))
+  const dirty = !sameSet(hcodes, u.hcodes) || !sameSet(tabs, u.effective_tabs) || useRoleDefault
+
+  const done = () => {
+    if (dirty) {
+      const body: Record<string, unknown> = {}
+      if (!sameSet(hcodes, u.hcodes)) body.hcodes = hcodes
+      if (useRoleDefault) body.clear_tabs = true
+      else if (!sameSet(tabs, u.effective_tabs)) body.tabs = tabs
+      if (Object.keys(body).length) patch(u.username, body)
+    }
+    onClose()
+  }
+
+  // รายการโรงที่จะโชว์เป็นการ์ดใต้ช่องเลือก
+  const central = u.role === 'superadmin' || u.role === 'bmsadmin'
+  const allHospitals = hcodes.includes('*') || (central && hcodes.length === 0)
+  const previewCodes = allHospitals ? hospOpts.map((h) => h.value) : hcodes
+
+  const toggle = (t: string) => {
+    setUseRoleDefault(false)
+    setTabs((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="rounded-xl" style={{
+        background: 'var(--bg)', boxShadow: 'var(--shadow-lg)', borderRadius: 'var(--r-xl)',
+        width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+        position: 'relative',
+      }}>
+        <div style={{ padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--control-border)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <span aria-hidden style={{
+            width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--accent-light)', color: 'var(--accent-active)', ...TEXT.bodyMed,
+          }}>{(u.display_name || u.username).slice(0, 2).toUpperCase()}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...TEXT.h3, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>สิทธิ์ของ {u.display_name || u.username}</div>
+            <div style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>@{u.username} · {ROLE_TH[u.role] ?? u.role}</div>
+          </div>
+          <button onClick={onClose} title="ปิด" style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', lineHeight: 0, padding: 'var(--sp-1)' }}>
+            <Icon name="close" size={18} width={2} />
+          </button>
+        </div>
+
+        {/* แท็บแบบขีดเส้นใต้ (ชุดเดียวกับ modal รายละเอียดพนักงาน) */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', padding: '0 var(--sp-5)', borderBottom: '1px solid var(--control-border)' }}>
+          {PERM_TABS.map(([k, label]) => (
+            <button key={k} onClick={() => setTab(k)} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)',
+              padding: 'var(--sp-3) var(--sp-4) 0', border: 'none', background: 'transparent', cursor: 'pointer',
+              fontFamily: 'var(--sans)',
+            }}>
+              <span style={{ ...TEXT.bodyMed, color: tab === k ? 'var(--accent-active)' : 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</span>
+              <span style={{ width: '100%', minWidth: 48, height: 3, borderRadius: 2, background: tab === k ? 'var(--accent-active)' : 'transparent' }} />
+            </button>
+          ))}
+        </div>
+
+        {/* ความสูงคงที่ทุกแท็บ — สลับแท็บแล้ว popup ไม่กระโดด (เนื้อหายาวเกินก็เลื่อนในนี้) */}
+        <div style={{ padding: 'var(--sp-5)', paddingBottom: 84, overflowY: 'auto', height: 380 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {/* ---------- แท็บ: ขอบเขตโรง ---------- */}
+                {tab === 'scope' && (<>
+                {/* ค่าเริ่มต้นของบัญชีส่วนกลางคือทุกโรง จำกัดทีหลังได้ */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                  <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>โรงพยาบาลที่ดูได้</span>
+                  <Info size={13} text={u.role === 'superadmin' || u.role === 'bmsadmin'
+                    ? 'บัญชีส่วนกลางเริ่มต้นเห็นทุกโรงพยาบาล — เลือกเฉพาะบางแห่งได้ถ้าต้องการจำกัด (ล้างจนหมด = กลับไปเห็นทุกแห่ง)'
+                    : 'บัญชีของโรงพยาบาล เห็นเฉพาะโรงพยาบาลที่เลือกไว้เท่านั้น'} />
+                </div>
+                {/* ช่องเดียวจบ: เลือก "ทุกโรงพยาบาล" หรือเลือกโรงทีละโรงก็ได้ */}
+                <div style={{ marginBottom: 16 }}>
+                  <SearchSelect
+                    multi allowCustom
+                    values={hcodes}
+                    onToggle={(v) => setHcodes((cur) => {
+                      if (v === '*') return cur.includes('*') ? [] : ['*']
+                      const rest = cur.filter((x) => x !== '*' && x !== v)
+                      return cur.includes(v) ? rest : [...rest, v]
+                    })}
+                    onClear={() => setHcodes([])}
+                    options={[{ value: '*', label: 'ทุกโรงพยาบาล' }, ...hospOpts]}
+                    onSearch={searchHospitals}
+                    placeholder={u.role === 'superadmin' || u.role === 'bmsadmin' ? 'ทุกโรงพยาบาล (ไม่จำกัด)' : 'เลือกโรงพยาบาล…'}
+                  />
+                </div>
+
+                {/* รายการโรงที่เลือกไว้ — การ์ดชุดเดียวกับหน้าเลือกโรงพยาบาล (ไม่มีปุ่ม) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                  {/* ดูได้ทุกโรง (เลือก '*' หรือบัญชีส่วนกลางที่ไม่ได้จำกัดโรง) -> โชว์ทุกโรงที่มีในระบบ */}
+                  {previewCodes.length === 0 ? (
+                    <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>ยังไม่ได้เลือกโรงพยาบาล</div>
+                  ) : previewCodes.map((h) => (
+                    <div key={h} style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+                      padding: 'var(--sp-2)', background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)',
+                    }}>
+                      <span aria-hidden style={{
+                        width: 72, height: 56, flex: 'none', borderRadius: 'var(--r-md)', overflow: 'hidden',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-blue)',
+                      }}>
+                        <img src={asset('/hero-hospital.svg')} alt="" width={72} height={72}
+                          className="pointer-events-none select-none" style={{ objectFit: 'cover', marginTop: 6 }} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ ...TEXT.bodyMed, color: 'var(--text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {hospOpts.find((o2) => o2.value === h)?.label ?? h}
+                        </span>
+                        <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)', display: 'block' }}>{h}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                </>)}
+
+                {/* ---------- แท็บ: สิทธิ์เมนู ---------- */}
+                {/* เลย์เอาต์: 1 กลุ่ม = 1 แถว (หัวข้อกลุ่มซ้าย · รายการเมนูขวา) */}
+                {tab === 'perms' && (() => {
+                  const mine = data?.role_tabs?.[u.role] ?? data?.all_tabs ?? []
+                  const plain = mine.filter((t) => !TAB_INFO[t]?.danger)
+                  const risky = mine.filter((t) => TAB_INFO[t]?.danger)
+
+                  const group = (title: React.ReactNode, hint: React.ReactNode, list: string[]) => (
+                    <div style={{ display: 'flex', gap: 'var(--sp-4)', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      <div style={{ flex: '0 0 168px', minWidth: 140 }}>
+                        {title}
+                        <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 2 }}>{hint}</div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 'min(280px, 100%)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                        {list.map((t) => (
+                          <PermCard key={t} tab={t} on={tabs.includes(t)} busy={busy} onClick={() => toggle(t)} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
+                      {/* ปุ่มคืนค่ามาตรฐานอยู่มุมขวาบนของแท็บ */}
+                      {(u.tabs !== null || useRoleDefault) && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <button onClick={() => {
+                            setUseRoleDefault(true)
+                            setTabs(data?.role_default_tabs?.[u.role] ?? [])
+                          }} disabled={busy} title="ล้างที่ตั้งเอง กลับไปใช้ค่ามาตรฐานของบทบาทนี้"
+                            style={{ ...TEXT.sm, fontWeight: 500, padding: 'var(--sp-1) var(--sp-3)', minHeight: 32, borderRadius: 'var(--r-full)', border: 'none', background: 'var(--surface-alt)', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'var(--sans)', whiteSpace: 'nowrap' }}>
+                            ใช้ค่ามาตรฐานของบทบาท
+                          </button>
+                        </div>
+                      )}
+
+                      {group(
+                        <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>สิทธิ์การเข้าถึง</span>,
+                        'กลุ่มเมนูที่บัญชีนี้เปิดใช้ได้',
+                        plain,
+                      )}
+
+                      {/* สิทธิ์ที่แก้ข้อมูลระดับระบบได้ — แยกกลุ่มให้เห็นชัดว่าคนละชั้นกับด้านบน */}
+                      {risky.length > 0 && group(
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)', ...TEXT.bodyMed, color: 'var(--warn)' }}>
+                          <Icon name="alert" size={16} width={2} />สิทธิ์ระดับระบบ
+                        </span>,
+                        'ให้เฉพาะคนที่ดูแลระบบจริง',
+                        risky,
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* ---------- แท็บ: จัดการบัญชี ---------- */}
+                {tab === 'account' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap',
+                      padding: 'var(--sp-3) var(--sp-4)', minHeight: 60,
+                      background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)',
+                    }}>
+                      <div style={{ flex: 1, minWidth: 180 }}>
+                        <div style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>รีเซ็ตรหัสผ่าน</div>
+                        <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 2 }}>ตั้งรหัสใหม่ให้ผู้ใช้ — รหัสจะแสดงครั้งเดียวให้คัดลอกส่งต่อ</div>
+                      </div>
+                      <ActionPill label="รีเซ็ตรหัสผ่าน" tone="plain" disabled={busy} onClick={onResetPassword} />
+                    </div>
+
+                    {!isMe && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap',
+                        padding: 'var(--sp-3) var(--sp-4)', minHeight: 60,
+                        background: 'var(--danger-light)', borderRadius: 'var(--r-lg)',
+                      }}>
+                        <div style={{ flex: 1, minWidth: 180 }}>
+                          <div style={{ ...TEXT.bodyMed, color: 'var(--danger)' }}>ลบบัญชีนี้</div>
+                          <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 2 }}>ลบถาวร กู้คืนไม่ได้ — ถ้าแค่พักการใช้งานให้กด "พักใช้" ในรายการแทน</div>
+                        </div>
+                        <button type="button" title="ลบบัญชี" disabled={busy} onClick={onRemove} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
+                          ...TEXT.sm, fontWeight: 500, fontFamily: 'var(--sans)',
+                          padding: 'var(--sp-1) var(--sp-3)', minHeight: 32, borderRadius: 'var(--r-full)', border: 'none',
+                          background: 'var(--danger)', color: 'var(--bg)',
+                          cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+                        }}>
+                          <Icon name="trash" size={16} width={1.8} />ลบบัญชี
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+          {/* แถบปุ่มกระจก — ยึดก้น modal เสมอ เนื้อหาเลื่อนลอดใต้แถบ (เห็นเบลอจริง) */}
+          <div style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 1,
+            padding: 'var(--sp-4) var(--sp-5)', borderTop: '1px solid var(--control-border)',
+            display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap',
+            background: 'color-mix(in srgb, var(--bg) 72%, transparent)',
+            backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+            borderBottomLeftRadius: 'var(--r-xl)', borderBottomRightRadius: 'var(--r-xl)',
+          }}>
+            {/* คืนค่าเริ่มต้น = ล้างที่ตั้งเอง กลับไปใช้ค่ามาตรฐานของบทบาท */}
+            <Button variant="secondary" size="md" pill disabled={busy}
+              icon={<Icon name="recon" size={18} width={1.8} />}
+              onClick={() => {
+                setUseRoleDefault(true)
+                setTabs(data?.role_default_tabs?.[u.role] ?? [])
+              }}>
+              คืนค่าเริ่มต้น
+            </Button>
+            <span style={{ marginLeft: 'auto' }} />
+            <Button variant="secondary" size="md" pill onClick={onClose}>ยกเลิก</Button>
+            <Button variant="primary" size="md" pill onClick={done} disabled={busy}>
+              {dirty ? 'บันทึกและปิด' : 'เสร็จสิ้น'}
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  )
 }
 
 export function Users({ me }: { me: string }) {
@@ -72,10 +382,10 @@ export function Users({ me }: { me: string }) {
   const [hf, setHf] = useState('')   // ฟิลเตอร์โรง: '' = ทุกโรง · '*' = บัญชีส่วนกลาง · อื่น = hcode
   const [editing, setEditing] = useState<string | null>(null)
   // ฟอร์มสร้างใหม่ — เปิด popup แล้วเจนรหัสให้เลย
-  const [nu, setNu] = useState({ username: '', password: '', display_name: '', role: 'admin', hcodes: [] as string[] })
   // โชว์บัญชี+รหัสหลังสร้าง/รีเซ็ตสำเร็จ (รหัสเห็นครั้งเดียว — ให้ copy ส่งผู้ใช้)
   const [created, setCreated] = useState<{ username: string; password: string; reset?: boolean } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [reload, setReload] = useState(0)
 
   const hospOpts = (session?.hospitals ?? []).filter((h) => h.value !== '*').map((h) => ({ value: h.value, label: h.label, sub: h.value }))
   // ค้นสดจากทะเบียนโรงทั้งประเทศ (ไม่จำกัดแค่โรงที่ลงทะเบียนแล้ว)
@@ -83,7 +393,14 @@ export function Users({ me }: { me: string }) {
     api.get<{ hospitals: { hcode: string; name: string }[] }>(`/admin/hospitals/search?q=${encodeURIComponent(q)}&limit=30`)
       .then((d) => (d.hospitals ?? []).map((h) => ({ value: h.hcode, label: h.name || '(ไม่มีชื่อ)', sub: h.hcode })))
 
-  useEffect(() => { api.get<UsersRes>('/admin/users').then(setData).catch((e) => setErr(e?.message || 'โหลดไม่สำเร็จ')) }, [])
+  useEffect(() => {
+    let alive = true
+    setData(null); setErr(null)
+    api.get<UsersRes>('/admin/users')
+      .then((d) => alive && setData(d))
+      .catch((e) => alive && setErr(e?.message || 'โหลดไม่สำเร็จ'))
+    return () => { alive = false }
+  }, [reload])
 
   const run = async (fn: () => Promise<UsersRes>) => {
     if (busy) return
@@ -91,26 +408,8 @@ export function Users({ me }: { me: string }) {
     try { setData(await fn()); toast.success('บันทึกแล้ว') } catch (e: any) { setErr(e?.message || 'ทำรายการไม่สำเร็จ') } finally { setBusy(false) }
   }
 
-  const create = () => run(async () => {
-    const uname = nu.username.trim().toLowerCase()
-    const pw = nu.password.trim()
-    if (!EMAIL_RE.test(uname)) throw new Error('ชื่อผู้ใช้ต้องเป็นอีเมล เช่น somchai@hospital.go.th')
-    if (pw.length < 6) throw new Error('รหัสผ่านต้องยาวอย่างน้อย 6 ตัว')
-    const hcodes = nu.role === 'superadmin' || nu.role === 'bmsadmin' ? ['*'] : nu.hcodes
-    const r = await api.post<UsersRes>('/admin/users', { ...nu, username: uname, password: pw, hcodes })
-    setShowNew(false); setCopied(false); setCreated({ username: uname, password: pw })
-    setNu({ username: '', password: '', display_name: '', role: 'admin', hcodes: [] })
-    return r
-  })
-
   const patch = (username: string, body: Record<string, unknown>) =>
     run(() => api.patch<UsersRes>(`/admin/users/${encodeURIComponent(username)}`, body))
-
-  const toggleTab = (u: User, tab: string) => {
-    const cur = u.effective_tabs
-    const next = cur.includes(tab) ? cur.filter((t) => t !== tab) : [...cur, tab]
-    patch(u.username, { tabs: next })
-  }
 
   const resetPassword = async (u: User) => {
     const pw = await dialog.prompt({
@@ -126,9 +425,16 @@ export function Users({ me }: { me: string }) {
     })
   }
 
+  // ลบถาวร — ต้องพิมพ์ชื่อบัญชีให้ตรงก่อน (กันกดพลาด/กดผิดคน)
   const remove = async (u: User) => {
-    if (await dialog.confirm({ title: 'ลบบัญชี', body: `ลบบัญชี ${u.username}? กู้คืนไม่ได้`, confirmText: 'ลบบัญชี', danger: true }))
-      run(() => api.del<UsersRes>(`/admin/users/${encodeURIComponent(u.username)}`))
+    const typed = await dialog.prompt({
+      title: `ลบบัญชี ${u.username}`,
+      label: `พิมพ์ "${u.username}" เพื่อยืนยันการลบถาวร (กู้คืนไม่ได้)`,
+      initial: '', mono: true, confirmText: 'ลบบัญชี', danger: true,
+      validate: (v) => (v.trim().toLowerCase() === u.username.toLowerCase() ? null : 'ชื่อบัญชีไม่ตรง'),
+    })
+    if (typed === null) return
+    run(() => api.del<UsersRes>(`/admin/users/${encodeURIComponent(u.username)}`))
   }
 
   // ตัวเลือกฟิลเตอร์ = เฉพาะโรงที่มีบัญชีอยู่จริง (ชื่อโรงจาก scope ของคนที่ login)
@@ -149,223 +455,133 @@ export function Users({ me }: { me: string }) {
   })
   const paged = usePaged(shown)
 
+  // การ์ดสรุปในหัวเรื่อง (นับจากบัญชีทั้งหมด ไม่ใช่เฉพาะที่กรองอยู่)
+  const allUsers = data?.users ?? []
+  const HERO = [
+    { label: 'บัญชีทั้งหมด', v: data ? allUsers.length : undefined, tone: 'accent' as const, icon: 'people' },
+    { label: 'ใช้งานอยู่', v: data ? allUsers.filter((x) => x.active).length : undefined, tone: 'ok' as const, icon: 'rosette-check' },
+    { label: 'ปิดใช้งาน', v: data ? allUsers.filter((x) => !x.active).length : undefined, tone: 'danger' as const, icon: 'ban' },
+  ]
+
   return (
-    <div style={{ maxWidth: 'var(--page-max)' }}>
-    <div style={{ ...card }}>
-      <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>ผู้ใช้และสิทธิ์</h2>
-        <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>ตั้งบทบาท + เลือกแท็บที่เห็นได้รายคน (Super Admin เห็นครบเสมอ)</span>
-        <div style={{ marginLeft: 'auto', display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchInput value={q} onChange={setQ} placeholder="ค้นชื่อ / บัญชี / โรง…" width={150} />
-          <select className="nice-select" value={hf} onChange={(e) => setHf(e.target.value)} title="กรองตามโรงพยาบาล"
-            style={{ fontSize: 12, padding: '7px 30px 7px 11px', maxWidth: 230 }}>
-            <option value="">ทุกโรงพยาบาล</option>
-            {hasCentral && <option value="*">ส่วนกลาง (ดูแลทุกโรง)</option>}
-            {hospFilters.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
-          </select>
-          <Pager page={paged.page} total={paged.total} onPage={paged.setPage} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <HeroArt icon="people" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">ผู้ใช้และสิทธิ์</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              สร้างบัญชี ตั้งบทบาท และเลือกกลุ่มเมนูที่เห็นได้รายคน (Super Admin เห็นครบเสมอ)
+            </p>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+              icon={<Icon name="recon" size={20} style={!data && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+              รีเฟรชข้อมูลล่าสุด
+            </Button>
+          </div>
         </div>
-        <button onClick={() => { setErr(null); setNu((s) => ({ ...s, password: genPassword() })); setShowNew(true) }} style={{ fontSize: 12, fontWeight: 500, padding: '7px 13px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>
-          + เพิ่มผู้ใช้
-        </button>
+
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          {HERO.map((k) => (
+            <StatCard key={k.label} tone={k.tone} label={k.label} unit="บัญชี"
+              icon={<Icon name={k.icon} size={24} color="currentColor" />}
+              value={k.v != null ? nf(k.v) : '…'} />
+          ))}
+        </div>
       </div>
 
-      {err && !showNew && <div style={{ padding: '12px 20px', color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
+      {err && !showNew && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
 
-      <div>
+      {/* ---------- แถวตัวกรอง ---------- */}
+      <div className="flex gap-2 items-center flex-wrap">
+        <SearchInput grow value={q} onChange={setQ} placeholder="ค้นหา ชื่อ / บัญชี / รหัสโรงพยาบาล" />
+        <FilterChip icon={<Icon name="hospital" size={24} width={1.8} />} label="โรงพยาบาล">
+          <SearchSelect bare hideCaret value={hf} onChange={setHf} maxTriggerWidth={190}
+            searchPlaceholder="ค้นชื่อ/รหัสโรงพยาบาล…"
+            options={[
+              { value: '', label: 'ทุกโรงพยาบาล' },
+              ...(hasCentral ? [{ value: '*', label: 'ส่วนกลาง (ดูแลทุกโรงพยาบาล)' }] : []),
+              ...hospFilters,
+            ]} />
+        </FilterChip>
+        {(q || hf) && <Button variant="ghost" size="sm" onClick={() => { setQ(''); setHf('') }}>ล้างตัวกรอง</Button>}
+      </div>
+
+      {/* ---------- รายการผู้ใช้ ---------- */}
+      <SectionPanel title="บัญชีผู้ใช้" meta={data ? `${nf(shown.length)} บัญชี` : undefined}
+        actions={
+          <Button variant="primary" size="md" pill icon={<Icon name="person" size={18} width={1.8} />}
+            onClick={() => { setErr(null); setShowNew(true) }}>
+            เพิ่มผู้ใช้
+          </Button>
+        }>
+
+
+      {!data ? <SkelRows rows={6} /> : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
         {paged.pageRows.map((u, i) => (
-          <div key={u.username} style={{ borderTop: '1px solid var(--border)' }}>
-            <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>{nf(paged.offset + i + 1)}</span>
-              <div style={{ width: 34, height: 34, flex: 'none', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500, fontSize: 12.5 }}>
+          <div key={u.username} style={{ background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)' }}>
+            <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
+              <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--mono)', ...TEXT.sm, color: 'var(--text-faint)', flex: 'none' }}>{nf(paged.offset + i + 1)}</span>
+              <div style={{ width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', ...TEXT.bodyMed }}>
                 {(u.display_name || u.username).slice(0, 2).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 500, fontSize: 13.5 }}>{u.display_name || u.username}</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-faint)' }}>@{u.username}</span>
-                  {u.username === me && <span style={{ fontSize: 10, fontWeight: 500, padding: '1px 7px', borderRadius: 5, background: 'var(--ok-light)', color: 'var(--ok)' }}>คุณ</span>}
-                  {!u.active && <span style={{ fontSize: 10, fontWeight: 500, padding: '1px 7px', borderRadius: 5, background: 'var(--danger-light)', color: 'var(--danger)' }}>ปิดใช้งาน</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                  <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>{u.display_name || u.username}</span>
+                  <span style={{ fontFamily: 'var(--mono)', ...TEXT.sm, color: 'var(--text-faint)' }}>@{u.username}</span>
+                  {u.username === me && <span style={{ ...TEXT.caption, fontWeight: 500, padding: '2px 8px', borderRadius: 'var(--r-full)', background: 'var(--ok-light)', color: 'var(--ok)' }}>คุณ</span>}
+                  {!u.active && <span style={{ ...TEXT.caption, fontWeight: 500, padding: '2px 8px', borderRadius: 'var(--r-full)', background: 'var(--danger-light)', color: 'var(--danger)' }}>ปิดใช้งาน</span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 2 }}>
-                  {ROLE_TH[u.role] ?? u.role} · โรง: {u.hcodes.includes('*') ? 'ทุกโรง' : u.hcodes.join(', ') || '—'}
+                <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 2 }}>
+                  {ROLE_TH[u.role] ?? u.role} · โรงพยาบาล: {u.hcodes.includes('*') ? 'ทุกโรงพยาบาล' : u.hcodes.join(', ') || '—'}
                   <span style={{ color: 'var(--text-faint)' }}> · เข้าระบบล่าสุด: {u.last_login_at ? new Date(u.last_login_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่เคย'}</span>
                 </div>
               </div>
-              {u.role !== 'superadmin' && (
-                <button onClick={() => setEditing(editing === u.username ? null : u.username)} style={{ fontSize: 11.5, fontWeight: 500, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: editing === u.username ? 'var(--accent-light)' : 'var(--surface)', color: editing === u.username ? 'var(--accent-active)' : 'var(--text-dim)', cursor: 'pointer' }}>
-                  {editing === u.username ? 'ปิด' : 'สิทธิ์'}
-                </button>
-              )}
-              <button onClick={() => resetPassword(u)} disabled={busy} style={{ fontSize: 11.5, fontWeight: 500, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>รีเซ็ตรหัส</button>
-              {u.username !== me && (
-                <>
-                  <button onClick={() => patch(u.username, { active: !u.active })} disabled={busy} style={{ fontSize: 11.5, fontWeight: 500, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: u.active ? 'var(--warn)' : 'var(--ok)', cursor: 'pointer' }}>
-                    {u.active ? 'พักใช้' : 'เปิดใช้'}
-                  </button>
-                  <button onClick={() => remove(u)} disabled={busy} style={{ fontSize: 11.5, fontWeight: 500, padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--danger)', cursor: 'pointer' }}>ลบ</button>
-                </>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap', flex: 'none' }}>
+                {u.role !== 'superadmin' && (
+                  <ActionPill label={editing === u.username ? 'ปิด' : 'จัดการสิทธิ์'} tone={editing === u.username ? 'accent' : 'plain'}
+                    onClick={() => setEditing(editing === u.username ? null : u.username)} />
+                )}
+                {u.username !== me && (
+                  <ActionPill label={u.active ? 'พักใช้' : 'เปิดใช้'} tone={u.active ? 'warn' : 'ok'} disabled={busy}
+                    onClick={() => patch(u.username, { active: !u.active })} />
+                )}
+              </div>
             </div>
 
-            {editing === u.username && (
-              <div style={{ padding: '2px 20px 18px 66px' }}>
-                {/* ขอบเขตโรง — ค่าเริ่มต้นของบัญชีส่วนกลางคือทุกโรง จำกัดทีหลังได้ */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>โรงพยาบาลที่ดูได้</span>
-                  <Info size={13} text={u.role === 'superadmin' || u.role === 'bmsadmin'
-                    ? 'บัญชีส่วนกลางเริ่มต้นเห็นทุกโรง — เลือกเฉพาะบางโรคได้ถ้าต้องการจำกัด (ล้างจนหมด = กลับไปทุกโรค)'
-                    : 'บัญชีของโรง เห็นเฉพาะโรงที่เลือกไว้เท่านั้น'} />
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-                  <button onClick={() => patch(u.username, { hcodes: ['*'] })}
-                    disabled={busy || u.hcodes.includes('*')} style={{
-                      fontSize: 11.5, fontWeight: 500, padding: '6px 12px', borderRadius: 16, cursor: u.hcodes.includes('*') ? 'default' : 'pointer', fontFamily: 'var(--sans)',
-                      border: `1px solid ${u.hcodes.includes('*') ? 'var(--accent)' : 'var(--border)'}`,
-                      background: u.hcodes.includes('*') ? 'var(--accent-light)' : 'var(--surface)',
-                      color: u.hcodes.includes('*') ? 'var(--accent-active)' : 'var(--text-faint)',
-                    }}>{u.hcodes.includes('*') ? '✓ ' : ''}ทุกโรงพยาบาล</button>
-                  {!u.hcodes.includes('*') && u.hcodes.map((h) => (
-                    <span key={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 500, padding: '5px 8px 5px 11px', borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface-card)' }}>
-                      {hospName(h)} <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-faint)' }}>{h}</span>
-                      <button onClick={() => patch(u.username, { hcodes: u.hcodes.filter((x) => x !== h) })} disabled={busy} title="เอาโรงนี้ออก"
-                        style={{ border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-                    </span>
-                  ))}
-                  <span style={{ minWidth: 210 }}>
-                    <SearchSelect
-                      allowCustom
-                      onChange={(v) => patch(u.username, { hcodes: [...u.hcodes.filter((x) => x !== '*' && x !== v), v] })}
-                      options={hospOpts}
-                      onSearch={searchHospitals}
-                      placeholder={u.hcodes.includes('*') ? 'จำกัดเฉพาะบางโรง…' : 'เพิ่มโรง…'}
-                    />
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>สิทธิ์การเข้าถึง</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>เลือกกลุ่มเมนูที่บัญชีนี้เปิดใช้ได้</span>
-                  {u.tabs !== null && (
-                    <button onClick={() => patch(u.username, { clear_tabs: true })} disabled={busy} title="ล้างที่ตั้งเอง กลับไปใช้ค่ามาตรฐานของบทบาทนี้"
-                      style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 500, padding: '4px 11px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'var(--sans)' }}>
-                      Reset to role default
-                    </button>
-                  )}
-                </div>
-                {(() => {
-                  const mine = data?.role_tabs?.[u.role] ?? data?.all_tabs ?? []
-                  const plain = mine.filter((t) => !TAB_INFO[t]?.danger)
-                  const risky = mine.filter((t) => TAB_INFO[t]?.danger)
-                  const cards = (list: string[]) => (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(210px, 100%), 1fr))', gap: 8 }}>
-                      {list.map((t) => (
-                        <PermCard key={t} tab={t} on={u.effective_tabs.includes(t)} busy={busy} onClick={() => toggleTab(u, t)} />
-                      ))}
-                    </div>
-                  )
-                  return (
-                    <>
-                      {cards(plain)}
-                      {risky.length > 0 && (
-                        // สิทธิ์ที่แก้ข้อมูลระดับระบบได้ — แยกกลุ่มให้เห็นชัดว่าคนละชั้นกับด้านบน
-                        <div style={{ marginTop: 14, paddingLeft: 12, borderLeft: '2px solid var(--warn)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                            <Icon name="alert" size={13} color="var(--warn)" width={2} />
-                            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--warn)' }}>Advanced</span>
-                          </div>
-                          {cards(risky)}
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            )}
           </div>
         ))}
-        {data && shown.length === 0 && <div style={{ padding: '18px 20px', color: 'var(--text-faint)', fontSize: 13, textAlign: 'center', borderTop: '1px solid var(--border)' }}>{q || hf ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข' : 'ยังไม่มีผู้ใช้'}</div>}
-        {!data && !err && <Loading />}
+        {shown.length === 0 && (
+          <div style={{ ...TEXT.body, padding: '40px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
+            {q || hf ? 'ไม่พบผู้ใช้ที่ตรงกับเงื่อนไข' : 'ยังไม่มีผู้ใช้'}
+          </div>
+        )}
+        <Pagination page={paged.page} pageSize={PAGE_SIZE} total={paged.total} shown={paged.pageRows.length} onPage={paged.setPage} />
       </div>
-    </div>
+      )}
+      </SectionPanel>
 
-    {/* popup เพิ่มผู้ใช้ */}
+    {/* popup ตั้งสิทธิ์ */}
+    {editing && (() => {
+      const u = (data?.users ?? []).find((x) => x.username === editing)
+      return u ? (
+        <PermissionsModal u={u} data={data} busy={busy} isMe={u.username === me} patch={patch}
+          onResetPassword={() => resetPassword(u)}
+          onRemove={() => { setEditing(null); remove(u) }}
+          hospOpts={hospOpts} searchHospitals={searchHospitals}
+          onClose={() => setEditing(null)} />
+      ) : null
+    })()}
+
+    {/* popup เพิ่มผู้ใช้ — ฟอร์มแบบ stepper (ใช้ร่วมกับหน้ารายละเอียดโรงพยาบาล) */}
     {showNew && (
-      <div onClick={() => setShowNew(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 420, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 500, fontSize: 14.5 }}>เพิ่มผู้ใช้</span>
-            <button onClick={() => setShowNew(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
-          </div>
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 5 }}>Role
-              {/* role user สร้างจากหน้านี้ไม่ได้ (พนักงานโรง login ผ่านบัญชี HOSxP เอง) */}
-              <select className="nice-select" value={nu.role} onChange={(e) => setNu({ ...nu, role: e.target.value })}>
-                {(data?.roles ?? []).filter((r) => r !== 'user').map((r) => <option key={r} value={r}>{ROLE_TH[r] ?? r}</option>)}
-              </select>
-            </label>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 5 }}>อีเมล (ใช้เป็นชื่อผู้ใช้ login)
-              <input value={nu.username} onChange={(e) => setNu({ ...nu, username: e.target.value })} type="email" placeholder="เช่น somchai@hospital.go.th" style={{
-                ...field,
-                ...(nu.username.trim() && !EMAIL_RE.test(nu.username.trim().toLowerCase()) ? { borderColor: 'var(--danger)' } : {}),
-              }} />
-            </label>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 5 }}>รหัสผ่าน (ระบบสุ่มให้ 6 ตัว)
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input value={nu.password} onChange={(e) => setNu({ ...nu, password: e.target.value })} style={{ ...field, flex: 1, fontFamily: 'var(--mono)', letterSpacing: '1px' }} />
-                <button type="button" onClick={() => setNu({ ...nu, password: genPassword() })} title="สุ่มรหัสใหม่"
-                  style={{ fontSize: 12, fontWeight: 500, padding: '0 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>สุ่มใหม่</button>
-              </div>
-            </label>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 5 }}>ชื่อที่แสดง
-              <input value={nu.display_name} onChange={(e) => setNu({ ...nu, display_name: e.target.value })} placeholder="เช่น คุณสมชาย (ไอที)" style={field} />
-            </label>
-            {nu.role !== 'superadmin' && nu.role !== 'bmsadmin' && (
-              <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: 5 }}>โรงพยาบาลที่ดูแล (เลือกได้หลายโรง)
-                <SearchSelect
-                  multi allowCustom
-                  values={nu.hcodes}
-                  onToggle={(v) => setNu((s) => ({ ...s, hcodes: s.hcodes.includes(v) ? s.hcodes.filter((x) => x !== v) : [...s.hcodes, v] }))}
-                  options={hospOpts}
-                  onSearch={searchHospitals}
-                  placeholder="พิมพ์เลขหรือชื่อโรงพยาบาลเพื่อค้นหา…"
-                />
-              </label>
-            )}
-            {err && <div style={{ fontSize: 12.5, color: 'var(--danger)' }}>ผิดพลาด: {err}</div>}
-          </div>
-          <div style={{ padding: '13px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button onClick={() => setShowNew(false)} style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-dim)', cursor: 'pointer' }}>ยกเลิก</button>
-            <button onClick={create} disabled={busy || !nu.username.trim() || nu.password.trim().length < 6 || ((nu.role === 'admin' || nu.role === 'user') && nu.hcodes.length === 0)}
-              style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>
-              {busy ? 'กำลังสร้าง…' : 'สร้างบัญชี'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* popup หลังสร้างสำเร็จ — รหัสผ่านโชว์ครั้งเดียว ให้ copy ส่งผู้ใช้ */}
-    {created && (
-      <div onClick={() => setCreated(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 420, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 500, fontSize: 14.5, color: 'var(--ok)' }}>✓ {created.reset ? 'รีเซ็ตรหัสผ่านแล้ว' : 'สร้างบัญชีแล้ว'}</div>
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>อีเมล</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, padding: '9px 12px', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.username}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>รหัสผ่าน</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 17, fontWeight: 500, letterSpacing: '2px', padding: '9px 12px', background: 'var(--surface-card)', border: '1px solid var(--border)', borderRadius: 9 }}>{created.password}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>รหัสผ่านแสดงครั้งเดียว — คัดลอกส่งให้ผู้ใช้เก็บไว้ก่อนปิดหน้าต่างนี้</div>
-          </div>
-          <div style={{ padding: '13px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button onClick={() => { navigator.clipboard?.writeText(`${created.username}\n${created.password}`).then(() => setCopied(true)).catch(() => {}) }}
-              style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border)', background: copied ? 'var(--ok-light)' : 'var(--surface)', color: copied ? 'var(--ok)' : 'var(--text-dim)', cursor: 'pointer' }}>
-              {copied ? '✓ คัดลอกแล้ว' : 'คัดลอกอีเมล + รหัส'}
-            </button>
-            <button onClick={() => setCreated(null)} style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer' }}>ปิด</button>
-          </div>
-        </div>
-      </div>
+      <NewUserModal
+        onClose={() => setShowNew(false)}
+        onCreated={() => { setShowNew(false); setReload((r) => r + 1) }} />
     )}
     </div>
   )

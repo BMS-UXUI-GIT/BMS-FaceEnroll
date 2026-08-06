@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ROLE_TH } from '../state'
-import { thDate, thDateTime } from '../hooks'
-import { Loading } from '../components/Spinner'
+import { thDate, thDateTime, nf } from '../hooks'
 import { DataTable } from '../components/data-display/DataTable'
-import { toast } from '../components/dialog'
+import { StatCard } from '../components/data-display/StatCard'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { Skel } from '../components/Skeleton'
+import { SearchSelect } from '../components/SearchSelect'
+import { NewUserModal } from '../components/NewUserModal'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { Button } from '../components/inputs/Button'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
+import { dialog, toast } from '../components/dialog'
 import { api } from '../api'
-import { card, HEALTH_TH, Pill, td, th, theadTr, type Flag, type Tenant } from './tenantsCommon'
+import { HEALTH_TH, type Tenant } from './tenantsCommon'
 
-// รายละเอียดโรงพยาบาล (modal 360°) — ข้อมูล/สถานะ/การใช้งาน/ผู้ใช้/โน้ต/ประวัติ
+// รายละเอียดโรงพยาบาล — หน้าเต็ม (เดิมเป็น modal) เลย์เอาต์ชุดเดียวกับหน้ารายละเอียดพนักงาน:
+//   การ์ดหัวเรื่องไล่สี = ปุ่มย้อนกลับ + การ์ดข้อมูลโรง + การ์ดตัวเลขการใช้งาน
+//   แล้วตามด้วย SectionPanel: ค่าความปลอดภัย · ผู้ใช้ · โน้ตภายใน · ประวัติ
 
 type User = { username: string; display_name: string; role: string; active: boolean; last_login_at: string | null }
 type AuditRow = { ts: string; actor: string; action: string; detail: string }
@@ -18,12 +28,95 @@ type Detail = {
   usage: { active_staff: number | null; enrolled: number | null; punched_today: number | null }
 }
 
+// flag ที่ตั้งรายโรงได้ (โหมดทดสอบตั้งผ่านระบบ ไม่อยู่ในนี้)
+type FlagKey = 'auth_enforce' | 'eligibility_check' | 'has_status'
+const FLAGS: { key: FlagKey; label: string; sub: string }[] = [
+  { key: 'auth_enforce', label: 'ตรวจตัวตน', sub: 'ตรวจสิทธิ์ผู้ใช้ก่อนเรียก API ของโรงพยาบาล' },
+  { key: 'eligibility_check', label: 'ตรวจสิทธิ์', sub: 'ตรวจว่าพนักงานคนนั้นลงเวลาที่โรงพยาบาลนี้ได้จริง' },
+  { key: 'has_status', label: 'เก็บสถานะลงเวลา', sub: 'เปิดได้เมื่อโรงพยาบาลรัน SQL เพิ่มคอลัมน์ emp_in_out_status_id / emp_in_out_diff_minute แล้ว · ปิด = ระบบคำนวณสาย/นาทีเองจากเวลาเวร' },
+]
 
-function Info({ label, value }: { label: string; value: React.ReactNode }) {
+/** ค่าที่บันทึกไว้ -> ฉบับร่าง (ไม่ได้ตั้งเอง = null = ใช้ค่ากลาง) */
+const draftOf = (t: Tenant) => ({
+  health: t.health ?? 'ok',
+  flags: Object.fromEntries(FLAGS.map(({ key }) => [key, t[key].override ? t[key].value : null])) as Record<FlagKey, boolean | null>,
+})
+
+const COMPACT_H = 60   // ความสูงแถบโปรไฟล์ย่อที่ลอยอยู่ล่างจอ
+const TOPBAR = 80      // = --topbar-h (header ลอยทับพื้นที่เนื้อหา)
+
+// แท็บของหน้ารายละเอียดโรง
+const TABS: [ 'settings' | 'users' | 'note' | 'audit', string, string ][] = [
+  ['settings', 'ตั้งค่ารายโรงพยาบาล', 'system'],
+  ['users', 'ผู้ใช้', 'people'],
+  ['note', 'โน้ตภายใน', 'report'],
+  ['audit', 'ประวัติ', 'clock'],
+]
+
+/** ช่องข้อมูล 1 ค่า (ป้ายเล็กบน · ค่าใหญ่ล่าง) — ชุดเดียวกับหน้ารายละเอียดพนักงาน */
+function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '9px 12px' }}>
-      <div style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, marginTop: 2, wordBreak: 'break-word' }}>{value || '—'}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{label}</div>
+      <div style={{ ...TEXT.bodyMed, color: 'var(--text)', fontFamily: mono ? 'var(--mono)' : undefined, wordBreak: 'break-word' }}>
+        {value || '—'}
+      </div>
+    </div>
+  )
+}
+
+/** สวิตช์เปิด/ปิด — ชุดเดียวกับหน้าตั้งค่าแอปสแกน */
+function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick} disabled={disabled} style={{
+      width: 44, height: 24, borderRadius: 'var(--r-full)', border: 'none', flex: 'none', position: 'relative',
+      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1,
+      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s',
+    }}>
+      <span style={{
+        position: 'absolute', top: 3, left: on ? 23 : 3, width: 18, height: 18, borderRadius: 'var(--r-full)',
+        background: 'var(--bg)', boxShadow: 'var(--shadow)', transition: 'left .15s',
+      }} />
+    </button>
+  )
+}
+
+/** ป้ายติดต่อ (อีเมล/เบอร์โทร) */
+function ContactPill({ icon, text }: { icon: string; text: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
+      padding: 'var(--sp-1) var(--sp-3)', borderRadius: 'var(--r-xl)',
+      background: 'var(--surface-blue)', ...TEXT.sm, color: 'var(--accent)', whiteSpace: 'nowrap',
+    }}>
+      <Icon name={icon} size={16} width={1.8} />{text}
+    </span>
+  )
+}
+
+/** แถวตั้งค่า 1 ข้อ — ป้าย/คำอธิบายซ้าย · ตัวควบคุมขวา (ทรงเดียวกับหน้าตั้งค่าแอปสแกน) */
+function FlagRow({ label, sub, override, onReset, busy, children }: {
+  label: string; sub?: string; override?: boolean; onReset?: () => void; busy?: boolean; children: React.ReactNode
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap',
+      padding: 'var(--sp-3) var(--sp-4)', minHeight: 60,
+      background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)',
+    }}>
+      <div style={{ flex: 1, minWidth: 180 }}>
+        <div style={{ ...TEXT.bodyMed, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+          {label}
+          {override && (
+            <span style={{ ...TEXT.caption, fontWeight: 500, padding: '2px 8px', borderRadius: 'var(--r-full)', background: 'var(--accent-light)', color: 'var(--accent-active)' }}>
+              ตั้งเฉพาะโรงนี้
+            </span>
+          )}
+        </div>
+        {sub && <div style={{ ...TEXT.sm, color: 'var(--text-dim)', marginTop: 2 }}>{sub}</div>}
+      </div>
+      {onReset && <Button variant="ghost" size="sm" disabled={busy} onClick={onReset}>ใช้ค่ากลาง</Button>}
+      {children}
     </div>
   )
 }
@@ -34,11 +127,32 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
+  // ฉบับร่างของแท็บ "ตั้งค่ารายโรง" — แก้ในหน้าแล้วกดบันทึกทีเดียว (null = ใช้ค่ากลางของระบบ)
+  const [draft, setDraft] = useState<{ health: string; flags: Record<FlagKey, boolean | null> } | null>(null)
+  const [savingCfg, setSavingCfg] = useState(false)
+  const [addUser, setAddUser] = useState(false)   // popup เพิ่มผู้ใช้ (เติมโรงนี้ให้อัตโนมัติ)
+  // การ์ดข้อมูลโรงเลื่อนพ้นใต้ header เมื่อไหร่ -> โชว์แถบย่อลอยล่างจอแทน (ยังรู้ว่าดูโรงไหนอยู่)
+  const heroRef = useRef<HTMLDivElement>(null)
+  const [compact, setCompact] = useState(false)
+  useEffect(() => {
+    const el = heroRef.current
+    if (!el) { setCompact(false); return }
+    const io = new IntersectionObserver(([e]) => setCompact(!e.isIntersecting),
+      { root: el.closest('main'), rootMargin: `-${TOPBAR + 8}px 0px 0px 0px`, threshold: 0 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [d])
+
+  // แยกเนื้อหาเป็นแท็บ — หน้าเดียวยาวเกินไป (ตั้งค่า/ผู้ใช้/โน้ต/ประวัติ คนละงานกัน)
+  const [tab, setTab] = useState<'settings' | 'users' | 'note' | 'audit'>('settings')
 
   useEffect(() => {
+    let alive = true
+    setD(null); setErr(null)
     api.get<Detail>(`/admin/tenants/${hcode}/detail`)
-      .then((r) => { setD(r); setNote(r.tenant?.note ?? '') })
-      .catch((e) => setErr(e?.message || 'โหลดไม่สำเร็จ'))
+      .then((r) => { if (alive) { setD(r); setNote(r.tenant?.note ?? ''); setDraft(draftOf(r.tenant)) } })
+      .catch((e) => alive && setErr(e?.message || 'โหลดไม่สำเร็จ'))
+    return () => { alive = false }
   }, [hcode])
 
   const saveMeta = async (body: { note?: string; health?: string }) => {
@@ -55,159 +169,395 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
     } catch (e: any) { setErr(e?.message || 'บันทึกไม่สำเร็จ') } finally { setBusy(false) }
   }
 
-  // flag ความปลอดภัยรายโรง — วน ใช้ค่ากลาง(null) → เปิด(true) → ปิด(false) → กลับค่ากลาง
-  const nextFlag = (f: Flag): boolean | null => (!f.override ? true : f.value ? false : null)
-  const setFlag = async (flag: string, value: boolean | null) => {
-    if (busy) return
+  // แก้ค่าในหน้า (ยังไม่ส่ง server จนกว่าจะกดบันทึก)
+  const setDraftFlag = (key: FlagKey, value: boolean | null) =>
+    setDraft((s2) => (s2 ? { ...s2, flags: { ...s2.flags, [key]: value } } : s2))
+
+  const base = d ? draftOf(d.tenant) : null
+  const dirtyCfg = !!base && !!draft
+    && (draft.health !== base.health || FLAGS.some(({ key }) => draft.flags[key] !== base.flags[key]))
+
+  // บันทึกเฉพาะสิ่งที่เปลี่ยน (flag ทีละตัวตาม API เดิม + ธงติดตามผ่าน meta)
+  const saveCfg = async () => {
+    if (!d || !draft || !base || !dirtyCfg || savingCfg) return
+    setSavingCfg(true); setErr(null)
+    try {
+      let tenant = d.tenant
+      for (const { key } of FLAGS) {
+        if (draft.flags[key] === base.flags[key]) continue
+        const r = await api.post<{ tenants: Tenant[] }>(`/admin/tenants/${hcode}/flag`, { flag: key, value: draft.flags[key] })
+        tenant = r.tenants.find((x) => x.hcode === hcode) ?? tenant
+      }
+      if (draft.health !== base.health) await api.post(`/admin/tenants/${hcode}/meta`, { health: draft.health })
+      const next = { ...tenant, health: draft.health as Tenant['health'] }
+      setD({ ...d, tenant: next }); setDraft(draftOf(next))
+      onChanged()
+      toast.success('บันทึกการตั้งค่าแล้ว')
+    } catch (e: any) { setErr(e?.message || 'บันทึกไม่สำเร็จ') } finally { setSavingCfg(false) }
+  }
+
+  // ต่ออายุทดลองใช้ — ทำทันที (ไม่ผ่านฉบับร่าง เพราะเป็นการกระทำที่ผู้ใช้ยืนยันเองแล้ว)
+  const extendDemo = async () => {
+    if (!d || busy) return
+    const raw = await dialog.prompt({
+      title: `ต่ออายุทดลองใช้ ${d.tenant.name}`,
+      label: 'จำนวนวัน (1-365)', initial: '60', mono: true, confirmText: 'ต่ออายุ',
+      validate: (v) => { const n = Number(v.trim()); return Number.isInteger(n) && n >= 1 && n <= 365 ? null : 'ใส่จำนวนวัน 1-365' },
+    })
+    if (raw === null) return
     setBusy(true); setErr(null)
     try {
-      const r = await api.post<{ tenants: Tenant[] }>(`/admin/tenants/${hcode}/flag`, { flag, value })
+      const r = await api.post<{ tenants: Tenant[] }>(`/admin/tenants/${hcode}/extend-demo`, { days: Number(raw.trim()) })
       const me = r.tenants.find((x) => x.hcode === hcode)
-      if (d && me) setD({ ...d, tenant: me })
+      if (me) { setD({ ...d, tenant: me }); setDraft(draftOf(me)) }
       onChanged()
-      setSaved(true); setTimeout(() => setSaved(false), 1500)
-    } catch (e: any) { setErr(e?.message || 'ทำรายการไม่สำเร็จ') } finally { setBusy(false) }
+      toast.success('ต่ออายุแล้ว')
+    } catch (e: any) { setErr(e?.message || 'ต่ออายุไม่สำเร็จ') } finally { setBusy(false) }
+  }
+
+  // คืนค่าเริ่มต้น = ทุก flag กลับไปใช้ค่ากลางของระบบ (ยังไม่แตะ server จนกว่าจะกดบันทึก)
+  const restoreCfg = async () => {
+    if (!draft) return
+    const ok = await dialog.confirm({
+      title: 'คืนค่าเริ่มต้น',
+      body: 'ค่าความปลอดภัยของโรงพยาบาลนี้จะกลับไปใช้ค่ากลางของระบบทั้งหมด — ยังไม่บันทึกจนกว่าจะกด "บันทึกการตั้งค่า"',
+      confirmText: 'คืนค่าเริ่มต้น',
+    })
+    if (!ok) return
+    setDraft({ ...draft, flags: Object.fromEntries(FLAGS.map(({ key }) => [key, null])) as Record<FlagKey, boolean | null> })
   }
 
   const t = d?.tenant
-  const hb = HEALTH_TH[t?.health ?? 'ok']
+  const USAGE = [
+    { label: 'พนักงานทั้งหมด', v: d?.usage.active_staff, tone: 'accent' as const, icon: 'person' },
+    { label: 'ลงทะเบียนหน้าแล้ว', v: d?.usage.enrolled, tone: 'ok' as const, icon: 'face' },
+    { label: 'ลงเวลาวันนี้', v: d?.usage.punched_today, tone: 'info' as const, icon: 'scan' },
+  ]
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: '100%', maxWidth: 780, maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 500, fontSize: 15 }}>{t?.name ?? hcode} <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-faint)', fontWeight: 400 }}>{hcode}</span></div>
-          </div>
-          {t && (
-            <select className="nice-select" value={t.health} disabled={busy}
-              onChange={(e) => saveMeta({ health: e.target.value })}
-              title="ธงติดตามลูกค้า (มุมมองทีมดูแล)"
-              style={{ color: hb.color, fontWeight: 500 }}>
-              {Object.entries(HEALTH_TH).map(([v, h]) => <option key={v} value={v}>{h.label}</option>)}
-            </select>
-          )}
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s' }}>บันทึกแล้ว ✓</span>
-          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
-        </div>
-
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {err && <div style={{ color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>}
-          {!d && !err && <Loading />}
-
-          {t && (
-            <>
-              {/* ข้อมูล + สถานะ */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 10 }}>
-                <Info label="ผู้ติดต่อ" value={t.contact_name} />
-                <Info label="เบอร์โทร" value={t.contact_phone} />
-                <Info label="อีเมล" value={t.contact_email} />
-                <Info label="จังหวัด" value={t.province} />
-                <Info label="ประเภท" value={t.request_type === 'demo' ? `ทดลองใช้ ถึง ${t.demo_expires_at ?? '—'}` : t.prod_expires_at ? `ใช้งานจริง ถึง ${t.prod_expires_at}` : 'ใช้งานจริง (ถาวร)'} />
-                <Info label="อนุมัติโดย" value={t.approved_by ? `${t.approved_by} · ${thDate(t.approved_at)}` : '—'} />
-                <Info label="ยื่นคำขอเมื่อ" value={thDate(t.requested_at)} />
-              </div>
-
-              {/* ค่าความปลอดภัยรายโรง (ย้ายมาจากตารางรวม) */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ค่าความปลอดภัยรายโรง <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— • = ตั้งเฉพาะโรงนี้ ต่างจากค่ากลาง</span></div>
-                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}>
-                    โหมดทดสอบ
-                    <span title="แสดงอย่างเดียว — โหมดทดสอบตั้งผ่านระบบ (deploy) · เปิด = ลงเวลาผ่านทุกขั้นแต่ไม่บันทึกฐานโรงจริง"
-                      style={{ fontSize: 11.5, fontWeight: 500, padding: '4px 12px', borderRadius: 20, background: t.dry_run.value ? 'var(--danger-light)' : 'var(--ok-light)', color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)', border: `1px solid ${t.dry_run.value ? 'var(--danger)' : 'var(--ok)'}` }}>
-                      {t.dry_run.value ? 'ทดสอบ' : 'ใช้จริง'}{t.dry_run.override ? ' •' : ''}
-                    </span>
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}>
-                    ตรวจตัวตน
-                    <Pill label={t.auth_enforce.value ? 'เปิด' : 'ปิด'} tone={t.auth_enforce.value ? 'ok' : 'off'} override={t.auth_enforce.override} disabled={busy} onClick={() => setFlag('auth_enforce', nextFlag(t.auth_enforce))} />
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}>
-                    ตรวจสิทธิ์
-                    <Pill label={t.eligibility_check.value ? 'เปิด' : 'ปิด'} tone={t.eligibility_check.value ? 'ok' : 'off'} override={t.eligibility_check.override} disabled={busy} onClick={() => setFlag('eligibility_check', nextFlag(t.eligibility_check))} />
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-dim)' }}
-                    title="เปิดได้เมื่อโรงรัน SQL เพิ่มคอลัมน์ emp_in_out_status_id / emp_in_out_diff_minute แล้ว — เปิด = บันทึกและอ่านสถานะจากฐานโรงจริง · ปิด = ระบบคำนวณสาย/นาทีเองจากเวลาเวร">
-                    เก็บสถานะลงเวลา
-                    <Pill label={t.has_status.value ? 'เปิด' : 'ปิด'} tone={t.has_status.value ? 'ok' : 'off'} override={t.has_status.override} disabled={busy}
-                      onClick={() => setFlag('has_status', t.has_status.value ? false : true)} />
-                  </span>
-                </div>
-              </div>
-
-              {/* การใช้งาน */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>การใช้งาน</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))', gap: 10 }}>
-                  {([['พนักงานทั้งหมด', d!.usage.active_staff], ['ลงทะเบียนหน้าแล้ว', d!.usage.enrolled], ['ลงเวลาวันนี้', d!.usage.punched_today]] as const).map(([l, v]) => (
-                    <div key={l} style={{ background: 'var(--surface-card)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 19, fontWeight: 500, fontFamily: 'var(--mono)' }}>{v ?? '—'}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>— = ต่อระบบโรงไม่ได้ตอนนี้ (ดูหน้าสถานะระบบ)</div>
-              </div>
-
-              {/* ผู้ใช้ของโรง */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ผู้ใช้ dashboard ของโรงนี้</div>
-                {d!.users.length === 0 ? (
-                  <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ยังไม่มี — สร้างได้ที่ "ผู้ใช้และสิทธิ์"</div>
-                ) : (
-                  <DataTable<User>
-                    rows={d!.users} rowKey={(u) => u.username} stickyTop={0}
-                    divider="top" hover={false} theadRowStyle={theadTr} thBase={th} tdBase={{ ...td, fontSize: 12.5 }}
-                    columns={[
-                      { key: 'no', header: 'ลำดับ', align: 'right', width: 56,
-                        tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5 },
-                        cell: (_u, i) => i + 1 },
-                      { key: 'user', header: 'ผู้ใช้',
-                        cell: (u) => <><b>{u.display_name || u.username}</b> <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-faint)' }}>@{u.username}</span></> },
-                      { key: 'role', header: 'บทบาท', cell: (u) => ROLE_TH[u.role] ?? u.role },
-                      { key: 'active', header: 'สถานะ',
-                        tdStyle: (u) => ({ color: u.active ? 'var(--ok)' : 'var(--danger)' }),
-                        cell: (u) => (u.active ? 'ใช้งาน' : 'ปิด') },
-                      { key: 'last', header: 'เข้าระบบล่าสุด', align: 'right',
-                        tdStyle: { fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--text-dim)' },
-                        cell: (u) => (u.last_login_at ? thDateTime(u.last_login_at) : 'ยังไม่เคย') },
-                    ]}
-                  />
-                )}
-              </div>
-
-              {/* โน้ตภายใน */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>โน้ตภายใน <span style={{ fontWeight: 400, fontSize: 11.5, color: 'var(--text-faint)' }}>— ทีมดูแลเห็นเท่านั้น โรงไม่เห็น</span></div>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="เช่น โทรคุยแล้ว สนใจเปิดใช้งานจริง รอใบเสนอราคา…"
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-card)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none', resize: 'vertical' }} />
-                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={() => saveMeta({ note })} disabled={busy || note === (t.note ?? '')}
-                    style={{ fontSize: 12.5, fontWeight: 500, padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: 'var(--bg)', cursor: 'pointer', opacity: note === (t.note ?? '') ? 0.5 : 1 }}>
-                    {busy ? 'กำลังบันทึก…' : 'บันทึกโน้ต'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ประวัติเฉพาะโรงนี้ */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>ประวัติการจัดการล่าสุด</div>
-                {d!.audit.length === 0 ? <div style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>ยังไม่มีรายการ</div> : (
-                  d!.audit.map((a, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, padding: '7px 0', borderTop: i ? '1px solid var(--border)' : 'none', fontSize: 12.5 }}>
-                      <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 11.5, flex: 'none' }}>{a.ts}</span>
-                      <span style={{ fontWeight: 500 }}>{a.actor}</span>
-                      <span style={{ fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{a.action}</span>
-                      <span style={{ color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.detail}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- แถบโปรไฟล์ย่อ ลอยกลางล่างจอ (fixed -> ไม่กินที่ในโฟลว์) ---------- */}
+      <div className="float-bottom">
+        <div aria-hidden={!compact} style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+          height: COMPACT_H, padding: '0 var(--sp-4)',
+          background: 'var(--bg)', border: '1px solid var(--control-border)',
+          borderRadius: 'var(--r-full)', boxShadow: 'var(--shadow-lg)',
+          opacity: compact ? 1 : 0,
+          transform: compact ? 'none' : 'translateY(12px)',
+          pointerEvents: compact ? 'auto' : 'none',
+          transition: 'opacity .16s ease, transform .16s ease',
+        }}>
+          <span aria-hidden style={{
+            width: 36, height: 36, flex: 'none', borderRadius: 'var(--r-md)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--accent-light)', color: 'var(--accent-active)',
+          }}>
+            <Icon name="hospital" size={20} width={1.8} />
+          </span>
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 }}>
+            <span style={{ ...TEXT.bodyMed, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t?.name ?? hcode}</span>
+            <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{hcode}</span>
+          </span>
+          {/* ตัวเลขการใช้งานชุดเดียวกับการ์ดใบใหญ่ ย่อเหลือตัวเลข + ป้าย */}
+          <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 'var(--sp-4)' }} className="hide-sm">
+            {USAGE.map((k) => (
+              <span key={k.label} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--sp-1)', whiteSpace: 'nowrap' }}>
+                <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>{k.v != null ? nf(k.v) : '—'}</span>
+                <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{k.label}</span>
+              </span>
+            ))}
+          </span>
         </div>
       </div>
+
+      {/* ---------- การ์ดหัวเรื่อง: ย้อนกลับ + ข้อมูลโรง + ตัวเลขการใช้งาน ---------- */}
+      <div ref={heroRef} className="relative overflow-hidden rounded-xl" style={{ padding: 'var(--sp-6)', background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline-accent" size="xs" radius="lg" onClick={onClose}
+            icon={<Icon name="chevron-left" size={20} width={2} />}>
+            ย้อนกลับ
+          </Button>
+          <span style={{ ...TEXT.sm, fontWeight: 500, color: 'var(--ok)', opacity: saved ? 1 : 0, transition: 'opacity .25s', marginLeft: 'auto' }}>
+            บันทึกแล้ว ✓
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--sp-4)', marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
+          {/* การ์ดข้อมูลโรง */}
+          <div className="bg-bg rounded-xl" style={{ flex: '1 1 480px', minWidth: 'min(480px,100%)', padding: 'var(--sp-4)' }}>
+            {!t ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+                <Skel h={56} r="var(--r-lg)" /><Skel h={72} r="var(--r-lg)" />
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
+                  <span aria-hidden style={{
+                    width: 56, height: 56, flex: 'none', borderRadius: 'var(--r-lg)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--accent-light)', color: 'var(--accent-active)',
+                  }}>
+                    <Icon name="hospital" size={30} width={1.8} />
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ ...TEXT.h3, color: 'var(--text)' }}>{t.name || '—'}</div>
+                    <div style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)' }}>{hcode}</div>
+                  </div>
+                  <span style={{ display: 'inline-flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                    {t.contact_email && <ContactPill icon="mail" text={t.contact_email} />}
+                    {t.contact_phone && <ContactPill icon="phone" text={t.contact_phone} />}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(170px,100%), 1fr))', gap: 'var(--sp-4)', marginTop: 'var(--sp-4)' }}>
+                  <Field label="ผู้ติดต่อ" value={t.contact_name} />
+                  <Field label="จังหวัด" value={t.province} />
+                  <Field label="ประเภท" value={t.request_type === 'demo'
+                    ? `ทดลองใช้ ถึง ${thDate(t.demo_expires_at)}`
+                    : t.prod_expires_at ? `ใช้งานจริง ถึง ${thDate(t.prod_expires_at)}` : 'ใช้งานจริง (ถาวร)'} />
+                  <Field label="อนุมัติโดย" value={t.approved_by ? `${t.approved_by} · ${thDate(t.approved_at)}` : '—'} />
+                  <Field label="ยื่นคำขอเมื่อ" value={thDate(t.requested_at)} />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* การ์ดตัวเลขการใช้งาน */}
+          <div className="grid gap-4" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(170px,100%), 1fr))', alignContent: 'start' }}>
+            {USAGE.map((k) => (
+              <StatCard key={k.label} tone={k.tone} label={k.label} layout="row"
+                icon={<Icon name={k.icon} size={24} color="currentColor" />}
+                value={k.v != null ? nf(k.v) : d ? '—' : '…'} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+
+      {/* ---------- แท็บ (ชุดเดียวกับหน้าหลัก) + ปุ่มสั่งงานของแท็บตั้งค่า ---------- */}
+      {/* ค้างไว้ใต้ header ตอนเลื่อน — top วัดจากขอบบนของ main (header เป็นเลเยอร์ลอยทับ) */}
+      <div className="flex gap-2 items-center flex-wrap"
+        style={{
+          position: 'sticky', top: 'calc(var(--topbar-h) + var(--sp-2))', zIndex: 20,
+          // ติดขอบบนแล้ว (การ์ดหัวเรื่องเลื่อนพ้นจอ) = ใส่เงาให้ดูลอยเหนือเนื้อหา
+          filter: compact ? 'drop-shadow(0 8px 20px rgba(17,24,39,.18))' : 'none',
+          transition: 'filter .18s ease',
+        }}>
+        <span className="inline-flex gap-2 items-center flex-wrap" style={{
+          background: 'var(--bg)', padding: 'var(--sp-2)',
+          borderRadius: 'var(--r-full)', border: '1px solid rgba(0,0,0,0.1)',
+        }}>
+          {TABS.map(([k, label, icon]) => (
+            <Button key={k} variant={tab === k ? 'primary' : 'soft'} size="md" pill
+              onClick={() => setTab(k)} icon={<Icon name={icon} size={24} width={1.8} />}>
+              {label}
+            </Button>
+          ))}
+        </span>
+
+        {/* ปุ่มค้างอยู่ทุกแท็บ — แก้ค่าในแท็บตั้งค่าแล้วกดบันทึกได้จากทุกที่ */}
+        <span className="inline-flex gap-2 items-center flex-wrap" style={{ marginLeft: 'auto' }}>
+          <Button variant="secondary" size="lg" pill onClick={restoreCfg} disabled={!draft || savingCfg}
+            icon={<Icon name="recon" size={20} width={1.8} />}>
+            คืนค่าเริ่มต้น
+          </Button>
+          <Button variant="primary" size="lg" pill onClick={saveCfg} disabled={!dirtyCfg || savingCfg}>
+            {savingCfg ? 'กำลังบันทึก…' : 'บันทึกการตั้งค่า'}
+          </Button>
+        </span>
+      </div>
+
+      {/* ---------- แท็บ: ตั้งค่า ---------- */}
+      {tab === 'settings' && (
+      <SectionPanel title="ค่าความปลอดภัยรายโรงพยาบาล" meta="ไม่ได้ตั้งเอง = ใช้ค่ากลางของระบบ">
+        {!t ? <Skel h={60} r="var(--r-lg)" /> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {/* ธงติดตามลูกค้า — มุมมองทีมดูแล (ไม่ใช่ค่าที่ส่งลงแอปของโรง) */}
+            <FlagRow label="ธงติดตามลูกค้า" sub="ใช้จัดลำดับการติดตามของทีมดูแล — โรงพยาบาลไม่เห็นค่านี้">
+              {/* เลือกจากชิปได้เลย (3 ค่า ไม่ต้องเปิด dropdown) */}
+              <span style={{ display: 'inline-flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                {Object.entries(HEALTH_TH).map(([v, h]) => {
+                  const on = (draft?.health ?? t.health) === v
+                  return (
+                    <FilterChip key={v} variant="choice" active={on} disabled={savingCfg}
+                      tone={v === 'ok' ? 'accent' : 'warn'}
+                      icon={<Icon name={v === 'ok' ? 'rosette-check' : v === 'watch' ? 'progress-alert' : 'alert'} size={14} width={2} />}
+                      label={h.label}
+                      onClick={() => setDraft((s2) => (s2 ? { ...s2, health: v } : s2))} />
+                  )
+                })}
+              </span>
+            </FlagRow>
+
+            {/* อายุการใช้งาน — ทดลองใช้ต่ออายุได้จากตรงนี้ */}
+            <FlagRow label="อายุการใช้งาน"
+              sub={t.request_type === 'demo'
+                ? `ทดลองใช้ ถึง ${thDate(t.demo_expires_at)}${t.demo_expired ? ' · หมดอายุแล้ว' : ''}`
+                : t.prod_expires_at ? `ใช้งานจริง ถึง ${thDate(t.prod_expires_at)}` : 'ใช้งานจริง (ถาวร)'}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+                <span style={{
+                  ...TEXT.sm, fontWeight: 500, padding: '4px 14px', borderRadius: 'var(--r-full)', whiteSpace: 'nowrap',
+                  background: t.request_type === 'demo'
+                    ? (t.demo_expired ? 'var(--danger-light)' : 'var(--info-light)')
+                    : 'var(--accent-light)',
+                  color: t.request_type === 'demo'
+                    ? (t.demo_expired ? 'var(--danger)' : 'var(--info)')
+                    : 'var(--accent-active)',
+                }}>{t.request_type === 'demo' ? (t.demo_expired ? 'หมดอายุทดลอง' : 'ทดลองใช้') : 'ใช้งานจริง'}</span>
+                {t.request_type === 'demo' && (
+                  <Button variant="secondary" size="sm" pill disabled={busy} onClick={extendDemo}>
+                    {busy ? '…' : 'ต่ออายุ'}
+                  </Button>
+                )}
+              </span>
+            </FlagRow>
+
+            {/* โหมดทดสอบตั้งผ่านระบบ (deploy) — แสดงอย่างเดียว */}
+            <FlagRow label="โหมดทดสอบ"
+              sub="ตั้งผ่านระบบ (deploy) — เปิด = ลงเวลาผ่านทุกขั้นแต่ไม่บันทึกฐานข้อมูลจริงของโรงพยาบาล">
+              <span style={{
+                ...TEXT.sm, fontWeight: 500, padding: '4px 14px', borderRadius: 'var(--r-full)', whiteSpace: 'nowrap',
+                background: t.dry_run.value ? 'var(--danger-light)' : 'var(--ok-light)',
+                color: t.dry_run.value ? 'var(--danger)' : 'var(--ok)',
+              }}>{t.dry_run.value ? 'ทดสอบ' : 'ใช้จริง'}{t.dry_run.override ? ' •' : ''}</span>
+            </FlagRow>
+
+            {FLAGS.map((it) => {
+              const v = draft?.flags[it.key] ?? null
+              return (
+                <FlagRow key={it.key} label={it.label} sub={it.sub} override={v !== null}
+                  onReset={v !== null ? () => setDraftFlag(it.key, null) : undefined} busy={savingCfg}>
+                  {/* ยังไม่ตั้งเอง = โชว์ค่ากลางที่ backend ส่งมา */}
+                  <Toggle on={v ?? t[it.key].value} disabled={savingCfg}
+                    onClick={() => setDraftFlag(it.key, !(v ?? t[it.key].value))} />
+                </FlagRow>
+              )
+            })}
+
+          </div>
+        )}
+      </SectionPanel>
+
+      )}
+
+      {/* ---------- แท็บ: ผู้ใช้ ---------- */}
+      {tab === 'users' && (
+      <SectionPanel title="ผู้ใช้ dashboard ของโรงพยาบาลนี้" meta={d ? `${nf(d.users.length)} บัญชี` : undefined}>
+        {!d ? <Skel h={140} r="var(--r-lg)" /> : d.users.length === 0 ? (
+          <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
+            ยังไม่มีผู้ใช้ของโรงนี้
+            <div className="mt-4 flex justify-center">
+              <Button variant="primary" size="md" pill onClick={() => setAddUser(true)}
+                icon={<Icon name="person" size={18} width={1.8} />}>เพิ่มผู้ใช้</Button>
+            </div>
+          </div>
+        ) : (
+          <DataTable<User>
+            rows={d.users} rowKey={(u) => u.username} hover={false} minWidth={720}
+            columns={[
+              { key: 'no', header: 'ลำดับ', align: 'right', width: 64, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)' }, cell: (_u, i) => i + 1 },
+              {
+                key: 'user', header: 'ผู้ใช้',
+                cell: (u) => (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)', minWidth: 0 }}>
+                    <span style={{ ...TEXT.bodyMed }}>{u.display_name || u.username}</span>
+                    <span style={{ fontFamily: 'var(--mono)', ...TEXT.sm, color: 'var(--text-faint)' }}>@{u.username}</span>
+                  </span>
+                ),
+              },
+              { key: 'role', header: 'บทบาท', width: 160, cell: (u) => ROLE_TH[u.role] ?? u.role },
+              {
+                key: 'active', header: 'สถานะ', width: 120,
+                cell: (u) => (
+                  <span style={{
+                    ...TEXT.sm, fontWeight: 500, padding: '3px 10px', borderRadius: 'var(--r-full)', whiteSpace: 'nowrap',
+                    background: u.active ? 'var(--ok-light)' : 'var(--danger-light)', color: u.active ? 'var(--ok)' : 'var(--danger)',
+                  }}>{u.active ? 'ใช้งาน' : 'ปิด'}</span>
+                ),
+              },
+              {
+                key: 'last', header: 'เข้าระบบล่าสุด', align: 'right', width: 180,
+                tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)', whiteSpace: 'nowrap' },
+                cell: (u) => (u.last_login_at ? thDateTime(u.last_login_at) : 'ยังไม่เคย'),
+              },
+            ]}
+          />
+        )}
+
+        {/* ปุ่มอยู่ในการ์ดขาวของแผงนี้ (ไม่ใช่แถวหัวแผง) */}
+        {d && d.users.length > 0 && (
+          <div className="flex justify-end" style={{ marginTop: 'var(--sp-3)' }}>
+            <Button variant="primary" size="md" pill onClick={() => setAddUser(true)}
+              icon={<Icon name="person" size={18} width={1.8} />}>เพิ่มผู้ใช้</Button>
+          </div>
+        )}
+      </SectionPanel>
+
+      )}
+
+      {/* ---------- แท็บ: โน้ต ---------- */}
+      {tab === 'note' && (
+      <SectionPanel title="โน้ตภายใน" meta="ทีมดูแลเห็นเท่านั้น โรงพยาบาลไม่เห็น">
+        {!t ? <Skel h={96} r="var(--r-lg)" /> : (
+          <>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3}
+              placeholder="เช่น โทรคุยแล้ว สนใจเปิดใช้งานจริง รอใบเสนอราคา…"
+              style={{
+                width: '100%', padding: 'var(--sp-3)', border: '1px solid var(--control-border)',
+                borderRadius: 'var(--r-lg)', background: 'var(--bg)', color: 'var(--text)',
+                fontFamily: 'var(--sans)', fontSize: 13, outline: 'none', resize: 'vertical',
+              }} />
+            <div style={{ marginTop: 'var(--sp-3)', display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="primary" size="md" pill onClick={() => saveMeta({ note })} disabled={busy || note === (t.note ?? '')}>
+                {busy ? 'กำลังบันทึก…' : 'บันทึกโน้ต'}
+              </Button>
+            </div>
+          </>
+        )}
+      </SectionPanel>
+
+      )}
+
+      {/* ---------- แท็บ: ประวัติ ---------- */}
+      {tab === 'audit' && (
+      <SectionPanel title="ประวัติการจัดการล่าสุด" meta={d ? `${nf(d.audit.length)} รายการ` : undefined}>
+        {!d ? <Skel h={120} r="var(--r-lg)" /> : d.audit.length === 0 ? (
+          <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>ยังไม่มีรายการ</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            {d.audit.map((a, i) => (
+              <div key={i} style={{
+                display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', flexWrap: 'wrap',
+                padding: 'var(--sp-2) var(--sp-3)', background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)',
+              }}>
+                <span style={{ fontFamily: 'var(--mono)', ...TEXT.sm, color: 'var(--text-faint)', flex: 'none' }}>{a.ts}</span>
+                <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>{a.actor}</span>
+                <span style={{
+                  ...TEXT.sm, fontFamily: 'var(--mono)', fontWeight: 500, whiteSpace: 'nowrap',
+                  padding: '3px 10px', borderRadius: 'var(--r-full)',
+                  background: 'var(--accent-light)', color: 'var(--accent-active)',
+                }}>{a.action}</span>
+                <span style={{ ...TEXT.sm, color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.detail}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionPanel>
+      )}
+
+      {/* เว้นที่ให้แถบลอยล่างจอ ไม่ให้ทับเนื้อหาท้ายหน้า */}
+      <div aria-hidden style={{ height: COMPACT_H + 40, flex: 'none' }} />
+
+      {addUser && (
+        <NewUserModal hcodes={[hcode]} hospitalNames={{ [hcode]: t?.name || hcode }} onClose={() => setAddUser(false)}
+          onCreated={() => {
+            // โหลดรายละเอียดใหม่ให้เห็นบัญชีที่เพิ่งสร้าง
+            api.get<Detail>(`/admin/tenants/${hcode}/detail`).then(setD).catch(() => {})
+            onChanged()
+          }} />
+      )}
     </div>
   )
 }

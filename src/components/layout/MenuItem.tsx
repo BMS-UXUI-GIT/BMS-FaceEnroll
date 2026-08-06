@@ -35,7 +35,10 @@ export function MenuItem({ icon, label, active = false, badge, onClick }: {
       iconRight={!!badge && (
         <span style={{
           ...TEXT.caption,
-          flex: 'none', fontWeight: 500, minWidth: 18, textAlign: 'center',
+          // inline-flex + line-height 1 = ตัวเลขอยู่กึ่งกลางป้ายจริง ๆ
+          // (line-height ของสเกลทำให้ตัวเลขลอยสูงกว่ากลางเมื่อป้ายเตี้ย)
+          flex: 'none', fontWeight: 500, minWidth: 18, height: 18, lineHeight: 1,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           padding: '0 var(--sp-1)',
           borderRadius: 'var(--r-full)',
           background: active ? 'var(--bg)' : 'var(--warn)',

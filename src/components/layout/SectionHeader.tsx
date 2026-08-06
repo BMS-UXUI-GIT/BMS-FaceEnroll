@@ -18,7 +18,9 @@ export function SectionHeader({ children, tag }: { children: React.ReactNode; ta
         <span style={{
           ...TEXT.caption,
           fontWeight: 500, letterSpacing: '.4px',
-          padding: '0 var(--sp-1)',
+          // จัดตัวอักษรกึ่งกลางป้าย (line-height ของสเกลทำให้ลอยขึ้นเมื่อป้ายเตี้ย)
+          height: 18, lineHeight: 1, display: 'inline-flex', alignItems: 'center',
+          padding: '0 var(--sp-2)',
           borderRadius: 'var(--r-sm)',
           background: 'var(--accent-light)',
           color: 'var(--accent-active)',

@@ -2,20 +2,97 @@ import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
 import { Button } from './inputs/Button'
-import { ProfileMenu } from './ProfileMenu'
+import { SearchSelect } from './SearchSelect'
 import { asset } from '../assets'
 
 // แถบบนสุด — Figma node 227:6401 ("Group 18")
 // สเปกจริง: 1408x112 · พื้นขาว · มุมบน [24,24,0,0] (มุมมาจากการ์ดแม่ใน App.tsx)
 //   ซ้าย: โลโก้ 64x64 r-xl · gap 16 · "BMS FaceEnroll" 20/700 · คำบรรยาย 14/400 ดำ 60% (gap 5)
-//   ขวา: ปุ่มกระดิ่ง 56x56 · พื้น accent-light (#5682E9 @10%) · r-lg · ไอคอน 24
+//   ขวา: ช่องค้นหาทั้งระบบ + การ์ดเลือกโรง + ปุ่มกระดิ่ง (การ์ดโปรไฟล์ย้ายไปท้าย Sidebar)
 //   padding 24 รอบด้าน
 //
-// ⚠️ ดีไซน์นี้ไม่มี: ชื่อหน้า · ตัวเลือกโรงพยาบาล · เปลี่ยนรหัสผ่าน · สลับธีม · ออกจากระบบ
-//    ของที่ยังจำเป็น (เลือกโรง / เปลี่ยนรหัสผ่าน / ออกจากระบบ) ย้ายไปการ์ดโปรไฟล์ท้าย Sidebar
+// ⚠️ ดีไซน์นี้ไม่มี: ชื่อหน้า · เปลี่ยนรหัสผ่าน · สลับธีม · ออกจากระบบ
+//    (เปลี่ยนรหัสผ่าน / ออกจากระบบ อยู่ในเมนูโปรไฟล์)
+//    ตัวเลือกโรงพยาบาลเพิ่มเข้ามานอกดีไซน์ — จำเป็นเพราะเกือบทุกหน้าเป็นข้อมูลรายโรง
 //    ส่วนปุ่มสลับธีมตัดทิ้ง เพราะ Figma มีโหมดสว่างอย่างเดียว (theme.css ไม่มีชุดสีมืดแล้ว)
 
-export function Topbar({ onMenu }: { onMenu?: () => void }) {
+// ตัวเลือกโรงพยาบาลบน header — เดิมซ่อนอยู่ในเมนูโปรไฟล์ ย้ายออกมาให้เห็น/กดได้ทันที
+// เพราะเกือบทุกหน้าดูข้อมูลรายโรง ถ้ายังไม่เลือกจะไม่มีข้อมูลแสดง
+function HospitalSelect() {
+  const { session, currentHcode, setHcode, isSuper } = useApp()
+  if (!session) return null
+  const many = isSuper || session.hospitals.length > 1
+  const opts = [
+    ...(isSuper ? [{ value: '*', label: 'ทุกโรงพยาบาล' }] : []),
+    ...session.hospitals.map((h) => ({
+      value: h.value,
+      label: h.value === session.demo_hcode ? `${h.label} · ตัวอย่าง` : h.label,
+      sub: h.value,
+    })),
+  ]
+  const cur = opts.find((o) => o.value === currentHcode)
+
+  // การ์ดตาม Figma node 379:13946 — 333x62 · r-lg · ขอบบางจาง (control-border)
+  //   พื้นไล่สีขาว → ฟ้า #CCE3FF (ซ้าย→ขวา) · ป้าย "ฐานข้อมูลปัจจุบัน" 12/400 ดำ 60% · ชื่อโรง 14/500 ดำ
+  //   ภาพตึกโรงพยาบาล 64 ชิดขวา มุมขวาล่างมน 24 (ใช้ไฟล์เดียวกับภาพประกอบหน้าภาพรวมระบบ)
+  const card: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', flex: 'none',
+    width: 333, height: 62, paddingLeft: 'var(--sp-4)', overflow: 'hidden',
+    borderRadius: 'var(--r-lg)', border: '0.5px solid var(--control-border)',
+    background: 'linear-gradient(to right, var(--bg), #CCE3FF)',
+  }
+  // ภาพวางในกรอบ 77x60 ชิดขวา ล้นขอบล่างแล้วถูก crop ตามที่ Figma วางไว้ (frame 379:13950)
+  const art = (
+    <span aria-hidden style={{ position: 'relative', flex: 'none', width: 77, height: 60, overflow: 'hidden', borderBottomRightRadius: 'var(--r-xl)' }}>
+      <img src={asset('/hero-hospital.svg')} alt="" width={64} height={64}
+        className="pointer-events-none select-none"
+        style={{ position: 'absolute', left: 1, top: 4 }} />
+    </span>
+  )
+  const caption = (
+    <span style={{ ...TEXT.caption, color: 'rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>ฐานข้อมูลปัจจุบัน</span>
+  )
+
+  // มีโรงเดียว → ไม่ต้องเลือก แสดงชื่อโรงเฉยๆ
+  if (!many) {
+    if (!cur) return null
+    return (
+      <span className="hide-sm" style={card}>
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, minWidth: 0, flex: 1 }}>
+          {caption}
+          <span style={{ ...TEXT.bodyMed, color: 'var(--text)', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {cur.label}
+          </span>
+        </span>
+        {art}
+      </span>
+    )
+  }
+
+  // ทั้งการ์ดเป็นปุ่มเปิดเมนู (ไม่ใช่แค่บรรทัดชื่อโรง)
+  return (
+    <div className="hide-sm" style={{ flex: 'none' }}>
+      <SearchSelect hideCaret value={currentHcode} onChange={setHcode} options={opts}
+        searchPlaceholder="ค้นชื่อ/รหัสโรงพยาบาล…" triggerStyle={card}
+        renderTrigger={(sel) => (
+          <>
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, minWidth: 0, flex: 1 }}>
+              {caption}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', maxWidth: '100%', minWidth: 0 }}>
+                <span style={{ ...TEXT.bodyMed, color: sel ? 'var(--text)' : 'var(--text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {sel?.label ?? 'เลือกโรงพยาบาล…'}
+                </span>
+                <Icon name="chevron-down" size={16} width={2} color="var(--text-faint)" style={{ flex: 'none' }} />
+              </span>
+            </span>
+            {art}
+          </>
+        )} />
+    </div>
+  )
+}
+
+export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: () => void }) {
   const { session } = useApp()
   if (!session) return null
 
@@ -33,22 +110,48 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
           icon={<Icon name="menu" size={18} width={2} />} />
       )}
 
-      <img src={asset("/logo.png")} alt="" width={40} height={40}
-        style={{ display: 'block', flex: 'none', borderRadius: 'var(--r-lg)' }} />
+      {/* โลโก้เฉพาะสัญลักษณ์ (ไม่มีตัวอักษร) — ชื่อระบบเป็นข้อความข้าง ๆ อยู่แล้ว */}
+      <img src={asset("/logo-mark.svg")} alt="" width={56} height={56}
+        style={{ display: 'block', flex: 'none' }} />
 
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ ...TEXT.h3, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          BMS FaceEnroll
-        </div>
-        <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)' }}>
-          แดชบอร์ดติดตามการเข้างาน
-        </div>
-      </div>
+      {/* ชื่อระบบใช้ wordmark จาก Figma (node 401:21401) แทนข้อความ */}
+      <img className="hide-sm" src={asset("/wordmark.svg")} alt="BMS FaceEnroll"
+        style={{ display: 'block', flex: 'none', height: 34, width: 'auto' }} />
 
-      <Button title="การแจ้งเตือน" variant="accent-soft" size="sm" radius="md"
+      {/* ตัวเว้นสองข้างช่องค้นหา — ดันช่องค้นหาให้อยู่กลางที่ว่างที่เหลือเสมอ */}
+      <span aria-hidden style={{ flex: 1, minWidth: 0 }} />
+
+      {/* ค้นหาทั้งระบบ — กดที่นี่หรือ ⌘K/Ctrl+K ก็เปิดหน้าต่างค้นหาเดียวกัน */}
+      {onSearch && (
+        <button type="button" onClick={onSearch} title="ค้นหาทั้งระบบ (⌘K)" className="hide-sm" style={{
+          // อยู่ในโฟลว์ปกติ (absolute แล้วทับการ์ดเลือกโรงตอนจอแคบ)
+          // flex:1 + maxWidth -> กินที่ตรงกลางที่เหลือ แล้วยุบตัวเองก่อนของอื่นเสมอ
+          flex: '0 1 520px', minWidth: 120,
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
+          minHeight: 48, padding: '0 var(--sp-2) 0 var(--sp-4)', borderRadius: 'var(--r-full)',
+          border: '0.5px solid var(--control-border)', background: 'var(--surface-alt)',
+          color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'var(--sans)',
+        }}>
+          <Icon name="search" size={20} width={1.8} />
+          <span style={{ ...TEXT.sm, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ค้นหาทั้งระบบ…</span>
+          <kbd style={{
+            ...TEXT.caption, fontFamily: 'var(--mono)', color: 'var(--text-dim)',
+            padding: '2px 8px', borderRadius: 'var(--r-sm)', background: 'var(--bg)', whiteSpace: 'nowrap',
+          }}>⌘K</kbd>
+        </button>
+      )}
+
+      <span aria-hidden style={{ flex: 1, minWidth: 0 }} />
+
+      {/* กลุ่มขวาสุด — การ์ดเลือกโรง + กระดิ่ง */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-3)', flex: 'none' }}>
+      <HospitalSelect />
+
+      {/* r-lg เท่าการ์ดเลือกโรง/การ์ดโปรไฟล์ — มุมของทุกอย่างบน header ต้องเท่ากัน */}
+      <Button title="การแจ้งเตือน" variant="accent-soft" size="sm" radius="lg"
         icon={<Icon name="bell" size={20} width={1.8} />} />
+      </span>
 
-      <ProfileMenu />
     </header>
   )
 }

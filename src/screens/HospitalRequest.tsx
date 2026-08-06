@@ -31,7 +31,7 @@ const CHECK = ['M20 6 9 17l-5-5']
 
 const FEATURES = [
   { title: 'สแกนใบหน้า + liveness', sub: 'ยืนยันตัวตนด้วยใบหน้า ตรวจว่าเป็นคนจริง กันภาพ/วิดีโอปลอม', d: ['M3 7V5a2 2 0 0 1 2-2h2', 'M17 3h2a2 2 0 0 1 2 2v2', 'M21 17v2a2 2 0 0 1-2 2h-2', 'M7 21H5a2 2 0 0 1-2-2v-2', 'M9 10h.01', 'M15 10h.01', 'M9.5 14a3.5 3.5 0 0 0 5 0'] },
-  { title: 'ลงเวลาเข้า–ออกเวร', sub: 'บันทึกเวลาเข้า/ออกลงระบบ HOSxP ของโรงอัตโนมัติ', d: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8v4l3 2'] },
+  { title: 'ลงเวลาเข้า–ออกเวร', sub: 'บันทึกเวลาเข้า/ออกลงระบบ HOSxP ของโรงพยาบาลอัตโนมัติ', d: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8v4l3 2'] },
   { title: 'GPS จำกัดพื้นที่', sub: 'ลงเวลาได้เฉพาะในรัศมีจุดที่กำหนด กันลงเวลานอกที่', d: ['M12 22s8-4 8-10a8 8 0 1 0-16 0c0 6 8 10 8 10z', 'M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'] },
   { title: 'มีระบบ dashboard และรายงาน', sub: 'สรุปรายวัน–รายเดือน ตรวจความผิดปกติ', d: ['M3 3v18h18', 'M7 14l3-3 3 3 5-6'] },
   { title: 'มอนิเตอร์ + ครอบคลุมลงทะเบียน', sub: 'เห็นการเข้าเวรสด และรู้ว่าใครยังไม่ลงทะเบียนใบหน้า', d: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'] },
@@ -421,7 +421,7 @@ export function HospitalRequest() {
       <header style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1 }}>
           <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <img src={asset("/logo.png")} alt="" width={36} height={36} style={{ display: 'block' }} />
+            <img src={asset("/logo.svg")} alt="" width={36} height={36} style={{ display: 'block' }} />
           </div>
           <div>
             <div style={{ fontWeight: 500, fontSize: 15, letterSpacing: '-.2px' }}>FaceCheck</div>

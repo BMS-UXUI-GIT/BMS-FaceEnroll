@@ -1,3 +1,5 @@
+import { TEXT } from '../typography'
+
 // ของใช้ร่วมของหน้าจัดการระบบ (อนุมัติ/จัดการโรงพยาบาล)
 
 export const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
@@ -28,11 +30,20 @@ export const HEALTH_TH: Record<string, { label: string; color: string }> = {
 // แจ้ง Sidebar ให้อัปเดตตัวเลขงานค้าง (หลัง approve/reject)
 export const notifyBadges = () => window.dispatchEvent(new Event('fh-badges'))
 
+// ป้ายเปิด/ปิดแบบกดได้ — ทรงแคปซูลพื้นอ่อน ไม่มีขอบ ชุดเดียวกับป้ายสถานะหน้าอื่น
 export function Pill({ label, tone, override, onClick, disabled }: { label: string; tone: 'ok' | 'off'; override?: boolean; onClick: () => void; disabled?: boolean }) {
-  const c = tone === 'ok' ? { bg: 'var(--ok-light)', color: 'var(--ok)', border: 'var(--ok)' } : { bg: 'var(--surface-card)', color: 'var(--text-dim)', border: 'var(--border)' }
+  const c = tone === 'ok'
+    ? { bg: 'var(--ok-light)', color: 'var(--ok)' }
+    : { bg: 'var(--surface-gray)', color: 'var(--text-dim)' }
   return (
-    <button onClick={onClick} disabled={disabled} title={override ? 'ตั้งเฉพาะโรงนี้ (ต่างจากค่ากลาง)' : 'ใช้ค่ากลาง'}
-      style={{ fontSize: 11.5, fontWeight: 500, padding: '4px 12px', borderRadius: 20, cursor: 'pointer', fontFamily: 'var(--sans)', minWidth: 52, whiteSpace: 'nowrap', background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+    <button onClick={onClick} disabled={disabled} title={override ? 'ตั้งเฉพาะโรงพยาบาลนี้ (ต่างจากค่ากลาง)' : 'ใช้ค่ากลาง'}
+      style={{
+        ...TEXT.sm, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
+        padding: 'var(--sp-1) var(--sp-3)', minHeight: 32, borderRadius: 'var(--r-full)',
+        cursor: disabled ? 'default' : 'pointer', fontFamily: 'var(--sans)', whiteSpace: 'nowrap',
+        background: c.bg, color: c.color, border: 'none', opacity: disabled ? 0.6 : 1,
+      }}>
+      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 'var(--r-full)', background: 'currentColor', flex: 'none' }} />
       {label}{override ? ' •' : ''}
     </button>
   )

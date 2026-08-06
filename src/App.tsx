@@ -18,13 +18,20 @@ import { SystemHospitals } from './screens/SystemHospitals'
 import { SystemAudit } from './screens/SystemAudit'
 import { Users } from './screens/Users'
 import { Help } from './screens/Help'
-import { useApp, NAV_TAB, type Nav } from './state'
+import { Account } from './screens/Account'
+import { useApp, isCentral, NAV_TAB, type Nav } from './state'
+import { SuperGate, isSuperUnlocked } from './components/SuperGate'
+import { CommandPalette } from './components/CommandPalette'
 
 // ลำดับหาแท็บแรกที่มีสิทธิ์ (ตรงกับ Sidebar)
 const NAV_ORDER: Nav[] = ['overview', 'face', 'attendance',
-  'rp-person', 'rp-dept', 'rp-shift', 'rp-late', 'rp-reports',
+  // 'rp-reports' ซ่อนไว้ก่อน (ดู Sidebar) — ปลดคอมเมนต์ที่นี่ + allowed() ด้านล่างเพื่อเปิดคืน
+  'rp-person', 'rp-dept', 'rp-shift', 'rp-late',
   'settings', 'locations', 'hosp-audit',
   'sys-approve', 'sys-hospitals', 'sys-users', 'sys-audit', 'health']
+
+// เมนูกลุ่ม "จัดการระบบ" — เข้าครั้งแรกของแต่ละ session ต้องกรอกรหัสผ่านยืนยันตัวตนก่อน
+const SUPER_NAVS: Nav[] = ['sys-approve', 'sys-hospitals', 'sys-users', 'sys-audit', 'health']
 
 // แถบเตือนเมื่อกำลังดู "โรงพยาบาลสาธิต" — กันสับสนว่าเป็นข้อมูลจริง
 function DemoBanner() {
@@ -47,6 +54,19 @@ export function App() {
   // จอเล็ก: sidebar เป็น drawer เปิดจากปุ่มเมนูบน topbar
   const mobile = useMedia('(max-width: 920px)')
   const [menuOpen, setMenuOpen] = useState(false)
+  // ปลดล็อกเมนูจัดการระบบแล้วหรือยัง (เก็บใน sessionStorage — เปิดแท็บใหม่/logout ต้องกรอกใหม่)
+  const [superOk, setSuperOk] = useState(isSuperUnlocked)
+  // ค้นหาทั้งระบบ — ⌘K / Ctrl+K ทุกที่ · "/" เฉพาะตอนไม่ได้อยู่ในช่องกรอก
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const inField = !!(e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable="true"]')
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen((v) => !v); return }
+      if (e.key === '/' && !inField && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); setPaletteOpen(true) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   useEffect(() => { if (!mobile) setMenuOpen(false) }, [mobile])
 
   // ฟอร์มลงทะเบียนโรง (public) — เข้าได้เฉพาะคนที่รู้ URL ตรงนี้ ไม่มีลิงก์จากหน้าไหน
@@ -57,10 +77,11 @@ export function App() {
   // สิทธิ์รายแท็บจาก backend — เมนูย่อยเช็คผ่านแท็บแม่ (NAV_TAB)
   // ประวัติการจัดการมี 2 หน้าใช้สิทธิ์ 'audit' ร่วมกัน: hosp-audit = โรงตัวเอง, sys-audit = ทุกโรง
   const tabs = session?.tabs ?? []
-  const central = session?.role === 'superadmin' || session?.role === 'bmsadmin'
+  const central = !!session && isCentral(session)
   const allowed = (n: Nav) =>
-    n === 'help' // help เปิดได้ทุกคน
-    || ((tabs.includes(NAV_TAB[n]) || (NAV_TAB[n] === 'users' && session?.role === 'superadmin'))
+    n === 'help' || n === 'account' // ช่วยเหลือ + จัดการบัญชี เปิดได้ทุกคน
+    || (n !== 'rp-reports' // หน้า "รายงาน" ซ่อนไว้ก่อน — กันคนที่ค้างอยู่หน้านี้ (nav เก็บใน storage)
+      && (tabs.includes(NAV_TAB[n]) || (NAV_TAB[n] === 'users' && session?.role === 'superadmin'))
       && !(n === 'hosp-audit' && session?.role !== 'admin')
       && !(n === 'sys-audit' && !central))
   const firstNav: Nav = NAV_ORDER.find(allowed) ?? 'overview'
@@ -74,7 +95,10 @@ export function App() {
   if (isRequestForm) return <HospitalRequest />
   if (!session) return <Login />
 
-  const screen = (() => {
+  // เข้าเมนูจัดการระบบครั้งแรกของ session -> ขอรหัสผ่านก่อน
+  const needsGate = SUPER_NAVS.includes(effNav) && !superOk
+
+  const screen = needsGate ? <SuperGate onUnlock={() => setSuperOk(true)} /> : (() => {
     switch (effNav) {
       case 'face': return <Face />
       case 'attendance': return <Attendance />
@@ -92,6 +116,7 @@ export function App() {
       case 'rp-late': return <ReportLate />
       case 'rp-reports': return <ReportsHub />
       case 'help': return <Help />
+      case 'account': return <Account />
       default: return <Overview />
     }
   })()
@@ -115,7 +140,7 @@ export function App() {
       }}>
         {/* header กระจกลอยทับ — content เลื่อนลอดข้างหลัง */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 30 }}>
-          <Topbar onMenu={mobile ? () => setMenuOpen(true) : undefined} />
+          <Topbar onMenu={mobile ? () => setMenuOpen(true) : undefined} onSearch={() => setPaletteOpen(true)} />
         </div>
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           <Sidebar mobile={mobile} open={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -127,13 +152,17 @@ export function App() {
             {/* spacer แทน paddingTop — ให้ content เริ่มใต้ header แต่ sticky ยังวัดจากขอบบน main (top:0) */}
             <div aria-hidden style={{ height: 'calc(var(--topbar-h) + var(--sp-4))' }} />
             {isDemo && <DemoBanner />}
-            {/* key = หน้าปัจจุบัน -> เปลี่ยนเมนูแล้ว React สร้าง node ใหม่ อนิเมชัน .page-in เล่นซ้ำทุกครั้ง */}
-            <div key={`${effNav}:${currentHcode}`} className="page-in">
+            {/* key = หน้าปัจจุบัน -> เปลี่ยนเมนูแล้ว React สร้าง node ใหม่ อนิเมชัน .page-in เล่นซ้ำทุกครั้ง
+                ⚠️ ห้ามใส่ currentHcode ลงใน key — เปลี่ยนโรงแล้วหน้าจะถูกสร้างใหม่ทั้งก้อน
+                   state ในหน้า (เช่นแท็บของหน้าหลัก) จะรีเซ็ต ทั้งที่ผู้ใช้แค่เลือกโรง
+                   หน้าต่าง ๆ ผูก currentHcode ผ่าน useEffect/useFetch อยู่แล้ว ข้อมูลรีเฟรชเอง */}
+            <div key={effNav} className="page-in">
               <ErrorBoundary resetKey={`${effNav}:${currentHcode}`}>{screen}</ErrorBoundary>
             </div>
           </main>
         </div>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} allowed={allowed} />
       <DialogHost />
       <ToastHost />
     </div>

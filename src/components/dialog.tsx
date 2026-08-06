@@ -12,6 +12,7 @@ type PromptOpts = {
   placeholder?: string
   confirmText?: string
   mono?: boolean                            // ช่องกรอกเป็น mono (รหัสผ่าน/ตัวเลข)
+  danger?: boolean                          // ปุ่มยืนยันเป็นสีอันตราย (เช่นยืนยันชื่อก่อนลบ)
   validate?: (v: string) => string | null   // คืนข้อความ error ; null = ผ่าน
 }
 type AlertOpts = { title?: string; body: string }
@@ -127,7 +128,7 @@ export function DialogHost() {
   }
 
   const o: any = req.o
-  const danger = req.kind === 'confirm' && o.danger
+  const danger = (req.kind === 'confirm' || req.kind === 'prompt') && o.danger
   return (
     <div onClick={cancel} onKeyDown={(e) => e.key === 'Escape' && cancel()}
       style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>

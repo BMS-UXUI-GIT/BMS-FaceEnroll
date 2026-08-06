@@ -41,6 +41,20 @@ function tabsFor(role: Role): string[] {
   return USER_TABS
 }
 
+// บุคลากรตัวอย่างสำหรับ login ผ่าน HOSxP — เลือกแบบคงที่จาก username (เข้าชื่อเดิมทุกครั้ง)
+const STAFF = [
+  { name: 'สมหญิง ใจดี', position: 'พยาบาลวิชาชีพชำนาญการ · อายุรกรรม' },
+  { name: 'ณัฐพงษ์ ศรีสุข', position: 'นักวิชาการคอมพิวเตอร์ · ศูนย์คอมพิวเตอร์' },
+  { name: 'พิมพ์ชนก วงศ์ทอง', position: 'เจ้าพนักงานธุรการชำนาญงาน · บริหารงานทั่วไป' },
+  { name: 'ธนกร แสงเพชร', position: 'นายแพทย์ชำนาญการ · ศัลยกรรม' },
+  { name: 'อรุณี พูลทรัพย์', position: 'เภสัชกรชำนาญการ · เภสัชกรรม' },
+]
+const pickStaff = (seed: string) => {
+  let h = 0
+  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return STAFF[h % STAFF.length]
+}
+
 const LABEL: Record<Role, string> = {
   superadmin: 'ผู้ดูแลระบบสูงสุด (Mock)',
   bmsadmin: 'BMS Admin (Mock)',
@@ -78,18 +92,24 @@ export function installMockFetch() {
 }
 
 export function mockSession(username: string, opts: { kind?: string; hcode?: string } = {}): Session {
-  const role = roleFrom(username)
+  // login ด้วยบัญชี HOSxP = บุคลากรของโรงนั้น -> role user (ดูอย่างเดียว) ปักโรงที่กรอกมาเสมอ
+  // (ไม่เดา role จาก username เหมือน login ปกติ — พนักงานโรงไม่มีทางเป็นบัญชีส่วนกลาง)
+  const role = opts.kind === 'staff' ? 'user' : roleFrom(username)
   const central = role === 'superadmin' || role === 'bmsadmin'
   // ส่วนกลางเห็นทุกโรง; admin/user ปักโรงเดียว (ใช้ hcode ที่ส่งมาถ้ามี — มาจากแท็บผู้ใช้งาน)
-  const one = HOSPITALS.find((h) => h.value === opts.hcode) ?? HOSPITALS[0]
+  // โรงที่ปัก: ใช้ hcode ที่ส่งมาเสมอ (โรงจากหน้า login อาจไม่อยู่ในลิสต์ตัวอย่าง 3 โรงนี้)
+  const one = HOSPITALS.find((h) => h.value === opts.hcode)
+    ?? (opts.hcode ? { value: opts.hcode, label: `โรงพยาบาล ${opts.hcode} (Mock)` } : HOSPITALS[0])
   const name = username.trim() || role
+  const staff = opts.kind === 'staff' ? pickStaff(`${username}|${opts.hcode ?? ''}`) : null
   return {
     token: `mock-token-${role}`,
     username: name,
     role,
     ...(opts.kind ? { kind: opts.kind } : {}),
-    name: LABEL[role],
-    initial: (name[0] ?? 'M').toUpperCase(),
+    name: staff?.name ?? LABEL[role],
+    ...(staff ? { position: staff.position } : {}),
+    initial: ((staff?.name ?? name)[0] ?? 'M').toUpperCase(),
     hospitals: central ? HOSPITALS : [one],
     tabs: tabsFor(role),
     demo_hcode: '',

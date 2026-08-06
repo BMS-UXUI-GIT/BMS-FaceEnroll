@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clock, nf, useFetch, useServerPage } from '../hooks'
-import { daysAgoISO, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { daysAgoISO, localISO, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { MonthRangePicker, TH_M, thShort } from '../components/DatePicker'
 import { GroupedBars, GroupedBarsSkeleton } from '../components/charts'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
@@ -160,7 +160,8 @@ export function ReportPerson() {
   const hcode = currentHcode === '*' ? '' : currentHcode
   const [reload, setReload] = useState(0)
   const [search, setSearch] = useState('')
-  const [dept, setDept] = useState('')
+  // เลือกได้หลายแผนก (ว่าง = ทุกแผนก)
+  const [fDepts, setFDepts] = useState<string[]>([])
   const [sel, setSel] = useState<Emp | null>(null)
   // ช่วงวันของ detail (default 30 วันล่าสุด)
   const [from, setFrom] = useState(daysAgoISO(29))
@@ -174,7 +175,7 @@ export function ReportPerson() {
   const heroRef = useRef<HTMLDivElement>(null)
   const [compact, setCompact] = useState(false)
 
-  useEffect(() => { setSel(null); setSearch(''); setDept('') }, [hcode])
+  useEffect(() => { setSel(null); setSearch(''); setFDepts([]) }, [hcode])
 
   const q = `hcode=${encodeURIComponent(hcode)}`
   // ค้นหาชื่อ/รหัส — หน่วง 300ms แล้วส่ง backend (แบ่งหน้า+ค้นข้ามทุกหน้าฝั่งเซิร์ฟเวอร์)
@@ -277,7 +278,7 @@ export function ReportPerson() {
 
   // server ทำ q + แบ่งหน้าให้แล้ว — ตัวกรองแผนกทำบนหน้าที่โหลดมา (backend ยังไม่มี query แผนก)
   const rows = listF.data?.rows ?? []
-  const shown = dept ? rows.filter((p) => p.dept === dept) : rows
+  const shown = fDepts.length ? rows.filter((p) => fDepts.includes(p.dept)) : rows
 
   // ---------- โหมด list ----------
   if (!sel) {
@@ -348,8 +349,8 @@ export function ReportPerson() {
         <div className="flex items-center gap-2 flex-wrap">
           <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
           <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-            <SearchSelect bare hideCaret value={dept} onChange={setDept}
-              options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+            <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])}
+              options={deptOpts}
               placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
           </FilterChip>
         </div>
@@ -367,10 +368,10 @@ export function ReportPerson() {
                   onRowClick={(p) => openDetail(p)}
                   minWidth={980}
                   loading={listF.loading && !listF.data ? <Loading /> : undefined}
-                  empty={dq || dept ? 'ไม่พบพนักงานที่ตรงกับที่เลือก' : 'ไม่มีข้อมูลพนักงาน'}
+                  empty={dq || fDepts.length ? 'ไม่พบพนักงานที่ตรงกับที่เลือก' : 'ไม่มีข้อมูลพนักงาน'}
                   emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }}
                 />
-                {!dept && (
+                {!fDepts.length && (
                   <Pagination page={listF.page} pageSize={PAGE_SIZE} total={listF.data?.total ?? 0}
                     shown={shown.length} onPage={listF.setPage} />
                 )}

@@ -120,7 +120,8 @@
 
   /* === Layout === */
   --page-max: 100%;
-  --sidebar-w: 262px;  /* Figma: Sidebar 262px fixed */
+  /* Figma วาดไว้ 262 แต่เมนูที่ยาวสุด ("การมาสาย / ออกก่อน") กว้างไม่ถึง — ย่อให้พอดีเมนู */
+  --sidebar-w: 232px;
   --topbar-h: 80px;    /* ความสูง Topbar — ใช้เว้น paddingTop ให้ content เลื่อนลอดใต้ header กระจก */
   --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) */
 
@@ -130,6 +131,10 @@
 
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; padding: 0; min-height: 100vh; }
+/* ปิดการเด้ง/ยางยืดของเบราว์เซอร์ (rubber-band, pull-to-refresh) — เปลือกแอพสูงเท่าจอพอดีอยู่แล้ว */
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+/* กล่องที่เลื่อนได้ภายใน: เลื่อนจนสุดแล้วไม่ส่งต่อ scroll ให้ตัวแม่ */
+main, .no-scrollbar, .pick-hosp-list { overscroll-behavior: contain; }
 body {
   background: linear-gradient(135deg, var(--page-bg-from), var(--page-bg-to));
   background-attachment: fixed;
@@ -344,6 +349,122 @@ input:focus, select:focus { border-color: var(--accent) !important; }
 .cloud { animation: cloudFloat 15s ease-in-out infinite alternate; will-change: transform; }
 @media (prefers-reduced-motion: reduce) { .cloud { animation: none; } }
 
+/* ภาพประกอบแท็บ "ภาพรวมระบบ" — ตึกเป็นฉากหลัง พยาบาลเป็นฉากหน้า
+   ตึก: จางลงนิด + ลอยขึ้นลงช้ามาก (ให้ดูเป็นระยะไกล)
+   พยาบาล: เข้ามาจากขวาตอนเปิดแท็บ แล้วลอยขึ้นลงเร็วกว่าตึกเล็กน้อย (ระยะใกล้) */
+@keyframes heroDrift {
+  from { transform: translate3d(0, 4px, 0); }
+  to   { transform: translate3d(0, -6px, 0); }
+}
+@keyframes heroEnter {
+  from { opacity: 0; transform: translate3d(28px, 10px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes heroRise {
+  from { opacity: 0; transform: translate3d(0, 64px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+.hero-rise { animation: heroRise 1s cubic-bezier(.22,.61,.36,1) both; }
+.hero-bg { display: block; animation: heroDrift 9s ease-in-out infinite alternate; will-change: transform; }
+/* พยาบาลอยู่นิ่ง — มีแค่จังหวะเข้าตอนเปิดแท็บ ไม่ลอยวน (กวนตาเวลาอ่านตัวเลขข้างๆ)
+   เข้าทีหลังตึก (delay .45s) จะได้ไม่วิ่งทับกันเป็นก้อนเดียว */
+.hero-fg { animation: heroEnter .9s cubic-bezier(.22,.61,.36,1) .45s both; }
+.hero-fg > img { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg, .hero-fg, .hero-rise { animation: none; }
+}
+
+
+/* หน้าเลือกโรงพยาบาล — 2 คอลัมน์: ภาพประกอบซ้าย · รายการโรงขวา
+   จอแคบ (<=860) ตกเป็นคอลัมน์เดียว ภาพอยู่บน */
+.pick-hosp {
+  display: grid;
+  grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--sp-4) var(--sp-6);
+  align-items: center;
+  /* สูงเท่าที่เหลือในจอพอดี — หน้าไม่ต้อง scroll (รายการโรงเลื่อนในตัวเองแทน)
+     100dvh − ขอบเปลือกแอพบน/ล่าง (2×16) − สเปเซอร์ใต้ header (80+16) − padding ล่างของ main (24)
+     dvh เพราะ 100vh บนมือถือคิดรวมแถบ URL ที่ยุบได้ (จะสูงเกินจริงแล้วเกิด scroll) */
+  height: calc(100dvh - 152px);
+  max-height: calc(100dvh - 152px);
+  overflow: hidden;
+}
+/* หน้าเลือกโรงล็อกความสูงพอดีจอ → พื้นที่เนื้อหาไม่ต้องมี scrollbar */
+body.no-page-scroll main { overflow: hidden !important; }
+@media (max-width: 860px) { body.no-page-scroll main { overflow-y: auto !important; } }
+
+/* ภาพประกอบฝั่งขวา — ยืดหดตามความกว้าง/สูงจอ (ไม่ล็อก px)
+   ชิดขวา-ล่างของการ์ด ล้นออกไปเล็กน้อยแล้วถูก overflow ของการ์ดตัด */
+.pick-hosp-art {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-width: 0;
+  margin: 0 calc(var(--sp-6) * -1) calc(var(--sp-6) * -1) 0;
+}
+/* กรอบภาพ — ขนาดเดียวที่ทุกอย่างอ้างอิง (blob/หมุดวางเป็น % ของกรอบนี้) */
+.pick-hosp-figure {
+  position: relative;
+  display: block;
+  /* กว้างตามคอลัมน์ แต่ไม่เกินความสูงที่เหลือ (min กับ vh) และไม่เกิน 720 */
+  width: min(100%, 78vh, 720px);
+  /* ค่าติดลบ = ดันภาพต่ำลงเลยขอบล่างการ์ด (การ์ดตัด overflow อยู่แล้ว) */
+  margin-bottom: clamp(-72px, -4vh, -16px);
+  margin-right: clamp(-40px, -2vw, 0px);
+}
+.pick-hosp-img { position: relative; display: block; width: 100%; height: auto; }
+.pick-hosp-blob {
+  position: absolute;
+  left: 0; right: 0; bottom: 6%;
+  height: 86%;
+  border-radius: 46% 54% 52% 48% / 52% 44% 56% 48%;
+  /* ฟ้าอ่อนด้านบน จางหายที่ก้น blob (โปร่งใส -> ใช้ได้กับพื้นการ์ดทุกสี) */
+  background: linear-gradient(to bottom, var(--surface-blue) 20%, transparent);
+}
+
+/* คอลัมน์รายการโรงเลื่อนในตัวเองเมื่อโรงเยอะ */
+.pick-hosp-list { min-height: 0; overflow-y: auto; }
+/* หัวเรื่องกินเต็มความกว้างการ์ด (อยู่แถวบน เหนือทั้งภาพและรายการ) */
+.pick-hosp-head { grid-column: 1 / -1; }
+@media (max-width: 920px) {
+  /* จอเล็ก: เปลือกแอพไม่มีขอบ (shell-gap 0) + main padding 12 */
+  .pick-hosp { height: calc(100dvh - 108px); max-height: calc(100dvh - 108px); }
+}
+@media (max-width: 860px) {
+  .pick-hosp { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); height: auto; max-height: none; overflow: visible; }
+}
+
+/* หน้าเข้าสู่ระบบ — การ์ด 2 คอลัมน์ (แผงแบรนด์ซ้าย · ฟอร์มขวา) จอแคบตกเป็นคอลัมน์เดียว */
+.login-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);   /* ครึ่ง–ครึ่งเหมือนดีไซน์ */
+  align-items: stretch;
+}
+@media (max-width: 860px) {
+  .login-card { grid-template-columns: 1fr; }
+  /* จอแคบไม่ต้องโชว์ภาพประกอบใหญ่ — เหลือโลโก้ + คำอธิบาย */
+  .login-card .hero-rise { display: none; }
+}
+
+/* เว้นที่ฝั่งขวาของหัวเรื่องให้ภาพประกอบ (จอแคบซ่อนภาพอยู่แล้ว จึงไม่ต้องเว้น) */
+.hero-reserve { padding-right: 480px; }
+@media (max-width: 1180px) { .hero-reserve { padding-right: 320px; } }
+@media (max-width: 920px) { .hero-reserve { padding-right: 0; } }
+
+/* การ์ดโปรไฟล์ท้าย sidebar — พื้นกึ่งโปร่ง + เบลอ เมนูที่เลื่อนลอดข้างหลังจึงเห็นเป็นฝ้า
+   (ใส่ที่นี่เพราะ Button คุมพื้นด้วยคลาส .btn-soft — inline style จะชนกับ hover ของมัน) */
+.sidebar-profile .btn-soft {
+  background: color-mix(in srgb, var(--surface-alt) 45%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+.sidebar-profile .btn-soft:not(:disabled):hover {
+  background: color-mix(in srgb, var(--surface-card) 85%, transparent);
+}
+
 /* โครงร่างระหว่างโหลด (skeleton) — บล็อกเทาวูบเบา ๆ ไม่กระพริบแรงจนกวนตา */
 @keyframes skelPulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .skel { background: var(--surface-card); border-radius: var(--r-md); animation: skelPulse 1.2s ease-in-out infinite; }
@@ -372,9 +493,21 @@ input:focus, select:focus { border-color: var(--accent) !important; }
   .help-grid { grid-template-columns: 1fr !important; }
 }
 
+/* ของที่โผล่เฉพาะจอเล็ก (คู่กับ .hide-sm) — เช่นตัวเลือกโรงในเมนูโปรไฟล์ */
+.only-sm { display: none !important; }
+
+/* header: ปุ่มกระดิ่ง + การ์ดโปรไฟล์ สูงเท่าการ์ดเลือกโรง (62) ให้เรียงเป็นแนวเดียวกัน
+   จอแคบไม่บังคับ เพราะแถบบนเตี้ยลงและการ์ดเลือกโรงถูกซ่อนไปแล้ว */
+@media (min-width: 921px) {
+  /* !important เพราะ Button ใส่ min-height เป็น inline style (inline ชนะ class เสมอ) */
+  .topbar .btn { min-height: 62px !important; }
+  .topbar .btn-accent-soft { width: 62px; justify-content: center; }
+}
+
 /* จอเล็ก: ซ่อนของรอง + หัวเว็บกระชับ (sidebar เป็น drawer จัดการใน React แล้ว) */
 @media (max-width: 920px) {
   .hide-sm { display: none !important; }
+  .only-sm { display: block !important; }
   .topbar { padding: var(--sp-3) var(--sp-3) !important; gap: var(--sp-2) !important; }
   .topbar h1 { font-size: 16px !important; }
 }

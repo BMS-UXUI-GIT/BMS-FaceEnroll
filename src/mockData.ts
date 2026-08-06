@@ -584,6 +584,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
   if (p === '/admin/attendance/correction') return { ok: true }
   if (/\/unlock-pin$/.test(p)) return { ok: true }
   if (p === '/admin/auth/change-password') return { ok: true }
+  if (p === '/admin/auth/verify-password') return { ok: true }
 
   return undefined // ไม่รู้จัก -> api.ts โยน error บอก path ให้เห็นชัด
 }

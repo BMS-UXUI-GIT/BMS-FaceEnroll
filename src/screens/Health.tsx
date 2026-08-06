@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { nf, useFetch } from '../hooks'
-import { Loading } from '../components/Spinner'
-import { Pager, PAGE_SIZE, usePaged } from '../components/Pager'
-import { RefreshButton } from '../components/RefreshButton'
+import { PAGE_SIZE, usePaged } from '../components/Pager'
 import { DataTable, type Column } from '../components/data-display/DataTable'
+import { StatCard } from '../components/data-display/StatCard'
+import { Pagination } from '../components/data-display/Pagination'
+import { SectionPanel } from '../components/layout/SectionPanel'
+import { HeroArt } from '../components/HeroArt'
+import { Skel, SkelRows } from '../components/Skeleton'
+import { Button } from '../components/inputs/Button'
+import { Icon } from '../icons'
+import { TEXT } from '../typography'
 
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--shadow)' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 500 }
-const td: React.CSSProperties = { padding: '11px 12px' }
-const theadTr: React.CSSProperties = { textAlign: 'left', color: 'var(--text-faint)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.5px', background: 'var(--surface-card)' }
+// สถานะระบบ — ตรวจบริการหลัก + ทดสอบเชื่อมต่อระบบของแต่ละโรง
+// โครงหน้าเดียวกับหน้าอื่น: การ์ดหัวเรื่องไล่สี + ภาพประกอบ แล้วตามด้วย SectionPanel
 
 type HospCheck = { hcode: string; name: string; ok: boolean; latency_ms: number; error: string }
 type Health = {
@@ -18,22 +22,42 @@ type Health = {
   hospitals: HospCheck[]
 }
 
-function Dot({ ok }: { ok: boolean }) {
-  return <span style={{ width: 8, height: 8, borderRadius: '50%', background: ok ? 'var(--ok)' : 'var(--danger)', display: 'inline-block' }} />
+/** ป้ายสถานะ เขียว/แดง — ใช้ทั้งการ์ดบริการและตารางรายโรง */
+function StatusPill({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)', whiteSpace: 'nowrap',
+      padding: '3px 10px', borderRadius: 'var(--r-full)', ...TEXT.sm, fontWeight: 500,
+      background: ok ? 'var(--ok-light)' : 'var(--danger-light)', color: ok ? 'var(--ok)' : 'var(--danger)',
+    }}>
+      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 'var(--r-full)', background: 'currentColor', flex: 'none' }} />
+      {label}
+    </span>
+  )
 }
 
-function Card({ title, ok, status, rows }: { title: string; ok: boolean; status: string; rows: [string, any][] }) {
+/** การ์ดบริการ 1 ตัว: ชื่อ + สถานะ + รายการค่าที่ตรวจได้ */
+function ServiceCard({ icon, title, ok, status, rows }: {
+  icon: string; title: string; ok: boolean; status: string; rows: [string, any][]
+}) {
   return (
-    <div style={{ ...card, padding: '18px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 500 }}>{title}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 500, color: ok ? 'var(--ok)' : 'var(--danger)' }}><Dot ok={ok} />{status}</span>
+    <div className="rounded-xl" style={{ background: 'var(--surface-alt)', padding: 'var(--sp-4)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)', flexWrap: 'wrap' }}>
+        <span aria-hidden style={{
+          width: 36, height: 36, flex: 'none', borderRadius: 'var(--r-md)',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          background: ok ? 'var(--ok-light)' : 'var(--danger-light)', color: ok ? 'var(--ok)' : 'var(--danger)',
+        }}>
+          <Icon name={icon} size={20} width={1.8} />
+        </span>
+        <span style={{ ...TEXT.bodyMed, color: 'var(--text)', flex: 1, minWidth: 120 }}>{title}</span>
+        <StatusPill ok={ok} label={status} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
         {rows.map(([k, v], i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-            <span style={{ color: 'var(--text-dim)' }}>{k}</span>
-            <span style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{String(v)}</span>
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-3)', ...TEXT.sm }}>
+            <span style={{ color: 'var(--text-dim)', flex: 'none' }}>{k}</span>
+            <span style={{ fontFamily: 'var(--mono)', fontWeight: 500, color: 'var(--text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(v)}</span>
           </div>
         ))}
       </div>
@@ -55,66 +79,100 @@ export function Health() {
   const downCount = hospitals.filter((h) => !h.ok).length
   const paged = usePaged(hospitals)
 
+  // การ์ดสรุปในหัวเรื่อง — แทนบรรทัดข้อความเหนือตาราง
+  const HERO = [
+    { label: 'โรงพยาบาลทั้งหมด', v: d ? hospitals.length : undefined, tone: 'accent' as const, icon: 'hospital' },
+    { label: 'เชื่อมต่อได้', v: d ? hospitals.length - downCount : undefined, tone: 'ok' as const, icon: 'health' },
+    { label: 'ต่อไม่ได้', v: d ? downCount : undefined, tone: 'danger' as const, icon: 'alert' },
+  ]
+
   const cols: Column<HospCheck>[] = [
-    { key: 'no', header: 'ลำดับ', align: 'right', width: 56,
-      thStyle: { padding: '10px 20px' },
-      tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-faint)', fontSize: 12 },
-      cell: (_h, i) => nf(paged.offset + i + 1) },
-    { key: 'hcode', header: 'รหัสโรง',
-      thStyle: { padding: '10px 20px' },
-      tdStyle: { padding: '11px 20px', fontFamily: 'var(--mono)', color: 'var(--text-dim)' },
-      cell: (h) => h.hcode },
-    { key: 'name', header: 'ชื่อโรง', tdStyle: { fontWeight: 500 }, cell: (h) => h.name || '—' },
-    { key: 'status', header: 'สถานะ', cell: (h) => (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: h.ok ? 'var(--ok)' : 'var(--danger)' }}>
-        <Dot ok={h.ok} />{h.ok ? 'เชื่อมต่อได้' : 'ต่อไม่ได้'}
-      </span>
-    ) },
-    { key: 'latency', header: 'ความเร็วตอบ',
-      tdStyle: (h) => ({ fontFamily: 'var(--mono)', color: h.latency_ms > 3000 ? 'var(--warn)' : 'var(--text-dim)' }),
-      cell: (h) => `${nf(h.latency_ms)} ms` },
-    { key: 'error', header: 'ปัญหา',
-      thStyle: { padding: '10px 20px' },
-      tdStyle: { padding: '11px 20px', fontSize: 12, color: 'var(--danger)' },
-      cell: (h) => h.error || '—' },
+    { key: 'no', header: 'ลำดับ', align: 'right', width: 64, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)' }, cell: (_h, i) => nf(paged.offset + i + 1) },
+    { key: 'hcode', header: 'รหัสโรงพยาบาล', width: 110, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (h) => h.hcode },
+    { key: 'name', header: 'ชื่อโรงพยาบาล', tdStyle: { fontWeight: 500 }, cell: (h) => h.name || '—' },
+    { key: 'status', header: 'สถานะ', width: 150, cell: (h) => <StatusPill ok={h.ok} label={h.ok ? 'เชื่อมต่อได้' : 'ต่อไม่ได้'} /> },
+    {
+      key: 'latency', header: 'ความเร็วตอบ', width: 140,
+      tdStyle: (h) => ({ fontFamily: 'var(--mono)', color: h.latency_ms > 3000 ? 'var(--warn)' : 'var(--text-dim)', whiteSpace: 'nowrap' }),
+      cell: (h) => `${nf(h.latency_ms)} ms`,
+    },
+    { key: 'error', header: 'ปัญหา', tdStyle: { color: 'var(--danger)' }, cell: (h) => h.error || '—' },
   ]
 
   return (
-    <div style={{ maxWidth: 'var(--page-max)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}><RefreshButton busy={loading} onClick={() => setReload((r) => r + 1)} /></div>
-      {err ? (
-        <div style={{ ...card, padding: 20, color: 'var(--danger)', fontSize: 13 }}>ผิดพลาด: {err}</div>
-      ) : !d ? (
-        <div style={card}><Loading text="กำลังตรวจทุกระบบ… (เช็คทุกโรงพร้อมกัน)" /></div>
-      ) : (
-      <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px, 100%), 1fr))', gap: 16 }}>
-        <Card title="ตัวประมวลผลใบหน้า (Luxand)" ok={engOk} status={engOk ? 'ปกติ' : 'ต่อไม่ได้'}
-          rows={[['ที่อยู่', eng.url || '—'], ...(eng.error ? [['ข้อผิดพลาด', eng.error]] as [string, any][] : [])]} />
-        <Card title="บริการสแกนหน้า" ok={faceStatus === 'ok'}
-          status={faceStatus === 'ok' ? 'ปกติ' : faceStatus === 'degraded' ? 'ทำงานได้บางส่วน' : f.error || '—'}
-          rows={[['เวอร์ชัน', f.version || '—'], ['ฐานข้อมูลใบหน้า', dbOk ? 'ปกติ' : 'มีปัญหา']]} />
-        <Card title="ระบบลงเวลา" ok={d.attendance.facescan_configured && d.dashboard_db === 'ok'}
-          status={d.dashboard_db === 'ok' ? 'ปกติ' : 'ฐานข้อมูลมีปัญหา'}
-          rows={[
-            ['ฐานข้อมูลระบบลงเวลา', d.dashboard_db === 'ok' ? 'ปกติ' : 'ล่ม'],
-            ['เชื่อมระบบสแกนหน้า', d.attendance.facescan_configured ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า'],
-            ['โหมดทดสอบ (ไม่บันทึกจริง)', d.attendance.dry_run_global ? 'เปิด' : 'ปิด'],
-          ]} />
+    <div className="max-w-(--page-max) flex flex-col gap-4">
+      {/* ---------- การ์ดหัวเรื่อง ---------- */}
+      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <HeroArt icon="health" />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-h2 m-0 text-text">สถานะระบบ</h1>
+            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
+              ตรวจบริการหลักของระบบ และทดสอบเชื่อมต่อระบบของแต่ละโรงพยาบาลพร้อมกัน
+            </p>
+          </div>
+          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
+            ตรวจใหม่อีกครั้ง
+          </Button>
+        </div>
+
+        {/* สรุปการเชื่อมต่อรายโรง */}
+        <div className="relative mt-4 flex gap-2 flex-wrap">
+          {HERO.map((k) => (
+            <StatCard key={k.label} tone={k.tone} label={k.label} unit="แห่ง"
+              icon={<Icon name={k.icon} size={24} color="currentColor" />}
+              value={k.v != null ? nf(k.v) : loading ? '…' : '—'} />
+          ))}
+        </div>
       </div>
 
-      {/* การเชื่อมต่อรายโรงพยาบาล */}
-      <div style={{ ...card }}>
-        <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 500 }}>การเชื่อมต่อรายโรงพยาบาล</h2>
-          <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>ระบบของแต่ละโรงอยู่คนละเซิร์ฟเวอร์ — ทดสอบดึงข้อมูลจริงทีละโรง</span>
-          {downCount > 0 && <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--danger)', background: 'var(--danger-light)', borderRadius: 20, padding: '2px 10px' }}>ต่อไม่ได้ {downCount} โรง</span>}
-          <div style={{ marginLeft: 'auto' }}><Pager page={paged.page} total={paged.total} onPage={paged.setPage} /></div>
-        </div>
-        <DataTable columns={cols} rows={paged.pageRows} rowKey={(h) => h.hcode} minWidth={760} divider="top" theadRowStyle={theadTr} thBase={th} tdBase={{ ...td, fontSize: 13 }} empty="ยังไม่มีโรงเปิดใช้งาน" emptyStyle={{ ...td, fontSize: 13, padding: '18px 20px', color: 'var(--text-faint)', textAlign: 'center' }} />
+      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+
+      {/* ---------- บริการหลัก ---------- */}
+      <SectionPanel title="บริการหลัก" meta={!d && !err ? 'กำลังตรวจทุกระบบ…' : undefined}>
+        {!d ? (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px,100%), 1fr))' }}>
+            {Array.from({ length: 3 }, (_, i) => <Skel key={i} h={168} r="var(--r-lg)" />)}
+          </div>
+        ) : (
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px,100%), 1fr))' }}>
+            <ServiceCard icon="face" title="ตัวประมวลผลใบหน้า (Luxand)" ok={engOk} status={engOk ? 'ปกติ' : 'ต่อไม่ได้'}
+              rows={[['ที่อยู่', eng.url || '—'], ...(eng.error ? [['ข้อผิดพลาด', eng.error]] as [string, any][] : [])]} />
+            <ServiceCard icon="scan" title="บริการสแกนหน้า" ok={faceStatus === 'ok'}
+              status={faceStatus === 'ok' ? 'ปกติ' : faceStatus === 'degraded' ? 'ทำงานได้บางส่วน' : f.error || '—'}
+              rows={[['เวอร์ชัน', f.version || '—'], ['ฐานข้อมูลใบหน้า', dbOk ? 'ปกติ' : 'มีปัญหา']]} />
+            <ServiceCard icon="clock" title="ระบบลงเวลา" ok={d.attendance.facescan_configured && d.dashboard_db === 'ok'}
+              status={d.dashboard_db === 'ok' ? 'ปกติ' : 'ฐานข้อมูลมีปัญหา'}
+              rows={[
+                ['ฐานข้อมูลระบบลงเวลา', d.dashboard_db === 'ok' ? 'ปกติ' : 'ล่ม'],
+                ['เชื่อมระบบสแกนหน้า', d.attendance.facescan_configured ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า'],
+                ['โหมดทดสอบ (ไม่บันทึกจริง)', d.attendance.dry_run_global ? 'เปิด' : 'ปิด'],
+              ]} />
+          </div>
+        )}
+      </SectionPanel>
+
+      {/* ---------- การเชื่อมต่อรายโรง ---------- */}
+      <div className="flex gap-2 items-baseline flex-wrap">
+        <span style={{ ...TEXT.h3, color: 'var(--text)' }}>การเชื่อมต่อรายโรงพยาบาล</span>
+        <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>แต่ละโรงพยาบาลอยู่คนละเซิร์ฟเวอร์ — ทดสอบดึงข้อมูลจริงทีละแห่ง</span>
       </div>
-      </>
-      )}
+
+      {/* ตารางกรอบบาง ไม่ห่อการ์ด (ทรงเดียวกับหน้ารายบุคคล) */}
+      <div className="bg-bg border border-control-border rounded-lg">
+        {!d ? (
+          <div style={{ padding: 'var(--sp-4)' }}><SkelRows rows={6} avatar={false} /></div>
+        ) : (
+          <>
+            <DataTable columns={cols} rows={paged.pageRows} rowKey={(h) => h.hcode} minWidth={900}
+              empty="ยังไม่มีโรงพยาบาลเปิดใช้งาน"
+              emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }} />
+            <Pagination page={paged.page} pageSize={PAGE_SIZE} total={paged.total} shown={paged.pageRows.length} onPage={paged.setPage} />
+          </>
+        )}
+      </div>
     </div>
   )
 }

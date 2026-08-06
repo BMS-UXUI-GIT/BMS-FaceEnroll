@@ -41,11 +41,15 @@ export function SectionPanel({ title, filters, meta, actions, children, bodyPadd
           {title != null && <span style={{ ...TEXT.h3, color: 'var(--text)', marginRight: 'var(--sp-2)' }}>{title}</span>}
           {filters}
           {(actions != null || meta != null) && (
-            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
+            // minWidth:0 + shrink ได้ → ป้ายสรุปตัวกรองยาวเกินจะถูกตัดเป็น … ไม่ตกไปบรรทัดใหม่
+            <span style={{ marginLeft: 'auto', minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
               {meta != null && (
-                <span style={{ ...TEXT.sm, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{meta}</span>
+                <span title={typeof meta === 'string' ? meta : undefined}
+                  style={{ ...TEXT.sm, color: 'var(--text-dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</span>
               )}
-              {actions}
+              {actions != null && (
+                <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>{actions}</span>
+              )}
             </span>
           )}
         </div>

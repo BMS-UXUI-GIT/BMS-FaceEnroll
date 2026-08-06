@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clock, nf, useFetch } from '../hooks'
-import { filterQS, isoAddDays, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { PickHospital } from '../components/PickHospital'
@@ -185,8 +185,9 @@ export function ReportLate() {
   const [from, setFrom] = useState(localISO())
   const [to, setTo] = useState(localISO())
   const [search, setSearch] = useState('')
-  const [shift, setShift] = useState('')
-  const [dept, setDept] = useState('')
+  // เวร/แผนก เลือกได้หลายอัน
+  const [fShifts, setFShifts] = useState<string[]>([])
+  const [fDepts, setFDepts] = useState<string[]>([])
   // ดูทีละฝั่ง (Figma มี 2 การ์ด แต่ผู้ใช้ขอเหลือใบเดียว + สวิตช์)
   const [view, setView] = useState<'late' | 'early'>('late')
   const [latePage, setLatePage] = useState(0)
@@ -198,10 +199,10 @@ export function ReportLate() {
   useEffect(() => { const t = setTimeout(() => setDq(search.trim().toLowerCase()), 300); return () => clearTimeout(t) }, [search])
 
   // สลับโรง = ล้างตัวกรอง + กลับมาดูวันนี้ · เปลี่ยนเงื่อนไข = กลับหน้าแรกทั้งสองแผง
-  useEffect(() => { setShift(''); setDept(''); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
-  useEffect(() => { setLatePage(0); setEarlyPage(0) }, [from, to, shift, dept, dq, hcode])
+  useEffect(() => { setFShifts([]); setFDepts([]); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
+  useEffect(() => { setLatePage(0); setEarlyPage(0) }, [from, to, fShifts, fDepts, dq, hcode])
 
-  const fq = filterQS(shift ? [shift] : [], dept ? [dept] : [])
+  const fq = filterQS(fShifts, fDepts)
   const anaF = useFetch<Analytics>(hcode
     ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}${fq}`
       + `&limit=${PAGE_SIZE}&late_offset=${latePage * PAGE_SIZE}&early_offset=${earlyPage * PAGE_SIZE}`
@@ -228,8 +229,8 @@ export function ReportLate() {
   const multiDay = from !== to
   const ready = !!anaF.data
   // ป้ายมุมขวาหัวแผง — บอกทุกตัวกรองที่ใช้อยู่ ไม่ใช่แค่ช่วงวัน
-  const shiftLabel = shift ? (shiftOpts.find((o) => o.value === shift)?.label ?? shift) : 'ทุกเวร'
-  const deptLabel = dept ? (deptOpts.find((o) => o.value === dept)?.label ?? dept) : 'ทุกแผนก'
+  const shiftLabel = selLabel(shiftOpts, fShifts, 'ทุกเวร', 'เวร')
+  const deptLabel = selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก')
   const rangeMeta = [
     multiDay ? `${thShort(from)} – ${thShort(to)}` : thShort(to),
     shiftLabel,
@@ -292,13 +293,13 @@ export function ReportLate() {
             onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
         </FilterChip>
         <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
-          <SearchSelect bare hideCaret value={shift} onChange={setShift}
-            options={[{ value: '', label: 'ทั้งหมด' }, ...shiftOpts]}
+          <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])}
+            options={shiftOpts}
             placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
         </FilterChip>
         <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-          <SearchSelect bare hideCaret value={dept} onChange={setDept}
-            options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+          <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])}
+            options={deptOpts}
             placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
         </FilterChip>
       </div>

@@ -4,6 +4,7 @@ import { dialog, toast } from '../components/dialog'
 import { nf, useFetch, useServerPage } from '../hooks'
 import { Loading } from '../components/Spinner'
 import { PAGE_SIZE } from '../components/Pager'
+import { PickHospital } from '../components/PickHospital'
 import { Pagination } from '../components/data-display/Pagination'
 import { Button } from '../components/inputs/Button'
 import { StatCard } from '../components/data-display/StatCard'
@@ -57,18 +58,21 @@ export function Face() {
   useEffect(() => { const t = setTimeout(() => setQ(search.trim()), 300); return () => clearTimeout(t) }, [search])
   useEffect(() => { setPage(0); setActErr(null) }, [q, currentHcode, filter])
 
+  // ยังไม่เลือกโรง → ไม่ยิง API (หน้าแสดงตัวเลือกโรงแทน)
+  const noHosp = currentHcode === '*'
+
   // สถิติ (ไม่กรองด้วยคำค้น) — 4 การ์ดหัวเรื่อง
-  const stats = useFetch<CovData>(`/admin/face/coverage?${covHq}`, reload)
+  const stats = useFetch<CovData>(noHosp ? null : `/admin/face/coverage?${covHq}`, reload)
 
   // ตารางรายชื่อผู้ลงทะเบียน (ค่าเริ่ม + ชิป "ใบหน้าไม่ครบ")
   const inv = useFetch<{ total: number; subjects: Subject[] }>(
-    filter !== 'notEnrolled'
+    !noHosp && filter !== 'notEnrolled'
       ? `/admin/face/subjects?status=all&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}${hq}${q ? `&q=${encodeURIComponent(q)}` : ''}${filter === 'incomplete' ? '&incomplete=1' : ''}`
       : null, reload)
 
   // ยังไม่ลงทะเบียน (ชิป) — แบ่งหน้าฝั่งเซิร์ฟเวอร์
   const cov = useServerPage<CovData>(
-    filter === 'notEnrolled' ? `/admin/face/coverage?${covHq}${q ? `&q=${encodeURIComponent(q)}` : ''}` : null, reload)
+    !noHosp && filter === 'notEnrolled' ? `/admin/face/coverage?${covHq}${q ? `&q=${encodeURIComponent(q)}` : ''}` : null, reload)
 
   const name = (m: Record<string, any>) => m?.name || '—'
   const emp = (m: Record<string, any>) => m?.emp_id || '—'
@@ -143,6 +147,9 @@ export function Face() {
   ]
 
   const busyLoad = filter === 'notEnrolled' ? cov.loading : inv.loading
+
+  // หน้านี้เป็นข้อมูลรายโรง — ยังไม่เลือกโรงก็ยังไม่มีอะไรให้แสดง
+  if (noHosp) return <PickHospital />
 
   return (
     <div className="max-w-[var(--page-max)] flex flex-col gap-4">

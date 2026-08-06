@@ -56,6 +56,18 @@ export const api = {
       body: JSON.stringify({ hcode, username, password }),
     })
   },
+  // ยืนยันรหัสผ่านของบัญชีที่ login อยู่ (ไม่ออก token ใหม่) — ใช้ก่อนเข้าเมนูงานส่วนกลาง
+  async verifyPassword(password: string): Promise<{ ok: boolean }> {
+    if (MOCK) {
+      await new Promise((r) => setTimeout(r, 250))
+      if (password.trim().length < 4) throw new Error('รหัสผ่านไม่ถูกต้อง')
+      return { ok: true }
+    }
+    return req<{ ok: boolean }>('/admin/auth/verify-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+  },
   // เข้าดูโรงพยาบาลสาธิตแบบสาธารณะ (ไม่ต้อง login) — session อ่านอย่างเดียว
   async demoLogin(): Promise<Session> {
     if (MOCK) return mockSession('user')

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { nf, useFetch } from '../hooks'
 import { PAGE_SIZE, usePaged } from '../components/Pager'
-import { filterQS, isoAddDays, localISO, useAttFilterOptions } from '../components/AttFilters'
+import { filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { MonthPicker, thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { PickHospital } from '../components/PickHospital'
@@ -119,17 +119,18 @@ export function ReportsHub() {
   const [from, setFrom] = useState(localISO())
   const [to, setTo] = useState(localISO())
   const [month, setMonth] = useState(thisMonth())
-  const [shift, setShift] = useState('')
-  const [dept, setDept] = useState('')
+  // เวร/แผนก เลือกได้หลายอัน
+  const [fShifts, setFShifts] = useState<string[]>([])
+  const [fDepts, setFDepts] = useState<string[]>([])
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
   const [exporting, setExporting] = useState<'' | 'pdf' | 'xlsx' | 'csv' | 'print'>('')
   const [expErr, setExpErr] = useState<string | null>(null)
 
   // สลับโรง = ล้างตัวกรองทั้งหมด
-  useEffect(() => { setShift(''); setDept(''); setFrom(localISO()); setTo(localISO()); setMonth(thisMonth()) }, [hcode])
+  useEffect(() => { setFShifts([]); setFDepts([]); setFrom(localISO()); setTo(localISO()); setMonth(thisMonth()) }, [hcode])
 
   const q = `hcode=${encodeURIComponent(hcode)}`
-  const fq = filterQS(shift ? [shift] : [], dept ? [dept] : [])
+  const fq = filterQS(fShifts, fDepts)
   // fetch เฉพาะรายงานที่ถูกเลือก (dept/shift/late ใช้ analytics ตัวเดียวกัน)
   const dailyF = useFetch<Daily>(hcode && active === 'daily' ? `/admin/attendance/daily?${q}&date_from=${from}&date_to=${to}${fq}` : null, reload)
   const monthlyF = useFetch<Monthly>(hcode && active === 'monthly' ? `/admin/attendance/monthly?${q}&month=${month}${fq}` : null, reload)
@@ -186,7 +187,7 @@ export function ReportsHub() {
 
   // ตัวอย่างแบ่งหน้า (ส่งออกไฟล์ยังได้ครบทุกแถว) — เปลี่ยนรายงาน/ตัวกรอง = กลับหน้าแรก
   const paged = usePaged(table?.rows ?? [])
-  useEffect(() => { paged.setPage(0) }, [active, from, to, month, shift, dept, hcode]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { paged.setPage(0) }, [active, from, to, month, fShifts, fDepts, hcode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // คอลัมน์แบบไดนามิก — หัวตาราง/ชนิดค่าเปลี่ยนตามรายงานที่เลือก
   const cols: Column<(string | number)[]>[] = table ? table.headers.map((h, j): Column<(string | number)[]> => ({
@@ -232,8 +233,8 @@ export function ReportsHub() {
   }
 
   // ป้ายมุมขวาหัวแผง — ตัวกรองที่ใช้อยู่ทั้งหมด
-  const shiftLabel = shift ? (shiftOpts.find((o) => o.value === shift)?.label ?? shift) : 'ทุกเวร'
-  const deptLabel = dept ? (deptOpts.find((o) => o.value === dept)?.label ?? dept) : 'ทุกแผนก'
+  const shiftLabel = selLabel(shiftOpts, fShifts, 'ทุกเวร', 'เวร')
+  const deptLabel = selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก')
   const filterMeta = [periodLabel, shiftLabel, deptLabel].join(' · ')
 
   return (
@@ -271,13 +272,13 @@ export function ReportsHub() {
               </FilterChip>
             )}
             <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
-              <SearchSelect bare hideCaret value={shift} onChange={setShift}
-                options={[{ value: '', label: 'ทั้งหมด' }, ...shiftOpts]}
+              <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])}
+                options={shiftOpts}
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
             </FilterChip>
             <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-              <SearchSelect bare hideCaret value={dept} onChange={setDept}
-                options={[{ value: '', label: 'ทั้งหมด' }, ...deptOpts]}
+              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])}
+                options={deptOpts}
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
             </FilterChip>
           </span>

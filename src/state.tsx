@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from './api'
+import { clearSuperUnlock } from './components/SuperGate'
 
 export type Role = 'superadmin' | 'bmsadmin' | 'admin' | 'user'
 // ป้ายของบทบาท (role ระบบมี 4 ตัวตายตัว — ตรงกับ ROLES ฝั่ง backend)
@@ -11,7 +12,7 @@ export const ROLE_TH: Record<string, string> = {
 export type Nav =
   | 'overview' | 'face' | 'attendance' | 'settings' | 'locations' | 'health'
   | 'hosp-audit' | 'sys-approve' | 'sys-hospitals' | 'sys-users' | 'sys-audit'
-  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help'
+  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help' | 'account'
 export type Hospital = { value: string; label: string }
 
 // เมนูย่อย → แท็บสิทธิ์ (สิทธิ์คุมระดับแท็บหลัก 6 ตัวเหมือนเดิม — เมนูย่อยเกาะแท็บแม่)
@@ -24,6 +25,7 @@ export const NAV_TAB: Record<Nav, string> = {
   'rp-person': 'attendance', 'rp-dept': 'attendance', 'rp-shift': 'attendance',
   'rp-late': 'attendance', 'rp-reports': 'attendance',
   help: 'help', // ช่วยเหลือ — เปิดได้ทุกบทบาท (App override allowed ให้เสมอ)
+  account: 'help', // จัดการบัญชีของตัวเอง — เปิดได้ทุกคนเช่นกัน
 }
 
 export type Session = {
@@ -33,6 +35,7 @@ export type Session = {
   kind?: string // 'staff' = login ด้วยบัญชี HOSxP (เปลี่ยนรหัสผ่านใน dashboard ไม่ได้)
   name: string
   initial: string
+  position?: string     // ตำแหน่ง/แผนก (บัญชี HOSxP) — ใช้แสดงแทนป้ายบทบาทในเมนูโปรไฟล์
   hospitals: Hospital[] // scope the account can see (ส่วนกลาง = many, admin/user = one)
   tabs: string[]        // แท็บที่บัญชีนี้เห็น (superadmin กำหนดรายคนได้)
   demo_hcode?: string   // โรงพยาบาลสาธิต (ข้อมูลตัวอย่าง) — '' = ปิดฟีเจอร์
@@ -43,7 +46,7 @@ type Ctx = {
   toggleTheme: () => void
   session: Session | null
   login: (username: string, password: string) => Promise<void>
-  loginStaff: (hcode: string, username: string, password: string) => Promise<void>
+  loginStaff: (hcode: string, username: string, password: string, hospitalName?: string) => Promise<void>
   loginDemo: () => Promise<void>
   logout: () => void
   nav: Nav
@@ -60,6 +63,9 @@ export const useApp = () => {
   if (!v) throw new Error('useApp must be inside AppProvider')
   return v
 }
+
+/** บัญชีส่วนกลาง (เห็นได้ทุกโรง) — staff ที่ login ผ่าน HOSxP ไม่นับ เพราะผูกโรงเดียว */
+export const isCentral = (s: Session) => s.kind !== 'staff' && (s.role === 'superadmin' || s.role === 'bmsadmin')
 
 const THEME_KEY = 'facehub_theme'
 // v3: เปลี่ยน role exec -> user — บังคับ login ใหม่ให้ session เก่าไม่ค้าง role เดิม
@@ -99,7 +105,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (session) {
       localStorage.setItem(SESSION_KEY, JSON.stringify(session))
       // super lands on "ทุกโรง"; admin/user are pinned to their single hospital
-      const central = session.role === 'superadmin' || session.role === 'bmsadmin'
+      // บัญชี HOSxP (kind='staff') ผูกโรงเดียวเสมอ ไม่ว่า role จะเป็นอะไร
+      const central = isCentral(session)
       setHcode(central ? '*' : session.hospitals[0]?.value ?? '*')
     } else {
       localStorage.removeItem(SESSION_KEY)
@@ -115,10 +122,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNav('overview')
   }
   // พนักงานโรง (บัญชี HOSxP) — flow เดียวกับ login ปกติ แต่ endpoint แยก
-  const loginStaff = async (hcode: string, username: string, password: string) => {
+  // login ด้วยรหัสโรงอยู่แล้ว → ปักโรงนั้นทันที ไม่ต้องให้เลือกซ้ำ
+  // (กัน backend ที่ส่ง hospitals ว่างมา แล้ว currentHcode ตกไปเป็น '*' → หน้าจอบังคับเลือกโรง)
+  const loginStaff = async (hcode: string, username: string, password: string, hospitalName?: string) => {
     const s = await api.staffLogin(hcode, username.trim(), password)
     api.setToken(s.token)
-    setSession(s)
+    // บัญชี HOSxP ผูกกับโรงเดียว = โรงที่กรอกตอน login เสมอ
+    // -> ปักไว้โรงนั้นโรงเดียว ไม่เอา list ที่ backend ส่งมา (กันกรณีส่งโรงอื่น/ส่งไม่ครบ
+    //    แล้ว currentHcode ไปเกาะโรงแรกในลิสต์ ซึ่งไม่ใช่โรงที่ผู้ใช้ login เข้ามา)
+    const match = s.hospitals?.find((h) => h.value === hcode)
+    const hospitals = [{ value: hcode, label: match?.label || hospitalName || hcode }]
+    setSession({ ...s, hospitals })
     setNav('overview')
   }
   // เข้าดูโรงพยาบาลสาธิต (public) — persist localStorage ทันที กัน race ตอน navigate ออกจาก /hospital-request
@@ -132,6 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     api.logout().catch(() => {})
     api.setToken(null)
+    clearSuperUnlock() // เข้าใหม่ต้องยืนยันรหัสผ่านก่อนเข้าเมนูจัดการระบบอีกครั้ง
     setSession(null)
   }
 
@@ -147,7 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNav,
     currentHcode,
     setHcode,
-    isSuper: session?.role === 'superadmin' || session?.role === 'bmsadmin',
+    isSuper: !!session && isCentral(session),
     isDemo: !!session?.demo_hcode && currentHcode === session.demo_hcode,
   }
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>
