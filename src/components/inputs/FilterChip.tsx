@@ -76,7 +76,8 @@ export function FilterChip({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           // choice ที่ยังไม่ถูกเลือก: วงกลมเทา บอกว่ายังไม่ทำงาน (ไม่ใช้ opacity ทั้งชิป)
           background: choice ? (active ? accent : 'var(--text-dim)') : 'transparent',
-          color: choice ? 'var(--bg)' : 'var(--text-faint)',
+          // ชิป select: ไอคอนใช้สี secondary เข้ม ให้เข้าชุดกับพื้นชิป (.chip ใน theme.css)
+          color: choice ? 'var(--bg)' : 'var(--secondary-dark)',
           transition: 'background .12s ease',
         }}>{icon}</span>
       )}

@@ -143,8 +143,11 @@ export function ReportShift() {
             : total === 0
               ? <Empty />
               : (
-                <div style={{ padding: 'var(--sp-4) 0' }}>
-                  <Donut pie size={200} unit="คน" legendSize={15} centerLabel="รวม" centerValue={nf(total)}
+                /* เวรมีแค่ 2-3 กะ = legend สั้นมาก ถ้าปล่อยขนาดเดิมจะเหลือที่ว่างครึ่งการ์ด
+                   -> ขยายวงตามจำนวนเวรแล้วจัดกึ่งกลางเต็มความสูง (แผงคู่กันสูงกว่า) */
+                <div style={{ height: '100%', padding: 'var(--sp-4) 0' }}>
+                  <Donut stretch pie unit="คน" legendSize={15} centerLabel="รวม" centerValue={nf(total)}
+                    size={shifts.length <= 3 ? 260 : shifts.length <= 6 ? 230 : 200}
                     segs={shifts.map((s) => ({ v: s.persons, color: colorOf(kindOf(s)), label: shortName(s.name) }))} />
                 </div>
               )}

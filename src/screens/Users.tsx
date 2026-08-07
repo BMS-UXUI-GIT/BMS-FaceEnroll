@@ -212,7 +212,7 @@ function PermissionsModal({ u, data, busy, isMe, patch, onResetPassword, onRemov
                       const rest = cur.filter((x) => x !== '*' && x !== v)
                       return cur.includes(v) ? rest : [...rest, v]
                     })}
-                    onClear={() => setHcodes([])}
+                    onClear={() => setHcodes([])} clearLabel="เลือกทุกโรงพยาบาล"
                     options={[{ value: '*', label: 'ทุกโรงพยาบาล' }, ...hospOpts]}
                     onSearch={searchHospitals}
                     placeholder={u.role === 'superadmin' || u.role === 'bmsadmin' ? 'ทุกโรงพยาบาล (ไม่จำกัด)' : 'เลือกโรงพยาบาล…'}

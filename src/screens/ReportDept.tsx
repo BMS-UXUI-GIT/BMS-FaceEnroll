@@ -133,7 +133,7 @@ export function ReportDept() {
               รีเฟรชข้อมูลล่าสุด
             </Button>
             <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} options={deptOpts}
+              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก" options={deptOpts}
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
             </FilterChip>
           </span>
@@ -158,7 +158,7 @@ export function ReportDept() {
             ? <Loading />
             : depts.length === 0
               ? <Empty />
-              : <PercentBars colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
+              : <PercentBars fit colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
         </SectionPanel>
 
         <SectionPanel title="สัดส่วนการมาสาย" meta={filterMeta}>
@@ -166,7 +166,9 @@ export function ReportDept() {
             ? <Loading />
             : lateSegs.length === 0
               ? <Empty text="ไม่มีการมาสายในช่วงที่เลือก" />
-              : <Donut segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} คน`} size={200} />}
+              // เลือกแผนกไว้น้อย = legend สั้น เหลือที่ว่างเยอะ → ขยายวงโดนัทแล้วจัดกึ่งกลางแทน
+              : <Donut stretch segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} คน`}
+                  size={lateSegs.length <= 3 ? 260 : lateSegs.length <= 6 ? 230 : 200} />}
         </SectionPanel>
       </div>
 

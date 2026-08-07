@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { nf, useFetch } from '../hooks'
 import { Info } from '../components/Info'
 import { SkelRows } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { Button } from '../components/inputs/Button'
-import { StatCard } from '../components/data-display/StatCard'
+import { SegmentBar } from '../components/charts'
+import { asset } from '../assets'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
-import { useApp, type Nav } from '../state'
+import { useApp } from '../state'
 
 // Dashboard ระดับระบบ (super/ส่วนกลาง) — เห็นเมื่อเลือก "ทุกโรงพยาบาล"
 // ใช้ชุดเดียวกับหน้าอื่น: การ์ดหัวเรื่องไล่สีฟ้า + StatCard + SectionPanel
@@ -62,34 +63,224 @@ export function usePlatformOverview(reload = 0) {
   return useFetch<Data>('/admin/platform/overview', reload)
 }
 
-type Kpi = { v?: number; label: string; tone: 'accent' | 'warn' | 'info' | 'danger' | 'ok' | 'neutral'; icon: string; tip: string; nav?: Nav }
-function kpisOf(d?: Data | null): Kpi[] {
-  const c = d?.counts ?? {}
-  return [
-    { v: d?.total, label: 'โรงพยาบาลทั้งหมด', tone: 'accent', icon: 'hospital', tip: 'จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน' },
-    { v: c.pending, label: 'รออนุมัติ', tone: 'warn', icon: 'hourglass', tip: 'โรงพยาบาลที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดการ์ดนี้เพื่อไปหน้าอนุมัติ', nav: 'sys-approve' },
-    { v: c.demo, label: 'ทดลองใช้', tone: 'info', icon: 'flask', tip: 'โรงพยาบาลที่อนุมัติแบบทดลองใช้ (ฟรี 60 วัน) และยังเหลือเวลาเกิน 7 วัน' },
-    { v: c.demo_expiring, label: 'ใกล้หมดอายุ', tone: 'warn', icon: 'hourglass-low', tip: 'โรงพยาบาลทดลองใช้ที่เหลือเวลาไม่เกิน 7 วันก่อนหมดอายุ — ควรติดต่อเพื่อต่ออายุหรือเปิดใช้งานจริง' },
-    { v: c.demo_expired, label: 'หมดอายุทดลอง', tone: 'danger', icon: 'hourglass-off', tip: 'โรงพยาบาลทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
-    { v: c.real, label: 'ใช้งานจริง', tone: 'ok', icon: 'rosette-check', tip: 'โรงพยาบาลที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)' },
-    { v: c.suspended, label: 'พักใช้', tone: 'neutral', icon: 'player-pause', tip: 'โรงพยาบาลที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
-    { v: c.rejected, label: 'ปฏิเสธ', tone: 'neutral', icon: 'ban', tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงพยาบาลยื่นคำขอใหม่ได้' },
-  ]
+/** ตัวเลข 1 ค่า: ป้าย + จำนวน + หน่วย (Figma 444:27557) */
+function Stat({ label, value, unit = 'แห่ง', color = 'var(--accent)', tip, align = 'left', big = true, onClick }: {
+  label: string
+  value: ReactNode
+  unit?: string
+  color?: string
+  tip?: string
+  align?: 'left' | 'right'
+  big?: boolean
+  onClick?: () => void
+}) {
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)',
+      alignItems: align === 'right' ? 'flex-end' : 'flex-start',
+      textAlign: align, cursor: onClick ? 'pointer' : undefined, minWidth: 0,
+    }}>
+      <span style={{ ...TEXT.bodyMed, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)', whiteSpace: 'nowrap' }}>
+        {label}{tip && <Info text={tip} />}
+      </span>
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-2)' }}>
+        <span style={{ ...(big ? TEXT.h1 : { ...TEXT.h3 }), color }}>{value}</span>
+        <span style={{ ...TEXT.caption, color: 'color-mix(in srgb, var(--text-faint) 40%, transparent)' }}>{unit}</span>
+      </span>
+    </div>
+  )
 }
 
-/** การ์ดสรุป 8 ใบ — วางในหัวเรื่องได้ (หน้าหลักของ super ฝังไว้ในการ์ดไล่สีฟ้า) */
-export function PlatformStats({ d, loading }: { d?: Data | null; loading?: boolean }) {
-  const { setNav } = useApp()
+/** หัวข้อกลุ่ม — แถบขาวขอบบาง สูง 40 (Figma 444:27625) */
+function GroupHead({ title }: { title: string }) {
   return (
-    // Figma: แถวละ 4 ใบ (8 ใบ = 2 แถวพอดี) จอแคบค่อยลดเป็น 2/1
-    <div className="stat-grid-4 grid gap-2">
-      {kpisOf(d).map((k) => (
-        <StatCard key={k.label} tone={k.tone} unit="แห่ง"
-          label={<>{k.label}<Info text={k.tip} /></>}
-          icon={<Icon name={k.icon} size={24} color="currentColor" />}
-          value={k.v != null ? nf(k.v) : loading ? '…' : '—'}
-          onClick={k.nav ? () => setNav(k.nav!) : undefined} />
-      ))}
+    <div className="rounded-lg" style={{
+      display: 'flex', alignItems: 'center', minHeight: 40, padding: '0 var(--sp-4)',
+      background: 'var(--bg)', border: '1px solid var(--control-border)', ...TEXT.bodyMed, color: 'var(--text)',
+    }}>{title}</div>
+  )
+}
+
+/** กล่องครอบการ์ดของกลุ่ม (ขาวขอบบาง padding 8) */
+function GroupBody({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-lg" style={{
+      flex: 1, background: 'var(--bg)', border: '1px solid var(--control-border)', padding: 'var(--sp-2)',
+      display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)',
+    }}>{children}</div>
+  )
+}
+
+/** การ์ดพื้นเทาในกลุ่ม — ไม่ clip เนื้อหา (ภาพประกอบตามดีไซน์ล้นพ้นขอบบนการ์ดออกมา) */
+function Tile({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div className="rounded-lg" style={{
+      position: 'relative', background: 'var(--surface-alt)', padding: 'var(--sp-4)', ...style,
+    }}>{children}</div>
+  )
+}
+
+/** การ์ดสรุประดับแพลตฟอร์ม — Figma node 444:26753
+    ซ้าย  = สถานะการเชื่อมต่อระบบ (จำนวนโรงพยาบาล + ผลตรวจการเชื่อมต่อ)
+    ขวา  = สถานะการเปิดใช้งานระบบ (รออนุมัติ / ใช้งานจริง / ทดลองใช้)
+    conn = ผลตรวจการเชื่อมต่อจากหน้าสถานะระบบ (ไม่ส่งมา = แผงซ้ายโชว์แค่จำนวนโรงพยาบาล) */
+export function PlatformStats({ d, loading, conn }: {
+  d?: Data | null
+  loading?: boolean
+  conn?: { ok?: number; down?: number; loading?: boolean; onOpen?: () => void }
+}) {
+  const { setNav } = useApp()
+  const num = (v?: number, busy?: boolean) => (v != null ? nf(v) : busy ? '…' : '—')
+  const c = d?.counts ?? {}
+
+  const ok = conn?.ok ?? 0
+  const down = conn?.down ?? 0
+  const checked = ok + down
+  const pct = (v: number) => (checked > 0 ? `${Math.round((v / checked) * 100)}%` : '—')
+  // สถานะส่วนใหญ่ = ฝั่งที่มีจำนวนมากกว่า (พาดหัวของแผงซ้าย)
+  const majorOk = ok >= down
+
+  return (
+    <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
+      {/* ══════════ ซ้าย: สถานะการเชื่อมต่อระบบ ══════════ */}
+      <div className="flex flex-col gap-2">
+        <GroupHead title="สถานะการเชื่อมต่อระบบ" />
+        <GroupBody>
+          {/* จำนวนโรงพยาบาลทั้งหมด — ภาพตึกชิดซ้าย ตัวเลขชิดขวา */}
+          <Tile style={{ minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: 148 }}>
+            {/* กรอบครอบภาพ: ยื่นพ้นขอบบนการ์ด 10px แต่ก้นกรอบเสมอขอบล่างการ์ด
+                overflow:hidden จึงตัดเฉพาะส่วนที่ล้นก้นการ์ด (ตึกโผล่ด้านบน แต่ฐานถูกตัดตรงขอบ) */}
+            <span aria-hidden className="pointer-events-none select-none" style={{
+              position: 'absolute', left: -4, top: -10, bottom: 0, width: 142,
+              overflow: 'hidden', borderBottomLeftRadius: 'var(--r-lg)',
+            }}>
+              <img src={asset('/ov-hospital.svg')} alt="" width={142} height={112}
+                style={{ position: 'absolute', left: 0, top: 0 }} />
+            </span>
+            <Stat align="right" label="โรงพยาบาลทั้งหมด" value={num(d?.total, loading)}
+              tip="จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน"
+              onClick={() => setNav('sys-hospitals')} />
+          </Tile>
+
+          {/* ผลตรวจการเชื่อมต่อ: พาดหัว + แถบสัดส่วน + 2 ใบย่อย */}
+          <Tile style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+            <div>
+              <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 80%, transparent)' }}>สถานะส่วนใหญ่</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)', marginTop: 'var(--sp-2)' }}>
+                <span style={{ ...TEXT.h3, color: majorOk ? 'var(--ok)' : 'var(--danger)' }}>
+                  {majorOk ? 'เชื่อมต่อได้' : 'เชื่อมต่อไม่ได้'}
+                </span>
+                <span style={{ ...TEXT.caption, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)' }}>
+                  {num(majorOk ? conn?.ok : conn?.down, conn?.loading)} แห่ง
+                </span>
+              </div>
+            </div>
+
+            <SegmentBar height={24} segs={[
+              { v: down, color: 'var(--danger)', label: 'เชื่อมต่อไม่ได้' },
+              { v: ok, color: 'var(--ok)', label: 'เชื่อมต่อได้' },
+            ]} />
+
+            <div style={{ display: 'flex', gap: 'var(--sp-2)', flex: 1 }}>
+              {[
+                { icon: 'close', color: 'var(--danger)', label: 'เชื่อมต่อไม่ได้', v: conn?.down },
+                { icon: 'check', color: 'var(--ok)', label: 'เชื่อมต่อได้', v: conn?.ok },
+              ].map((t) => (
+                <div key={t.label} onClick={conn?.onOpen} className="bg-bg rounded-xl" style={{
+                  flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  gap: 'var(--sp-2)', padding: 'var(--sp-4)', cursor: conn?.onOpen ? 'pointer' : undefined,
+                }}>
+                  <span aria-hidden style={{
+                    width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    background: t.color, color: 'var(--bg)',
+                  }}>
+                    <Icon name={t.icon} size={24} width={1.8} />
+                  </span>
+                  <span style={{ ...TEXT.body, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)' }}>{t.label}</span>
+                  <span style={{ ...TEXT.bodyMed, color: 'var(--text)', whiteSpace: 'nowrap' }}>
+                    {num(t.v, conn?.loading)} แห่ง{t.v != null && checked > 0 ? ` (${pct(t.v)})` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Tile>
+        </GroupBody>
+      </div>
+
+      {/* ══════════ ขวา: สถานะการเปิดใช้งานระบบ ══════════ */}
+      <div className="flex flex-col gap-2">
+        <GroupHead title="สถานะการเปิดใช้งานระบบ" />
+        <GroupBody>
+          {/* คำขอที่รออนุมัติ — ภาพโต๊ะทำงานชิดขวา */}
+          <Tile style={{ minHeight: 100, paddingRight: 180 }}>
+            {/* ภาพชุดเดียวกับหัวเรื่องหน้าหลัก — ชิดขอบล่างการ์ด ส่วนบนล้นพ้นขอบออกไป */}
+            <img src={asset('/hero-dash.svg')} alt="" aria-hidden width={236} height={87}
+              className="pointer-events-none select-none"
+              style={{ position: 'absolute', right: 0, bottom: 0 }} />
+            <Stat label="รออนุมัติ" value={num(c.pending, loading)} color="var(--warn)"
+              tip="โรงพยาบาลที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดเพื่อไปหน้าอนุมัติ"
+              onClick={() => setNav('sys-approve')} />
+          </Tile>
+
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', flex: 1, flexWrap: 'wrap' }}>
+            {/* เปิดใช้งานถาวร — สถานะที่ใช้งานไม่ได้ตอนนี้ซ้อนอยู่ในการ์ดเดียวกัน (Figma 444:29001) */}
+            <div style={{ flex: '1 1 180px', minWidth: 0, display: 'flex' }}>
+              <Tile style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+                <img src={asset('/ov-nurse-phone.svg')} alt="" aria-hidden width={96} height={96}
+                  className="pointer-events-none select-none"
+                  style={{ position: 'absolute', right: -2, top: -8 }} />
+                <div style={{ paddingRight: 84 }}>
+                  <Stat label="ใช้งานจริง" value={num(c.real, loading)} color="var(--ok)"
+                    tip="โรงพยาบาลที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)" />
+                </div>
+
+                {/* แถวเล็กในการ์ด — สถานะที่ระบบใช้งานไม่ได้ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', flex: 1 }}>
+                  {[
+                    { icon: 'lock', label: 'พักการใช้งาน', v: c.suspended, tip: 'โรงพยาบาลที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
+                    { icon: 'hourglass-off', label: 'หมดอายุทดลอง', v: c.demo_expired, tip: 'โรงพยาบาลทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
+                    { icon: 'ban', label: 'ถูกปฏิเสธ', v: c.rejected, tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงพยาบาลยื่นคำขอใหม่ได้' },
+                  ].map((r) => (
+                    <div key={r.label} className="bg-bg" style={{ borderRadius: 'var(--r-md)', padding: 'var(--sp-2) var(--sp-3)' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', ...TEXT.sm, color: 'var(--text-dim)' }}>
+                        <Icon name={r.icon} size={16} width={1.8} />
+                        {r.label}<Info text={r.tip} />
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-2)', marginTop: 'var(--sp-1)' }}>
+                        <span style={{ ...TEXT.h3, color: 'var(--text-dim)' }}>{num(r.v, loading)}</span>
+                        <span style={{ ...TEXT.caption, color: 'color-mix(in srgb, var(--text-faint) 40%, transparent)' }}>แห่ง</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Tile>
+            </div>
+
+            {/* ช่วงทดลองใช้ */}
+            <div style={{ flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+              <Tile style={{ flex: 1, paddingRight: 82 }}>
+                <img src={asset('/ov-flask.svg')} alt="" aria-hidden width={47} height={64}
+                  className="pointer-events-none select-none"
+                  style={{ position: 'absolute', right: 19, top: '50%', transform: 'translateY(-50%)' }} />
+                <Stat label="ทดลองใช้" value={num(c.demo, loading)} color="var(--info)" />
+                <p style={{ ...TEXT.caption, color: 'color-mix(in srgb, var(--text-faint) 50%, transparent)', margin: 'var(--sp-3) 0 0' }}>
+                  โรงพยาบาลที่กำลังทดลองใช้ แบบฟรี 60 วัน
+                </p>
+              </Tile>
+              <Tile style={{ flex: 1, paddingRight: 82 }}>
+                <img src={asset('/ov-expiring.svg')} alt="" aria-hidden width={48} height={64}
+                  className="pointer-events-none select-none"
+                  style={{ position: 'absolute', right: 24, bottom: 21 }} />
+                <Stat label="ใกล้หมดอายุ" value={num(c.demo_expiring, loading)} color="var(--warn)" />
+                <p style={{ ...TEXT.caption, color: 'color-mix(in srgb, var(--text-faint) 50%, transparent)', margin: 'var(--sp-3) 0 0' }}>
+                  เหลือเวลาใช้งานน้อยกว่า 7 วัน จนกว่าจะต่ออายุ
+                </p>
+              </Tile>
+            </div>
+          </div>
+        </GroupBody>
+      </div>
     </div>
   )
 }

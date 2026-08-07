@@ -48,9 +48,9 @@ export function ShiftDeptFilters({ shiftOpts, deptOpts, shifts, depts, onShifts,
 }) {
   return (
     <>
-      <SearchSelect multi values={shifts} onToggle={(v) => onShifts(toggle(shifts, v))} onClear={() => onShifts([])}
+      <SearchSelect multi values={shifts} onToggle={(v) => onShifts(toggle(shifts, v))} onClear={() => onShifts([])} clearLabel="เลือกทุกเวร"
         options={shiftOpts} placeholder="เวร: ทั้งหมด" searchPlaceholder="ค้นเวร…" width={150} />
-      <SearchSelect multi values={depts} onToggle={(v) => onDepts(toggle(depts, v))} onClear={() => onDepts([])}
+      <SearchSelect multi values={depts} onToggle={(v) => onDepts(toggle(depts, v))} onClear={() => onDepts([])} clearLabel="เลือกทุกแผนก"
         options={deptOpts} placeholder="แผนก: ทั้งหมด" searchPlaceholder="ค้นแผนก…" width={150} />
     </>
   )

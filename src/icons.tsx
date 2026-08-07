@@ -20,6 +20,7 @@ const P: Record<string, string> = {
   'clock-play': "<path d=\"M12 7v5l2 2\" /><path d=\"M17 22l5 -3l-5 -3l0 6\" /><path d=\"M13.017 20.943a9 9 0 1 1 7.831 -7.292\" />", // tabler: clock-play
   'clock-x': "<path d=\"M20.984 12.535a9 9 0 1 0 -8.431 8.448\" /><path d=\"M12 7v5l3 3\" /><path d=\"M22 22l-5 -5\" /><path d=\"M17 22l5 -5\" />", // tabler: clock-x
   ban: "<path d=\"M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0\" /><path d=\"M5.7 5.7l12.6 12.6\" />", // tabler: ban
+  check: "<path d=\"M5 12l5 5l10 -10\" />", // tabler: check
   close: "<path d=\"M18 6l-12 12\" /><path d=\"M6 6l12 12\" />", // tabler: x
   flask: "<path d=\"M9 3l6 0\" /><path d=\"M10 9l4 0\" /><path d=\"M10 3v6l-4 11a.7 .7 0 0 0 .5 1h11a.7 .7 0 0 0 .5 -1l-4 -11v-6\" />", // tabler: flask
   hourglass: "<path d=\"M6.5 7h11\" /><path d=\"M6.5 17h11\" /><path d=\"M6 20v-2a6 6 0 1 1 12 0v2a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1z\" /><path d=\"M6 4v2a6 6 0 1 0 12 0v-2a1 1 0 0 0 -1 -1h-10a1 1 0 0 0 -1 1z\" />", // tabler: hourglass

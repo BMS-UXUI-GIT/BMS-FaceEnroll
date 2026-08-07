@@ -168,7 +168,14 @@ input, button, select { font-family: var(--sans); }
   border-radius: var(--r-full);
   transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
-.chip:hover, .searchbox:hover { background: var(--surface-card); }
+.searchbox:hover { background: var(--surface-card); }
+
+/* ชิปตัวกรองใช้สี secondary จาง — พื้นเทาเหมือนกันหมดทำให้ตัวกรองจมไปกับช่องค้นหา/ปุ่ม */
+.chip {
+  background: color-mix(in srgb, var(--secondary-blue) 10%, transparent);
+  border-color: color-mix(in srgb, var(--secondary-blue) 22%, transparent);
+}
+.chip:hover { background: color-mix(in srgb, var(--secondary-blue) 18%, transparent); }
 .chip:focus-visible,
 .chip:focus-within, .searchbox:focus-within {
   border-color: var(--accent);
@@ -340,15 +347,6 @@ input:focus, select:focus { border-color: var(--accent) !important; }
 .tab-in-late { animation-delay: 70ms; }   /* แผงเนื้อหาตามหลังหัวเรื่องนิดนึง */
 @media (prefers-reduced-motion: reduce) { .tab-in { animation: none; } }
 
-/* เมฆพื้นหลังการ์ดหัวเรื่อง — ลอยช้า ๆ สลับไปมา (ใช้ scale แยกจาก transform เลยไม่ตีกัน)
-   ระยะเวลา/ดีเลย์ตั้งรายตัวใน React จะได้ไม่ลอยพร้อมกันเป็นแถว */
-@keyframes cloudFloat {
-  from { transform: translate3d(-34px, 4px, 0); }
-  to   { transform: translate3d(34px, -12px, 0); }
-}
-.cloud { animation: cloudFloat 15s ease-in-out infinite alternate; will-change: transform; }
-@media (prefers-reduced-motion: reduce) { .cloud { animation: none; } }
-
 /* ภาพประกอบแท็บ "ภาพรวมระบบ" — ตึกเป็นฉากหลัง พยาบาลเป็นฉากหน้า
    ตึก: จางลงนิด + ลอยขึ้นลงช้ามาก (ให้ดูเป็นระยะไกล)
    พยาบาล: เข้ามาจากขวาตอนเปิดแท็บ แล้วลอยขึ้นลงเร็วกว่าตึกเล็กน้อย (ระยะใกล้) */
@@ -484,10 +482,6 @@ body.no-page-scroll main { overflow: hidden !important; }
 }
 
 /* การ์ดสรุปแถวละ 4 ใบ (จอแคบลดเป็น 2 แล้ว 1) */
-.stat-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 1100px) { .stat-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .stat-grid-4 { grid-template-columns: 1fr; } }
-
 /* หน้าคู่มือ: จอแคบ = สารบัญขึ้นบน เนื้อหาอยู่ล่าง (คอลัมน์เดียว) */
 @media (max-width: 760px) {
   .help-grid { grid-template-columns: 1fr !important; }

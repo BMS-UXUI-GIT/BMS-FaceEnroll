@@ -10,13 +10,15 @@ import { TEXT } from '../../typography'
 //   สองอันแรกมาจากคลาส .searchbox ใน theme.css — ชุดเดียวกับ .chip ให้แถวตัวกรองดูเป็นพวกเดียวกัน
 // กดที่ว่างตรงไหนของช่องก็โฟกัสเข้า input
 
-export function SearchInput({ value, onChange, placeholder = 'ค้นหา', width = 321, grow, disabled, autoFocus }: {
+export function SearchInput({ value, onChange, placeholder = 'ค้นหา', width = 321, grow, maxWidth = 420, disabled, autoFocus }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
   width?: number | string
-  /** Figma ให้ช่องค้นหาเป็น flex:1 0 0 ในแถบตัวกรอง — ยืดเต็มที่ว่างที่เหลือจากชิป */
+  /** ยืดตามที่ว่างที่เหลือจากชิป แต่ไม่เกิน maxWidth (ยาวเต็มแถวอ่านยากและดูโล่ง) */
   grow?: boolean
+  /** เพดานความกว้างตอน grow */
+  maxWidth?: number | string
   disabled?: boolean
   autoFocus?: boolean
 }) {
@@ -32,7 +34,7 @@ export function SearchInput({ value, onChange, placeholder = 'ค้นหา', 
         padding: '0 var(--sp-4)',
         cursor: disabled ? 'not-allowed' : 'text',
         opacity: disabled ? 0.5 : 1,
-        ...(grow ? { flex: '1 1 0', minWidth: 0 } : { display: 'inline-flex', width }),
+        ...(grow ? { flex: '1 1 0', minWidth: 0, maxWidth } : { display: 'inline-flex', width }),
       }}
     >
       <Icon name="search" size={18} color="var(--text-dim)" />

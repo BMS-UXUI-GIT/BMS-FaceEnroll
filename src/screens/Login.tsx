@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useScreenZoom } from '../hooks'
 import { Icon } from '../icons'
 import { useApp } from '../state'
@@ -22,6 +22,10 @@ type Hosp = { hcode: string; name: string }
 // จำค่าล่าสุดไว้ในเครื่อง (เฉพาะเมื่อติ๊ก "จำฉันไว้"): แท็บ/โรงพยาบาล/ชื่อผู้ใช้/รหัสผ่าน
 // ⚠️ รหัสผ่านเก็บใน localStorage ของเครื่องนี้ — ใช้เฉพาะเครื่องส่วนตัว ไม่ใช่เครื่องสาธารณะ
 const REMEMBER_KEY = 'facecheck_login_remember_v1'
+// คลิปเปิดแอป: เล่นครั้งเดียวต่อการโหลดหน้า
+// เก็บใน memory ไม่ใช่ sessionStorage — refresh = โมดูลถูกโหลดใหม่ = ได้ดูคลิปอีกรอบ
+// (ออกจากระบบแล้วกลับมาหน้า login ในรอบเดิม ไม่ต้องดูซ้ำ)
+let splashPlayed = false
 type Remembered = {
   remember?: boolean
   tab?: 'admin' | 'user'; hosp?: Hosp | null
@@ -48,6 +52,9 @@ const lbl: React.CSSProperties = { ...TEXT.sm, display: 'block', color: 'var(--t
 export function Login() {
   const { login, loginStaff } = useApp()
   const zoom = useScreenZoom()
+  // คลิปเปิดแอป — เล่นรอบเดียวต่อการโหลดหน้า (hard refresh แล้วเล่นใหม่)
+  const [splash, setSplash] = useState(() => !splashPlayed)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const [remembered] = useState<Remembered>(loadRemembered)
   const [remember, setRemember] = useState<boolean>(remembered.remember ?? true) // จำฉันไว้ (default ติ๊ก)
   // เปิดมาเจอฟอร์ม HOSxP (พนักงานโรง) เสมอ — ผู้ดูแลระบบกดสลับจากลิงก์ท้ายฟอร์ม
@@ -138,18 +145,92 @@ export function Login() {
     </label>
   )
 
+  // แท็บเลือกชนิดบัญชี — HOSxP (พนักงานโรงพยาบาล) มาก่อน เพราะคนใช้งานส่วนใหญ่คือกลุ่มนี้
+  const TABS: ['admin' | 'user', string, string][] = [
+    ['user', 'HOSxP', 'hospital'],
+    ['admin', 'ผู้ดูแลระบบ', 'lock'],
+  ]
+
+  // จบคลิป / กดข้าม / โหลดคลิปไม่ได้ -> หยุดคลิปค้างเฟรมสุดท้าย แล้วเฟดการ์ดเข้าทับ
+  const endSplash = () => {
+    if (!splash) return
+    videoRef.current?.pause()
+    splashPlayed = true
+    setSplash(false)
+  }
+
+  // กันคลิปค้าง (ไม่ยิง ended/error เช่นเบราว์เซอร์บล็อก autoplay) — เกิน 15 วิ ปิดเอง
+  useEffect(() => {
+    if (!splash) return
+    const t = setTimeout(endSplash, 15000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splash])
+
   const errorBox = (msg: string) => (
     <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">{msg}</div>
   )
 
   return (
     <div style={{ zoom, width: '100%', minHeight: `${100 / zoom}vh`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--sp-6)' }}>
+      {/* ---------- คลิปเปิดแอป — คลุมเต็มจอเป็นฉากหลัง เล่นจบแล้วค้างเฟรมสุดท้ายไว้
+                     การ์ด login โผล่ทับบนคลิป (ไม่เอาคลิปออก) ---------- */}
+      <video
+        ref={videoRef}
+        src={asset('/bms-face-enroll-splash.mp4')}
+        autoPlay={splash} muted playsInline
+        onEnded={endSplash}
+        onError={endSplash}
+        // เคยดูจบไปแล้วในแท็บนี้: ไม่เล่นซ้ำ กระโดดไปเฟรมสุดท้ายเป็นภาพนิ่งเลย
+        onLoadedMetadata={(e) => { if (!splash) e.currentTarget.currentTime = e.currentTarget.duration || 0 }}
+        aria-hidden
+        style={{
+          position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+          zIndex: 0, pointerEvents: 'none', background: 'var(--bg)',
+          // เล่นจบแล้วหรี่ลง + เบลอ = เหลือเป็นแค่ฉากหลัง ไม่แย่งสายตาไปจากการ์ด login
+          opacity: splash ? 1 : 0.25,
+          filter: splash ? 'blur(0px) saturate(1)' : 'blur(3px) saturate(0.8)',
+          transform: splash ? 'scale(1)' : 'scale(1.03)',   // กันขอบขาวจากการเบลอ
+          // ทุก property ต้องอยู่ในลิสต์ ไม่งั้น transform/filter จะกระโดดทันที
+          transition: 'opacity .9s ease, filter .9s ease, transform .9s ease',
+          willChange: 'opacity, filter, transform',
+        }}
+      />
+
+      {/* ฝ้าขาวคลุมคลิปอีกชั้น — mount ไว้ตลอดแล้วค่อยไล่ opacity (mount ทีหลัง = ตัดภาพกระตุก) */}
+      <span aria-hidden style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        background: 'color-mix(in srgb, var(--bg) 45%, transparent)',
+        opacity: splash ? 0 : 1, transition: 'opacity .9s ease',
+      }} />
+
+      {/* ปุ่มข้าม — เฉพาะระหว่างคลิปยังเล่นอยู่ */}
+      {splash && (
+        <button type="button" onClick={endSplash} style={{
+          position: 'fixed', right: 'var(--sp-6)', bottom: 'var(--sp-6)', zIndex: 2,
+          ...TEXT.sm, fontFamily: 'var(--sans)', color: 'var(--text-dim)',
+          background: 'color-mix(in srgb, var(--bg) 70%, transparent)',
+          border: '1px solid var(--control-border)', borderRadius: 'var(--r-full)',
+          padding: 'var(--sp-2) var(--sp-4)', cursor: 'pointer', backdropFilter: 'blur(8px)',
+        }}>ข้าม</button>
+      )}
+
       <div className="login-card rounded-xl" style={{
+        position: 'relative', zIndex: 1,
         width: 'min(940px, 100%)', background: 'var(--bg)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+        // คลิปยังเล่นอยู่ = ซ่อนการ์ดไว้ก่อน · จบคลิปแล้วค่อยลอยเข้ามาทับเฟรมสุดท้าย
+        // หน่วง 350ms ให้ฉากหลังหรี่ลงไปก่อน แล้วการ์ดค่อยมา (มาพร้อมกัน = ตากวาดไม่ทัน)
+        opacity: splash ? 0 : 1,
+        transform: splash ? 'translateY(18px) scale(.985)' : 'none',
+        transition: splash
+          ? 'opacity .25s ease, transform .25s ease'
+          : 'opacity .75s ease .35s, transform .75s cubic-bezier(.16,.84,.28,1) .35s',
+        willChange: 'opacity, transform',
+        pointerEvents: splash ? 'none' : undefined,
       }}>
         {/* ---------- ซ้าย: ภาพประกอบเต็มครึ่งการ์ด + โลโก้/ข้อความวางทับ ---------- */}
         <div className="relative overflow-hidden" style={{ minHeight: 560, padding: 'var(--sp-6)' }}>
-          {/* ภาพประกอบ (Figma 401:25169) — คลุมเต็มแผงซ้าย */}
+          {/* ภาพประกอบ (Figma 457:29497 — พยาบาลสแกนใบหน้าหน้าโรงพยาบาล) คลุมเต็มแผงซ้าย */}
           <img aria-hidden src={asset('/login-art.jpg')} alt=""
             className="pointer-events-none select-none"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center bottom' }} />
@@ -159,6 +240,7 @@ export function Login() {
             position: 'absolute', inset: 0,
             background: 'radial-gradient(115% 85% at 0% 0%, var(--bg) 0%, color-mix(in srgb, var(--bg) 72%, transparent) 38%, transparent 72%)',
           }} />
+
 
           <div style={{ position: 'relative' }}>
             {/* ชุดเดียวกับ header: สัญลักษณ์ + wordmark */}
@@ -197,9 +279,35 @@ export function Login() {
             </div>
           </div>
 
+          {/* เลือกชนิดบัญชี — แท็บ 2 ปุ่มในราง (ลิงก์เล็ก ๆ ท้ายฟอร์มแบบเดิมมองไม่เห็น
+              ผู้ดูแลระบบเลยหาทางเข้าไม่เจอ) */}
+          <div role="tablist" aria-label="ชนิดบัญชี" style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-1)',
+            padding: 'var(--sp-1)', borderRadius: 'var(--r-full)', background: 'var(--surface-alt)',
+          }}>
+            {TABS.map(([k, label, icon]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k}
+                onClick={() => { setTab(k); setErr(null); setNotice(null); persist({ tab: k }) }}
+                style={{
+                  ...TEXT.sm, fontWeight: 500, fontFamily: 'var(--sans)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--sp-2)',
+                  minHeight: 40, padding: '0 var(--sp-3)', borderRadius: 'var(--r-full)', border: 'none', cursor: 'pointer',
+                  background: tab === k ? 'var(--accent)' : 'transparent',
+                  color: tab === k ? 'var(--bg)' : 'var(--text-dim)',
+                  transition: 'background .12s ease, color .12s ease',
+                }}>
+                <Icon name={icon} size={18} width={1.8} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* กรอบสูงคงที่ — ฟอร์ม HOSxP มี 3 ช่อง ผู้ดูแลระบบมี 2 ถ้าไม่ล็อกความสูง
+              การ์ดจะกระตุกสั้น-ยาวทุกครั้งที่สลับแท็บ (ฟอร์มที่สั้นกว่าดันปุ่มลงไปชิดล่างแทน) */}
+          <div style={{ minHeight: 344, display: 'flex', flexDirection: 'column' }}>
           {tab === 'admin' ? (
             // ติ๊ก "จำฉันไว้" = เก็บชื่อผู้ใช้+รหัสในเครื่อง / browser autocomplete ยังทำงานคู่กันได้
-            <form key="f:admin" className="tab-in" onSubmit={(e) => { e.preventDefault(); submit() }} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+            <form key="f:admin" className="tab-in" onSubmit={(e) => { e.preventDefault(); submit() }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
               <div>
                 <label style={lbl}>ชื่อผู้ใช้ (อีเมล)</label>
                 <div style={{ position: 'relative' }}>
@@ -222,6 +330,7 @@ export function Login() {
                 </div>
               </div>
 
+              <span aria-hidden style={{ flex: 1 }} />
               {err && errorBox(err)}
               {rememberRow}
 
@@ -230,7 +339,7 @@ export function Login() {
               </Button>
             </form>
           ) : (
-            <form key="f:user" className="tab-in" onSubmit={(e) => { e.preventDefault(); submitUser() }} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+            <form key="f:user" className="tab-in" onSubmit={(e) => { e.preventDefault(); submitUser() }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
               <div>
                 <label style={lbl}>โรงพยาบาล</label>
                 {/* ค้นสดจากทะเบียนโรงที่เปิดใช้งานแล้ว */}
@@ -273,6 +382,7 @@ export function Login() {
                 </div>
               </div>
 
+              <span aria-hidden style={{ flex: 1 }} />
               {notice && errorBox(notice)}
               {rememberRow}
 
@@ -282,23 +392,10 @@ export function Login() {
               </Button>
             </form>
           )}
+          </div>
 
-          {/* ท้ายฟอร์ม: ช่วยเหลือซ้าย · เวอร์ชันขวา */}
+          {/* ท้ายฟอร์ม: เวอร์ชัน (สลับชนิดบัญชีอยู่ที่แท็บด้านบนแล้ว) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', paddingTop: 'var(--sp-2)', borderTop: '1px solid var(--control-border)' }}>
-            {/* สลับไปฟอร์มอีกแบบ (ผู้ดูแลระบบ ↔ HOSxP) */}
-            <button type="button"
-              onClick={() => {
-                const next = tab === 'admin' ? 'user' : 'admin'
-                setTab(next); setErr(null); setNotice(null); persist({ tab: next })
-              }}
-              style={{
-                ...TEXT.sm, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)',
-                border: 'none', background: 'transparent', color: 'var(--accent-active)',
-                cursor: 'pointer', fontFamily: 'var(--sans)', padding: 0,
-              }}>
-              <Icon name={tab === 'admin' ? 'hospital' : 'lock'} size={16} width={1.8} />
-              {tab === 'admin' ? 'เข้าสู่ระบบด้วย HOSxP' : 'เข้าสู่ระบบผู้ดูแลระบบ'}
-            </button>
             <span style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-faint)', marginLeft: 'auto' }}>
               เวอร์ชัน {__APP_VERSION__}
             </span>

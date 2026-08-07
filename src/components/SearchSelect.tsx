@@ -13,15 +13,17 @@ const caret = (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: 0.6 }}><path d="m6 9 6 6 6-6" /></svg>
 )
 
-export function SearchSelect({ options, value, onChange, multi, values, onToggle, onClear, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, hideCaret, width, maxTriggerWidth, disabled, allowCustom, onSearch, renderTrigger, triggerStyle }: {
+export function SearchSelect({ options, value, onChange, multi, values, onToggle, onClear, clearLabel, placeholder = 'เลือก…', searchPlaceholder = 'พิมพ์เลขหรือชื่อเพื่อค้นหา…', bare, hideCaret, width, maxTriggerWidth, disabled, allowCustom, onSearch, renderTrigger, triggerStyle }: {
   options: SelectOpt[]
   value?: string
   onChange?: (v: string) => void
   multi?: boolean            // เลือกได้หลายอัน (toggle) — panel ไม่ปิดตอนเลือก
   values?: string[]
   onToggle?: (v: string) => void
-  /** ล้างทุกค่าที่เลือก — มีค่านี้ถึงจะโชว์ปุ่ม "ล้างตัวเลือก" ในเมนู */
+  /** ล้างทุกค่าที่เลือก — มีค่านี้ถึงจะโชว์ปุ่มล้างในเมนู */
   onClear?: () => void
+  /** ข้อความบนปุ่มล้าง — ตัวกรองแบบหลายค่าใช้เชิงบวก ("เลือกทุกแผนก") ไม่ใช่ "ล้าง" */
+  clearLabel?: string
   placeholder?: string
   searchPlaceholder?: string
   bare?: boolean             // trigger โปร่ง ไม่มีกรอบ (ฝังใน pill เดิมได้)
@@ -179,8 +181,8 @@ export function SearchSelect({ options, value, onChange, multi, values, onToggle
               </span>
               <button type="button" onClick={() => { onClear(); setOpen(false) }} style={{
                 border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--sans)',
-                fontSize: 12, fontWeight: 500, color: 'var(--danger)', padding: '4px 6px', borderRadius: 6,
-              }}>ล้างตัวเลือก</button>
+                fontSize: 12, fontWeight: 500, color: 'var(--accent-active)', padding: '4px 6px', borderRadius: 6,
+              }}>{clearLabel ?? (multi ? 'เลือกทั้งหมด' : 'ล้างตัวเลือก')}</button>
             </div>
           )}
           <div style={{ overflowY: 'auto', maxHeight: 272, padding: 4 }}>

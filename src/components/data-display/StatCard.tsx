@@ -21,7 +21,7 @@ const TONE: Record<Tone, string> = {
   info: 'var(--info)',
 }
 
-export function StatCard({ value, label, unit, icon, tone = 'accent', color: colorProp, layout = 'col', align = 'center', bg = 'var(--bg)', onClick }: {
+export function StatCard({ value, label, unit, icon, tone = 'accent', color: colorProp, layout = 'col', align = 'center', bg = 'var(--bg)', size = 'md', className, onClick }: {
   value: ReactNode
   label: ReactNode
   unit?: ReactNode
@@ -35,24 +35,30 @@ export function StatCard({ value, label, unit, icon, tone = 'accent', color: col
   align?: 'center' | 'start'
   /** พื้นการ์ด — ขาว (ค่าเริ่มต้น) สำหรับวางบนพื้นเทา · เทาไว้วางในแผงพื้นขาว (Figma หน้าหลัก) */
   bg?: string
+  /** ขนาดใน bento — 'lg' ใบเด่น (สูง/ไอคอน/ตัวเลขใหญ่) · 'sm' ใบแคบ (ยืดตามช่องกริด) */
+  size?: 'sm' | 'md' | 'lg'
+  /** คลาสสำหรับวางตำแหน่งในกริด (.b-hero / .b-wide / .b-sm) */
+  className?: string
   onClick?: () => void
 }) {
   const color = colorProp ?? TONE[tone]
   const row = layout === 'row'
+  const lg = size === 'lg'
+  const sm = size === 'sm'
   // row ชิดซ้ายอยู่แล้ว · col เลือกได้ว่ากึ่งกลางหรือชิดซ้าย
   const start = row || align === 'start'
   return (
     <div
-      className={onClick ? 'lift' : undefined}
+      className={[className, onClick ? 'lift' : ''].filter(Boolean).join(' ') || undefined}
       onClick={onClick}
       style={{
         display: 'flex',
         flexDirection: row ? 'row' : 'column',
         alignItems: start ? 'flex-start' : 'center',
         justifyContent: row ? 'flex-start' : 'center',
-        gap: row ? 'var(--sp-2)' : 'var(--sp-2)',
-        minHeight: row ? 80 : 138,
-        padding: row || start ? 'var(--sp-3) var(--sp-4)' : 'var(--sp-3) var(--sp-10)',
+        gap: sm ? 'var(--sp-1)' : 'var(--sp-2)',
+        minHeight: sm ? 0 : row ? 80 : lg ? 172 : 138,
+        padding: sm ? 'var(--sp-2) var(--sp-3)' : row || start ? 'var(--sp-3) var(--sp-4)' : 'var(--sp-3) var(--sp-10)',
         background: bg,
         borderRadius: 'var(--r-xl)',
         textAlign: start ? 'left' : 'center',
@@ -61,15 +67,19 @@ export function StatCard({ value, label, unit, icon, tone = 'accent', color: col
     >
       {icon && (
         <span aria-hidden style={{
-          width: 50, height: 50, flex: 'none', borderRadius: 'var(--r-full)',
+          width: lg ? 62 : sm ? 36 : 50, height: lg ? 62 : sm ? 36 : 50, flex: 'none', borderRadius: 'var(--r-full)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: color, color: 'var(--bg)',
         }}>{icon}</span>
       )}
       <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: start ? 'flex-start' : 'center' }}>
-        <div style={{ ...TEXT.bodyMed, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)', whiteSpace: 'nowrap' }}>{label}</div>
+        <div style={{
+          ...TEXT.bodyMed, ...(sm ? { fontSize: 13 } : null),
+          color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)',
+          whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{label}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: start ? 'flex-start' : 'center', gap: 'var(--sp-1)', marginTop: 'var(--sp-1)' }}>
-          <span style={{ ...TEXT.h1, color }}>{value}</span>
+          <span style={{ ...TEXT.h1, ...(lg ? { fontSize: 40, lineHeight: 1.15 } : sm ? { fontSize: 22, lineHeight: 1.2 } : null), color }}>{value}</span>
           {unit && <span style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 40%, transparent)', whiteSpace: 'nowrap' }}>{unit}</span>}
         </div>
       </div>

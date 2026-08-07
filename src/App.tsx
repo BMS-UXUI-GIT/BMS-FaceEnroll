@@ -83,7 +83,9 @@ export function App() {
     || (n !== 'rp-reports' // หน้า "รายงาน" ซ่อนไว้ก่อน — กันคนที่ค้างอยู่หน้านี้ (nav เก็บใน storage)
       && (tabs.includes(NAV_TAB[n]) || (NAV_TAB[n] === 'users' && session?.role === 'superadmin'))
       && !(n === 'hosp-audit' && session?.role !== 'admin')
-      && !(n === 'sys-audit' && !central))
+      // เมนูกลุ่มจัดการระบบเป็นงานของส่วนกลาง (BMS) เท่านั้น — admin ของโรงพยาบาลเห็นได้แค่เมนูระดับโรงพยาบาล
+      // (Sidebar ซ่อนอยู่แล้ว ตรงนี้กันทางเข้าอื่น: nav ที่ค้างใน storage / ค้นหาทั้งระบบ)
+      && !(SUPER_NAVS.includes(n) && !central))
   const firstNav: Nav = NAV_ORDER.find(allowed) ?? 'overview'
   const effNav: Nav = allowed(nav) ? nav : firstNav
 
