@@ -7,6 +7,7 @@ import { MenuItem } from './MenuItem'
 import { SectionHeader } from './SectionHeader'
 
 // แถบเมนูข้าง — compose จาก MenuItem + SectionHeader (Figma component set 100:4421)
+// ⚠️ ชื่อเมนูต้องตรงกับหัวเรื่อง (h1) ของหน้านั้น — เปลี่ยนที่ใดที่หนึ่งต้องแก้อีกที่ด้วย
 // สเปกจริงจาก Figma: กว้าง 262 · พื้นขาว · padding 16/24/24/24 · ระยะห่างกลุ่ม 16 · ระยะห่างเมนู 8
 // ไม่มีเส้นแบ่งกับเนื้อหา — Figma ให้ sidebar กับ content เป็นพื้นผิวขาวผืนเดียวกัน
 //
@@ -71,15 +72,15 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
         {(has('overview') || has('face') || has('attendance')) && <SectionHeader>มอนิเตอร์</SectionHeader>}
         {has('overview') && <NavItem id="overview" label="หน้าหลัก" icon="overview" />}
         {has('face') && <NavItem id="face" label="ลงทะเบียนใบหน้า" icon="face" />}
-        {has('attendance') && <NavItem id="attendance" label="ลงเวลา" icon="clock" />}
+        {has('attendance') && <NavItem id="attendance" label="การลงเวลาของพนักงาน" icon="clock" />}
 
         {has('attendance') && (
           <>
             <SectionHeader>รายงาน · วิเคราะห์</SectionHeader>
-            <NavItem id="rp-person" label="รายบุคคล" icon="person" />
+            <NavItem id="rp-person" label="รายชื่อพนักงาน" icon="person" />
             <NavItem id="rp-dept" label="รายแผนก" icon="people" />
             <NavItem id="rp-shift" label="รายเวร" icon="calendar" />
-            <NavItem id="rp-late" label="การมาสาย / ออกก่อน" icon="clock-alert" />
+            <NavItem id="rp-late" label="ติดตามการเข้า-ออกงานผิดเวลา" icon="clock-alert" />
             {/* ซ่อนหน้า "รายงาน" ไว้ก่อน (ยังไม่เปิดใช้) — หน้าจอ/route ยังอยู่ครบ เปิดคืนได้ทันที
                 ⚠️ ปลดคอมเมนต์แล้วต้องเอา 'rp-reports' กลับเข้า NAV_ORDER + allowed() ใน App.tsx ด้วย */}
             {/* <NavItem id="rp-reports" label="รายงาน" icon="report" /> */}

@@ -284,18 +284,18 @@ export function ReportPerson() {
   if (!sel) {
     const listCols: Column<Emp>[] = [
       { key: 'avatar', header: 'รูป', width: 72, thStyle: { padding: '12px 16px' }, tdStyle: { padding: '12px 16px' }, cell: (p) => <Avatar name={p.name} seed={p.emp} /> },
-      { key: 'name', header: 'ชื่อ-นามสกุล', width: 240, tdStyle: { ...TEXT.bodyMed }, cell: (p) => blank(p.name) },
-      { key: 'emp', header: 'รหัสพนักงาน', width: 140, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (p) => blank(p.emp) },
-      { key: 'dept', header: 'แผนก', width: 180, tdStyle: { color: 'var(--text-dim)' }, cell: (p) => deptTxt(p.dept) },
+      { key: 'name', header: 'ชื่อ-นามสกุล', width: '26%', tdStyle: { ...TEXT.bodyMed }, cell: (p) => blank(p.name) },
+      { key: 'emp', header: 'รหัสพนักงาน', width: '15%', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (p) => blank(p.emp) },
+      { key: 'dept', header: 'แผนก', width: '21%', tdStyle: { color: 'var(--text-dim)' }, cell: (p) => deptTxt(p.dept) },
       {
-        key: 'io', header: 'เวลาเข้า-ออก', width: 180, tdStyle: { color: 'var(--text-dim)' }, cell: (p) => {
+        key: 'io', header: 'เวลาเข้า-ออก', width: '17%', tdStyle: { color: 'var(--text-dim)' }, cell: (p) => {
           const t = todayBy.get(p.emp)
           if (!t) return <span style={{ color: 'var(--text-faint)' }}>- -</span>
           return `${clock(t.in)} - ${clock(t.out)}`
         },
       },
       {
-        key: 'status', header: 'สถานะ', cell: (p) => {
+        key: 'status', header: 'สถานะ', width: '21%', cell: (p) => {
           const t = todayBy.get(p.emp)
           if (!t) return <StatusBadge status="leave" label="ไม่มีข้อมูล" />
           return <DayStatus r={t} />
@@ -366,6 +366,7 @@ export function ReportPerson() {
                   rows={shown}
                   rowKey={(p) => p.emp}
                   onRowClick={(p) => openDetail(p)}
+                  layout="fixed"
                   minWidth={980}
                   loading={listF.loading && !listF.data ? <Loading /> : undefined}
                   empty={dq || fDepts.length ? 'ไม่พบพนักงานที่ตรงกับที่เลือก' : 'ไม่มีข้อมูลพนักงาน'}

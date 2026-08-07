@@ -46,7 +46,8 @@ export function MenuItem({ icon, label, active = false, badge, onClick }: {
         }}>{badge}</span>
       )}
     >
-      <span style={{ ...TEXT.body, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+      {/* title = ชื่อเต็ม เผื่อจอแคบแล้วข้อความโดนตัดเป็น … */}
+      <span title={label} style={{ ...TEXT.body, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </Button>
   )
 }
