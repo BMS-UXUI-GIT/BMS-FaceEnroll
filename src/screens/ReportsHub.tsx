@@ -254,7 +254,7 @@ export function ReportsHub() {
             </p>
           </div>
           <span className="inline-flex gap-2 items-center flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรช
             </Button>
@@ -284,7 +284,7 @@ export function ReportsHub() {
           </span>
         </div>
 
-        <div className="relative mt-4 max-w-90">
+        <div className="relative mt-4 max-w-90 stat-grid">
           <StatCard tone="accent" layout="row" label="เทมเพลต" unit="ไฟล์"
             icon={<Icon name="report" size={24} color="currentColor" />}
             value={nf(REPORTS.length)} />
@@ -298,7 +298,7 @@ export function ReportsHub() {
         actions={<DownloadMenu disabled={!canExport} busy={exporting} onPick={doExport} />}
         bodyPadding={false}
       >
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'minmax(240px, 320px) minmax(0, 1fr)', padding: 'var(--sp-4)' }}>
+        <div className="grid gap-4 grid-collapse-sm" style={{ gridTemplateColumns: 'minmax(240px, 320px) minmax(0, 1fr)', padding: 'var(--sp-4)' }}>
           {/* รายการเทมเพลต */}
           {/* รายการเทมเพลตติดหนึบใต้ Topbar ตอนเลื่อนดูตารางยาว ๆ */}
           <div className="rounded-xl" style={{

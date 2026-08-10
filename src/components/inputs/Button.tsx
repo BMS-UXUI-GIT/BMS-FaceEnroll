@@ -22,7 +22,7 @@ const RADIUS = { md: 'var(--r-md)', lg: 'var(--r-lg)', full: 'var(--r-full)' }
 
 export function Button({
   children, onClick, variant = 'primary', size = 'md', align = 'center', radius,
-  icon, iconRight, pill, disabled, title, type = 'button', fullWidth, active, ariaCurrent,
+  icon, iconRight, pill, disabled, title, type = 'button', fullWidth, active, ariaCurrent, className,
 }: {
   children?: ReactNode
   onClick?: () => void
@@ -42,13 +42,15 @@ export function Button({
   /** สถานะ "กำลังอยู่ที่นี่" (เมนู) — ใช้คู่กับ variant primary */
   active?: boolean
   ariaCurrent?: 'page' | true
+  /** คลาสเพิ่ม (ต่อท้าย .btn .btn-<variant>) — เช่น .btn-refresh ที่ซ่อนบนมือถือ */
+  className?: string
 }) {
   return (
     <button
       type={type} onClick={onClick} disabled={disabled} title={title}
       aria-current={ariaCurrent}
       // คลาสไว้ให้ theme.css คุม hover ของแต่ละ variant (พื้นโปร่งใช้ filter ไม่ขึ้น)
-      className={`btn btn-${variant}${active ? ' is-active' : ''}`}
+      className={`btn btn-${variant}${active ? ' is-active' : ''}${className ? ` ${className}` : ''}`}
       style={{
         ...(size === 'sm' || size === 'xs' ? TEXT.sm : TEXT.bodyMed),
         display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',

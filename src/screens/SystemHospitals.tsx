@@ -12,6 +12,7 @@ import { SkelRows } from '../components/Skeleton'
 import { StatCard } from '../components/data-display/StatCard'
 import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { SearchSelect } from '../components/SearchSelect'
 import { nf, thDate } from '../hooks'
@@ -183,13 +184,13 @@ export function SystemHospitals() {
               โรงที่เปิดใช้งานแล้ว · คลิกชื่อโรงเพื่อดูรายละเอียด ผู้ติดต่อ ผู้ใช้ และตั้งค่าความปลอดภัยรายโรง
             </p>
           </div>
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={!tenants && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
         </div>
 
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit="แห่ง"
               icon={<Icon name={k.icon} size={24} color="currentColor" />}
@@ -201,8 +202,8 @@ export function SystemHospitals() {
       {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <SearchInput grow value={q} onChange={setQ} placeholder="ค้นหา รหัส / ชื่อโรงพยาบาล / จังหวัด / ผู้ติดต่อ" />
+      <FilterBar activeCount={(statusF !== 'all' ? 1 : 0)}
+        search={<SearchInput grow value={q} onChange={setQ} placeholder="ค้นหา รหัส / ชื่อโรงพยาบาล / จังหวัด / ผู้ติดต่อ" />}>
         <FilterChip icon={<Icon name="rosette-check" size={24} width={1.8} />} label="สถานะ">
           <SearchSelect bare hideCaret value={statusF} onChange={setStatusF} maxTriggerWidth={130}
             options={STATUS_FILTERS.map(([v, l]) => ({ value: v, label: l }))} />
@@ -210,7 +211,7 @@ export function SystemHospitals() {
         {(q || statusF !== 'all') && (
           <Button variant="ghost" size="sm" onClick={() => { setQ(''); setStatusF('all') }}>ล้างตัวกรอง</Button>
         )}
-      </div>
+      </FilterBar>
 
       {/* ---------- ตาราง (ทรงเดียวกับหน้ารายบุคคล — ตารางในกรอบบาง ไม่ห่อการ์ด) ---------- */}
       <div className="bg-bg border border-control-border rounded-lg">

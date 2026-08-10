@@ -108,7 +108,7 @@ export function ReportShift() {
             </p>
           </div>
           <span className="inline-flex gap-2 items-center flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
@@ -119,7 +119,7 @@ export function ReportShift() {
         </div>
 
         {/* การ์ดสรุปเวรละใบ — ตัวเลขคือคนที่ลงเวลาในเวรนั้น + สัดส่วน */}
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {shifts.map((s) => (
             <StatCard key={s.name} label={`เวร${shortName(s.name)}`} color={colorOf(kindOf(s))}
               icon={<Icon name={ICON[kindOf(s)]} size={24} color="currentColor" />}

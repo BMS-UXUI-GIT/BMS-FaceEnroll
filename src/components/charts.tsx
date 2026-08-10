@@ -387,9 +387,11 @@ export function Donut({ segs, centerLabel, centerValue, size = 120, pie, unit, l
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, flexWrap: 'wrap', width: '100%',
       ...(stretch ? { height: '100%' } : null),
     }}>
-      <div style={{ position: 'relative', width: size, height: size, flex: 'none', borderRadius: '50%', background: `conic-gradient(${stops})` }}>
+      {/* วงกลมย่อได้ตามกรอบ (maxWidth 100% + aspect-ratio) — จอมือถือแคบกว่าขนาดที่ขอมาก็ไม่ล้น
+          ทุกระยะข้างในเป็น % ไม่ใช่ px ตำแหน่ง tooltip/รูตรงกลางจึงตามการย่อไปด้วย */}
+      <div style={{ position: 'relative', width: size, maxWidth: '100%', aspectRatio: '1 / 1', flex: 'none', borderRadius: '50%', background: `conic-gradient(${stops})` }}>
         {!pie && (
-          <div style={{ position: 'absolute', inset: Math.round(size * 0.18), borderRadius: '50%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', inset: '18%', borderRadius: '50%', background: 'var(--surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{centerLabel}</span>
             <span style={{ fontSize: size >= 120 ? 21 : 18, fontWeight: 500, fontFamily: 'var(--mono)' }}>{centerValue}</span>
           </div>
@@ -398,7 +400,7 @@ export function Donut({ segs, centerLabel, centerValue, size = 120, pie, unit, l
         {/* พื้นที่รับเมาส์รายชิ้น — วงจริงเป็น conic-gradient (ชิ้นเดียวทั้งวง) เลยต้องซ้อน path โปร่งใสไว้จับ hover
             ชี้ที่ชิ้นไหน = เน้นชิ้นนั้น + ขึ้น tooltip เหมือนชี้ที่ legend */}
         {total > 0 && (
-          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ position: 'absolute', inset: 0 }}>
+          <svg viewBox={`0 0 ${size} ${size}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
             {arcs.map((a, i) => (
               <path key={i} d={a.d} fill="transparent" style={{ cursor: 'default' }}
                 onMouseEnter={() => setHi(i)} onMouseLeave={() => setHi(null)} />
@@ -409,7 +411,7 @@ export function Donut({ segs, centerLabel, centerValue, size = 120, pie, unit, l
         {/* tooltip ปักที่กลางชิ้นที่กำลังชี้ (ทรงเดียวกับ tooltip ของกราฟแท่ง) */}
         {hiSeg && (
           <span style={{
-            position: 'absolute', left: hiSeg.x, top: hiSeg.y, transform: 'translate(-50%, -50%)',
+            position: 'absolute', left: `${(hiSeg.x / size) * 100}%`, top: `${(hiSeg.y / size) * 100}%`, transform: 'translate(-50%, -50%)',
             zIndex: 5, pointerEvents: 'none', whiteSpace: 'nowrap',
             background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
             boxShadow: 'var(--shadow-lg)', padding: '6px 10px',

@@ -324,7 +324,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
           </div>
 
           {/* การ์ดตัวเลขการใช้งาน */}
-          <div className="grid gap-4" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(170px,100%), 1fr))', alignContent: 'start' }}>
+          <div className="grid gap-4 stat-grid" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)', gridTemplateColumns: 'repeat(auto-fit, minmax(min(170px,100%), 1fr))', alignContent: 'start' }}>
             {USAGE.map((k) => (
               <StatCard key={k.label} tone={k.tone} label={k.label} layout="row"
                 icon={<Icon name={k.icon} size={24} color="currentColor" />}

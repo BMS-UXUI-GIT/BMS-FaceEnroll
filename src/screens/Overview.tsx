@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { clock, nf, useFetch } from '../hooks'
+import { clock, nf, useFetch, useMedia } from '../hooks'
 import { daysAgoISO, filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
@@ -10,6 +10,7 @@ import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { Avatar } from '../components/data-display/Avatar'
 import { StatCard } from '../components/data-display/StatCard'
 import { StatusBadge } from '../components/data-display/StatusBadge'
@@ -145,6 +146,9 @@ export function Overview() {
   const [reload, setReload] = useState(0)
   // super: แท็บแรกเป็นภาพรวมทั้งระบบ (ข้อมูลระดับแพลตฟอร์ม) แล้วค่อยตามด้วยของโรงที่เลือก
   const [tab, setTab] = useState<'system' | 'overview' | 'recent'>(isSuper ? 'system' : 'overview')
+  // จอมือถือ: แท็บที่ไม่ได้เลือกเหลือแค่ไอคอน — ชื่อเมนูยาวเกินกว่าจะวางเรียงกันได้ทั้ง 3 อัน
+  // (ต้องตรงกับ breakpoint mobile ใน theme.css)
+  const compactTabs = useMedia('(max-width: 620px)')
   // ตัวกรอง: ช่วงวัน + เวร + แผนก (ทุกตัวเลขในหน้าเปลี่ยนตาม)
   // default = 7 วันล่าสุด — กราฟแนวโน้มต้องมีหลายวันถึงจะอ่านออก
   const [from, setFrom] = useState(daysAgoISO(6))
@@ -284,20 +288,24 @@ export function Overview() {
           {/* แท็บ 2 อัน (Figma Frame 25) — อันที่เลือกเป็นปุ่มทึบสีหลัก */}
           {/* Figma node 43:13945 — กรอบขาวทรงแคปซูล ขอบดำ 10% padding 8 gap 8
               แท็บที่เลือก = แคปซูลสีหลักตัวอักษรขาว · ที่ไม่ได้เลือก = แคปซูลพื้นเทาอ่อนตัวอักษรดำ */}
-          <span className="inline-flex gap-2 items-center flex-wrap" style={{
-            background: 'var(--bg)', padding: 'var(--sp-2)',
-            borderRadius: 'var(--r-full)', border: '1px solid rgba(0,0,0,0.1)',
-          }}>
-            {TABS.map(([k, label, icon]) => (
-              <Button key={k} variant={tab === k ? 'primary' : 'soft'} size="md" pill
-                onClick={() => setTab(k)} icon={<Icon name={icon} size={24} width={1.8} />}>
-                {label}
-              </Button>
-            ))}
-          </span>
+          {/* จอแคบ: แท็บย้ายลงไปเป็นแถบล่างจอ (navbar) — ในหัวเรื่องจึงไม่ต้องมีแคปซูล */}
+          {!compactTabs && (
+            <span className="inline-flex gap-2 items-center tab-strip no-scrollbar" style={{
+              background: 'var(--bg)', padding: 'var(--sp-2)',
+              borderRadius: 'var(--r-full)', border: '1px solid rgba(0,0,0,0.1)',
+              maxWidth: '100%', overflowX: 'auto',
+            }}>
+              {TABS.map(([k, label, icon]) => (
+                <Button key={k} variant={tab === k ? 'primary' : 'soft'} size="md" pill title={label}
+                  onClick={() => setTab(k)} icon={<Icon name={icon} size={24} width={1.8} />}>
+                  {label}
+                </Button>
+              ))}
+            </span>
+          )}
 
           <span className="inline-flex gap-2 items-center flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรช
             </Button>
@@ -342,7 +350,7 @@ export function Overview() {
             ))}
           </div>
         ) : (
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit}
               icon={<Icon name={k.icon} size={24} color="currentColor" />}
@@ -357,10 +365,26 @@ export function Overview() {
 
       {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
 
+      {/* มือถือ: แท็บของหน้าหลักกลายเป็นแถบล่างจอ (ติดขอบล่าง เลี่ยง safe-area ของ iOS) */}
+      {compactTabs && (
+        <>
+          <nav className="bottom-nav" aria-label="แท็บหน้าหลัก">
+            {TABS.map(([k, label, icon]) => (
+              <button key={k} type="button" onClick={() => setTab(k)}
+                aria-current={tab === k ? 'page' : undefined}
+                className={tab === k ? 'bottom-nav-item is-active' : 'bottom-nav-item'}>
+                <Icon name={icon} size={24} width={1.8} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+        </>
+      )}
+
       <div key={tab} className="tab-in tab-in-late flex flex-col gap-4">
       {/* แถวตัวกรอง — อยู่เหนือแผงเนื้อหา (แท็บภาพรวมระบบไม่ได้ใช้ตัวกรองของโรง) */}
       {tab !== 'system' && hcode && (
-        <div className="flex gap-2 items-center flex-wrap">
+        <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0)}>
           <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
             {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
             <DateRangePicker bare from={from} to={to} max={localISO()}
@@ -377,7 +401,7 @@ export function Overview() {
               options={deptOpts}
               placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
           </FilterChip>
-        </div>
+        </FilterBar>
       )}
       {tab === 'system' ? (
         /* ---------- แท็บ 1 (super): ภาพรวมทั้งระบบ ----------
@@ -466,7 +490,7 @@ export function Overview() {
                   <div style={{ margin: 'var(--sp-4) 0' }}>
                     <SegmentBar segs={shifts.map((x) => ({ v: x.persons, color: shiftColor(shiftKindOf(x.name)), label: shortShift(x.name) }))} />
                   </div>
-                  <div className="grid gap-2" style={{ flex: 1, gridTemplateColumns: `repeat(${Math.min(3, shifts.length)}, minmax(0,1fr))` }}>
+                  <div className="grid gap-2 stat-grid" style={{ flex: 1, gridTemplateColumns: `repeat(${Math.min(3, shifts.length)}, minmax(0,1fr))` }}>
                     {shifts.map((x) => (
                       <StatCard key={x.name} label={`เวร${shortShift(x.name)}`} color={shiftColor(shiftKindOf(x.name))} bg="var(--surface-alt)"
                         icon={<Icon name={SHIFT_ICON[shiftKindOf(x.name)]} size={24} color="currentColor" />}
@@ -560,7 +584,7 @@ export function Overview() {
                       { v: s.early, color: 'var(--info)', label: 'ออกก่อนเวลา' },
                     ]} />
                   </div>
-                  <div className="grid gap-2" style={{ flex: 1, gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gridAutoRows: 'minmax(0, 1fr)' }}>
+                  <div className="grid gap-2 stat-grid" style={{ flex: 1, gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gridAutoRows: 'minmax(0, 1fr)' }}>
                     <StatCard align="start" bg="var(--surface-alt)" tone="ok" label="มาทำงานแล้ว" unit={u}
                       icon={<Icon name="scan" size={24} color="currentColor" />} value={nf(s.punched)} />
                     <StatCard align="start" bg="var(--surface-alt)" tone="danger" label="ยังไม่มาทำงาน" unit={u}
@@ -577,6 +601,9 @@ export function Overview() {
         </>
       )}
       </div>
+
+      {/* ที่ว่างท้ายหน้า — กันเนื้อหาบรรทัดสุดท้ายโดนแถบล่าง (navbar) บัง */}
+      {compactTabs && <div aria-hidden className="bottom-nav-spacer" />}
     </div>
   )
 }

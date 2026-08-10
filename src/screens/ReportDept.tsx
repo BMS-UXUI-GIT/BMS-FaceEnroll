@@ -128,7 +128,7 @@ export function ReportDept() {
             </p>
           </div>
           <span className="inline-flex gap-2 items-center flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
@@ -140,7 +140,7 @@ export function ReportDept() {
         </div>
 
         {/* การ์ดสรุป 5 ใบ (Figma 130x142 · เรียงแถวเดียว ห่าง 8) */}
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit}
               icon={<Icon name={k.icon} size={24} color="currentColor" />}

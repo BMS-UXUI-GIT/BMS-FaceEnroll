@@ -13,6 +13,7 @@ import { SkelRows } from '../components/Skeleton'
 import { StatCard } from '../components/data-display/StatCard'
 import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { SearchSelect } from '../components/SearchSelect'
 import { NewUserModal, genPassword } from '../components/NewUserModal'
@@ -477,14 +478,14 @@ export function Users({ me }: { me: string }) {
             </p>
           </div>
           <div className="flex gap-2 items-center flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={!data && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
           </div>
         </div>
 
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit="บัญชี"
               icon={<Icon name={k.icon} size={24} color="currentColor" />}
@@ -496,8 +497,8 @@ export function Users({ me }: { me: string }) {
       {err && !showNew && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <SearchInput grow value={q} onChange={setQ} placeholder="ค้นหา ชื่อ / บัญชี / รหัสโรงพยาบาล" />
+      <FilterBar activeCount={(hf ? 1 : 0)}
+        search={<SearchInput grow value={q} onChange={setQ} placeholder="ค้นหา ชื่อ / บัญชี / รหัสโรงพยาบาล" />}>
         <FilterChip icon={<Icon name="hospital" size={24} width={1.8} />} label="โรงพยาบาล">
           <SearchSelect bare hideCaret value={hf} onChange={setHf} maxTriggerWidth={190}
             searchPlaceholder="ค้นชื่อ/รหัสโรงพยาบาล…"
@@ -508,7 +509,7 @@ export function Users({ me }: { me: string }) {
             ]} />
         </FilterChip>
         {(q || hf) && <Button variant="ghost" size="sm" onClick={() => { setQ(''); setHf('') }}>ล้างตัวกรอง</Button>}
-      </div>
+      </FilterBar>
 
       {/* ---------- รายการผู้ใช้ ---------- */}
       <SectionPanel title="บัญชีผู้ใช้" meta={data ? `${nf(shown.length)} บัญชี` : undefined}

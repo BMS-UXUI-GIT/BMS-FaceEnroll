@@ -9,6 +9,7 @@ import { SkelRows } from '../components/Skeleton'
 import { StatCard } from '../components/data-display/StatCard'
 import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { Icon } from '../icons'
@@ -103,13 +104,13 @@ export function SystemAudit() {
               {currentHcode !== '*' ? ` · เฉพาะโรงพยาบาล ${currentHcode}` : ' · ทุกโรงพยาบาล'}
             </p>
           </div>
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
         </div>
 
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           <StatCard tone="accent" label="รายการทั้งหมด" unit="รายการ"
             icon={<Icon name="report" size={24} color="currentColor" />}
             value={audit ? nf(total) : '…'} />
@@ -122,8 +123,8 @@ export function SystemAudit() {
       {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
-      <div className="flex gap-2 items-center flex-wrap">
-        <SearchInput grow value={q2} onChange={setQ2} placeholder="ค้นหา เป้าหมาย / รายละเอียด" />
+      <FilterBar activeCount={(actor ? 1 : 0) + (action ? 1 : 0) + (from || to ? 1 : 0)}
+        search={<SearchInput grow value={q2} onChange={setQ2} placeholder="ค้นหา เป้าหมาย / รายละเอียด" />}>
         <FilterChip icon={<Icon name="person" size={24} width={1.8} />} label="ผู้ทำ">
           <input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="ทั้งหมด" style={{ ...chipInput, width: 100 }} />
         </FilterChip>
@@ -134,7 +135,7 @@ export function SystemAudit() {
           <DateRangePicker bare from={from} to={to} onFrom={setFrom} onTo={setTo} />
         </FilterChip>
         {hasFilter && <Button variant="ghost" size="sm" onClick={clear}>ล้างตัวกรอง</Button>}
-      </div>
+      </FilterBar>
 
       {/* ---------- ตาราง (กรอบบาง ไม่ห่อการ์ด — ทรงเดียวกับหน้ารายบุคคล) ---------- */}
       <div className="bg-bg border border-control-border rounded-lg">

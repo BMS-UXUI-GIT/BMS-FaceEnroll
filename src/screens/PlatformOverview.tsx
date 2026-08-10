@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import { nf, useFetch } from '../hooks'
-import { Info } from '../components/Info'
 import { SkelRows } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { Button } from '../components/inputs/Button'
@@ -64,12 +63,11 @@ export function usePlatformOverview(reload = 0) {
 }
 
 /** ตัวเลข 1 ค่า: ป้าย + จำนวน + หน่วย (Figma 444:27557) */
-function Stat({ label, value, unit = 'แห่ง', color = 'var(--accent)', tip, align = 'left', big = true, onClick }: {
+function Stat({ label, value, unit = 'แห่ง', color = 'var(--accent)', align = 'left', big = true, onClick }: {
   label: string
   value: ReactNode
   unit?: string
   color?: string
-  tip?: string
   align?: 'left' | 'right'
   big?: boolean
   onClick?: () => void
@@ -81,7 +79,7 @@ function Stat({ label, value, unit = 'แห่ง', color = 'var(--accent)', ti
       textAlign: align, cursor: onClick ? 'pointer' : undefined, minWidth: 0,
     }}>
       <span style={{ ...TEXT.bodyMed, color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)', whiteSpace: 'nowrap' }}>
-        {label}{tip && <Info text={tip} />}
+        {label}
       </span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-2)' }}>
         <span style={{ ...(big ? TEXT.h1 : { ...TEXT.h3 }), color }}>{value}</span>
@@ -111,12 +109,48 @@ function GroupBody({ children }: { children: ReactNode }) {
   )
 }
 
-/** การ์ดพื้นเทาในกลุ่ม — ไม่ clip เนื้อหา (ภาพประกอบตามดีไซน์ล้นพ้นขอบบนการ์ดออกมา) */
-function Tile({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
+/** การ์ดพื้นเทาในกลุ่ม — ไม่ clip เนื้อหา (ภาพประกอบตามดีไซน์ล้นพ้นขอบบนการ์ดออกมา)
+    ส่ง onClick = ทั้งใบกดได้ (มีขอบ + hover ยกขึ้น + โฟกัสด้วยคีย์บอร์ดได้) */
+function Tile({ children, style, onClick, label }: {
+  children: ReactNode
+  style?: React.CSSProperties
+  onClick?: () => void
+  /** ชื่อที่อ่านออกเสียงตอนโฟกัส (ใช้คู่กับ onClick) */
+  label?: string
+}) {
   return (
-    <div className="rounded-lg" style={{
-      position: 'relative', background: 'var(--surface-alt)', padding: 'var(--sp-4)', ...style,
-    }}>{children}</div>
+    <div
+      className={onClick ? 'rounded-lg lift' : 'rounded-lg'}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? label : undefined}
+      onKeyDown={onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+      } : undefined}
+      style={{
+        position: 'relative', background: 'var(--surface-alt)', padding: 'var(--sp-4)',
+        ...(onClick ? { cursor: 'pointer', border: '1px solid var(--control-border)' } : null),
+        ...style,
+      }}
+    >{children}</div>
+  )
+}
+
+/** ปุ่มลิงก์ในการ์ด — บอกว่าการ์ดใบนี้กดได้ (ไม่ใช่ปุ่มจริง เพราะทั้งใบกดได้อยู่แล้ว)
+    ลอยมุมขวาบนของการ์ด ทับภาพประกอบ */
+function TileCta({ children }: { children: ReactNode }) {
+  return (
+    <span aria-hidden style={{
+      position: 'absolute', top: 'var(--sp-3)', right: 'var(--sp-3)', zIndex: 1,
+      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)',
+      minHeight: 32, padding: '0 var(--sp-1) 0 var(--sp-3)',
+      borderRadius: 'var(--r-full)', ...TEXT.sm, whiteSpace: 'nowrap',
+      color: 'var(--accent-active)', background: 'var(--bg)',
+      border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)',
+    }}>
+      {children}<Icon name="chevron-right" size={16} width={2} />
+    </span>
   )
 }
 
@@ -158,13 +192,17 @@ export function PlatformStats({ d, loading, conn }: {
                 style={{ position: 'absolute', left: 0, top: 0 }} />
             </span>
             <Stat align="right" label="โรงพยาบาลทั้งหมด" value={num(d?.total, loading)}
-              tip="จำนวนโรงพยาบาลทั้งหมดในระบบ นับทุกสถานะรวมกัน"
               onClick={() => setNav('sys-hospitals')} />
           </Tile>
 
           {/* ผลตรวจการเชื่อมต่อ: พาดหัว + แถบสัดส่วน + 2 ใบย่อย */}
-          <Tile style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-            <div>
+          <Tile
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}
+            onClick={conn?.onOpen}
+            label="ดูหน้าสถานะระบบ"
+          >
+            {conn?.onOpen && <TileCta>ตรวจสอบการเชื่อมต่อ</TileCta>}
+            <div style={{ paddingRight: 190 }}>
               <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 80%, transparent)' }}>สถานะส่วนใหญ่</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)', marginTop: 'var(--sp-2)' }}>
                 <span style={{ ...TEXT.h3, color: majorOk ? 'var(--ok)' : 'var(--danger)' }}>
@@ -181,14 +219,15 @@ export function PlatformStats({ d, loading, conn }: {
               { v: ok, color: 'var(--ok)', label: 'เชื่อมต่อได้' },
             ]} />
 
+            {/* ทั้งการ์ดกดได้อยู่แล้ว (Tile onClick) ใบย่อยจึงไม่ผูก onClick ซ้ำ */}
             <div style={{ display: 'flex', gap: 'var(--sp-2)', flex: 1 }}>
               {[
                 { icon: 'close', color: 'var(--danger)', label: 'เชื่อมต่อไม่ได้', v: conn?.down },
                 { icon: 'check', color: 'var(--ok)', label: 'เชื่อมต่อได้', v: conn?.ok },
               ].map((t) => (
-                <div key={t.label} onClick={conn?.onOpen} className="bg-bg rounded-xl" style={{
+                <div key={t.label} className="bg-bg rounded-xl" style={{
                   flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 'var(--sp-2)', padding: 'var(--sp-4)', cursor: conn?.onOpen ? 'pointer' : undefined,
+                  gap: 'var(--sp-2)', padding: 'var(--sp-4)',
                 }}>
                   <span aria-hidden style={{
                     width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)',
@@ -213,14 +252,18 @@ export function PlatformStats({ d, loading, conn }: {
         <GroupHead title="สถานะการเปิดใช้งานระบบ" />
         <GroupBody>
           {/* คำขอที่รออนุมัติ — ภาพโต๊ะทำงานชิดขวา */}
-          <Tile style={{ minHeight: 100, paddingRight: 180 }}>
-            {/* ภาพชุดเดียวกับหัวเรื่องหน้าหลัก — ชิดขอบล่างการ์ด ส่วนบนล้นพ้นขอบออกไป */}
+          <Tile
+            style={{ minHeight: 100 }}
+            onClick={() => setNav('sys-approve')}
+            label={`รออนุมัติ ${num(c.pending, loading)} แห่ง — ไปหน้าอนุมัติคำขอ`}
+          >
+            {/* ภาพชุดเดียวกับหัวเรื่องหน้าหลัก — ชิดขอบล่างการ์ด จัดกึ่งกลางแนวนอน ส่วนบนล้นพ้นขอบออกไป */}
             <img src={asset('/hero-dash.svg')} alt="" aria-hidden width={236} height={87}
               className="pointer-events-none select-none"
-              style={{ position: 'absolute', right: 0, bottom: 0 }} />
-            <Stat label="รออนุมัติ" value={num(c.pending, loading)} color="var(--warn)"
-              tip="โรงพยาบาลที่ยื่นคำขอผ่านฟอร์มลงทะเบียน กำลังรอผู้ดูแลกดอนุมัติ — กดเพื่อไปหน้าอนุมัติ"
-              onClick={() => setNav('sys-approve')} />
+              style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 0 }} />
+            <Stat label="รออนุมัติ" value={num(c.pending, loading)} color="var(--warn)" />
+            <TileCta>ตรวจสอบคำขอ</TileCta>
+
           </Tile>
 
           <div style={{ display: 'flex', gap: 'var(--sp-2)', flex: 1, flexWrap: 'wrap' }}>
@@ -231,21 +274,20 @@ export function PlatformStats({ d, loading, conn }: {
                   className="pointer-events-none select-none"
                   style={{ position: 'absolute', right: -2, top: -8 }} />
                 <div style={{ paddingRight: 84 }}>
-                  <Stat label="ใช้งานจริง" value={num(c.real, loading)} color="var(--ok)"
-                    tip="โรงพยาบาลที่อนุมัติแบบใช้งานจริง (เปิดถาวร ไม่มีวันหมดอายุ)" />
+                  <Stat label="ใช้งานจริง" value={num(c.real, loading)} color="var(--ok)" />
                 </div>
 
                 {/* แถวเล็กในการ์ด — สถานะที่ระบบใช้งานไม่ได้ */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', flex: 1 }}>
                   {[
-                    { icon: 'lock', label: 'พักการใช้งาน', v: c.suspended, tip: 'โรงพยาบาลที่ถูกสั่งพักการใช้งานชั่วคราว (ข้อมูลไม่ถูกลบ เปิดกลับมาได้)' },
-                    { icon: 'hourglass-off', label: 'หมดอายุทดลอง', v: c.demo_expired, tip: 'โรงพยาบาลทดลองใช้ที่เลยวันหมดอายุแล้ว — พนักงานลงเวลาไม่ได้จนกว่าจะต่ออายุ' },
-                    { icon: 'ban', label: 'ถูกปฏิเสธ', v: c.rejected, tip: 'คำขอลงทะเบียนที่ผู้ดูแลกดปฏิเสธ (พร้อมเหตุผล) — โรงพยาบาลยื่นคำขอใหม่ได้' },
+                    { icon: 'lock', label: 'พักการใช้งาน', v: c.suspended },
+                    { icon: 'hourglass-off', label: 'หมดอายุทดลอง', v: c.demo_expired },
+                    { icon: 'ban', label: 'ถูกปฏิเสธ', v: c.rejected },
                   ].map((r) => (
                     <div key={r.label} className="bg-bg" style={{ borderRadius: 'var(--r-md)', padding: 'var(--sp-2) var(--sp-3)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', ...TEXT.sm, color: 'var(--text-dim)' }}>
                         <Icon name={r.icon} size={16} width={1.8} />
-                        {r.label}<Info text={r.tip} />
+                        {r.label}
                       </span>
                       <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-2)', marginTop: 'var(--sp-1)' }}>
                         <span style={{ ...TEXT.h3, color: 'var(--text-dim)' }}>{num(r.v, loading)}</span>
@@ -326,7 +368,7 @@ export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | nul
 
         {/* ---------- ต้องติดตาม ---------- */}
         <SectionPanel
-          title={<span style={{ color: 'var(--danger)' }}>ต้องติดตาม<Info text="รวมโรงพยาบาลทดลองใช้ที่ใกล้หมดอายุ (≤7 วัน) และที่หมดอายุแล้ว เรียงจากด่วนสุด" /></span>}
+          title={<span style={{ color: 'var(--danger)' }}>ต้องติดตาม</span>}
           meta={d ? `${nf(d.follow_up.length)} แห่ง` : undefined}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)',
@@ -381,7 +423,7 @@ export function PlatformOverview() {
               สถานะโรงพยาบาลทั้งหมดในระบบ · คำขอลงทะเบียน · โรงที่ต้องติดตาม
             </p>
           </div>
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรช
           </Button>

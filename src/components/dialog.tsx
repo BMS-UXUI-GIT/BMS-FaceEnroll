@@ -69,7 +69,7 @@ export function ToastHost() {
 
   if (items.length === 0) return null
   return (
-    <div style={{ position: 'fixed', right: 'var(--sp-5)', bottom: 'var(--sp-5)', zIndex: 500, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', maxWidth: 380 }}>
+    <div className="toast-host" style={{ position: 'fixed', right: 'var(--sp-5)', bottom: 'var(--sp-5)', zIndex: 500, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', maxWidth: 380 }}>
       {items.map((t) => {
         const tone = TOAST_TONE[t.type]
         return (

@@ -195,7 +195,7 @@ export function Health() {
               ตรวจบริการหลักของระบบ และทดสอบเชื่อมต่อระบบของแต่ละโรงพยาบาลพร้อมกัน
             </p>
           </div>
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             ตรวจใหม่อีกครั้ง
           </Button>

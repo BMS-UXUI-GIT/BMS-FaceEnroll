@@ -7,6 +7,7 @@ import { PickHospital } from '../components/PickHospital'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Avatar } from '../components/data-display/Avatar'
@@ -64,7 +65,7 @@ function AvatarWithShift({ name, seed, shift, size = 40 }: { name: string; seed:
 /** ช่องข้อมูลท้ายการ์ด (ป้ายเล็กบน + ค่าตัวหนาล่าง) — Figma มีเส้นคั่นซ้ายทุกช่อง */
 function Cell({ label, value, unit, color }: { label: string; value: string; unit: string; color?: string }) {
   return (
-    <div style={{
+    <div className="late-cell" style={{
       minWidth: 108, flex: 'none',
       padding: 'var(--sp-1) var(--sp-3)', borderLeft: '1px solid var(--control-border)',
     }}>
@@ -86,7 +87,7 @@ function IssueItem({ r, timeLabel, minLabel, color, showDate }: {
   showDate: boolean
 }) {
   return (
-    <div className="row-hover" style={{
+    <div className="row-hover late-row" style={{
       display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
       padding: 'var(--sp-2) var(--sp-3)',
       border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
@@ -254,14 +255,14 @@ export function ReportLate() {
             </p>
           </div>
           {/* Figma หน้านี้ไม่มีปุ่มรีเฟรช แต่หน้ารายงานอื่นมีทุกหน้า — คงไว้ให้ใช้งานเหมือนกัน */}
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรช
           </Button>
         </div>
 
         {/* การ์ดสรุป 2 ใบ (Figma: ไอคอนซ้าย ข้อความขวา) */}
-        <div className="relative mt-4 flex gap-4 flex-wrap">
+        <div className="relative mt-4 flex gap-4 flex-wrap stat-grid">
           <StatCard tone="warn" layout="row" label="มาสาย" unit={multiDay ? 'ครั้ง' : 'คน'}
             icon={<Icon name="clock-alert" size={24} color="currentColor" />}
             value={ready ? nf(anaF.data!.late_total) : anaF.loading ? '…' : '—'} />
@@ -284,8 +285,8 @@ export function ReportLate() {
       {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
 
       {/* ---------- ค้นหา + ตัวกรอง (แถวเดียวกัน เหนือแผงรายชื่อ) ---------- */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน / แผนก" />
+      <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0)}
+        search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน / แผนก" />}>
         <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
           {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
           <DateRangePicker bare from={from} to={to} max={localISO()}
@@ -302,7 +303,7 @@ export function ReportLate() {
             options={deptOpts}
             placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
         </FilterChip>
-      </div>
+      </FilterBar>
 
       {/* ---------- แผงรายชื่อใบเดียว สลับฝั่งด้วยชิป ---------- */}
       <SectionPanel

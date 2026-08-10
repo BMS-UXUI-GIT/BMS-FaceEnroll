@@ -11,6 +11,7 @@ import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Avatar } from '../components/data-display/Avatar'
 import { StatCard } from '../components/data-display/StatCard'
@@ -331,14 +332,14 @@ export function ReportPerson() {
                 จัดการข้อมูลพนักงาน ตรวจสอบสถานะการลงเวลา และดูรายงานสรุปประจำวัน
               </p>
             </div>
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={listF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
           </div>
 
           {/* Figma: การ์ดเดียว กว้าง 360 (ไอคอนซ้าย ข้อความขวา) */}
-          <div className="relative mt-4 max-w-90">
+          <div className="relative mt-4 max-w-90 stat-grid">
             <StatCard tone="accent" label="พนักงาน" unit="คน" layout="row"
               icon={<Icon name="person" size={24} color="currentColor" />}
               value={listF.data ? nf(listF.data.count) : listF.loading ? '…' : '—'} />
@@ -346,14 +347,14 @@ export function ReportPerson() {
         </div>
 
         {/* ---------- ค้นหา + กรองแผนก ---------- */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
+        <FilterBar activeCount={fDepts.length}
+          search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />}>
           <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
             <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก"
               options={deptOpts}
               placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
           </FilterChip>
-        </div>
+        </FilterBar>
 
         {/* ---------- ตาราง ---------- */}
         <div className="bg-bg border border-control-border rounded-lg">
@@ -464,7 +465,8 @@ export function ReportPerson() {
         </Button>
 
         <div style={{ display: 'flex', gap: 'var(--sp-4)', marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
-          <div className="bg-bg rounded-xl" style={{ flex: '1 1 420px', minWidth: 'min(420px,100%)', display: 'flex', gap: 'var(--sp-2)', alignItems: 'flex-start', padding: 'var(--sp-3) var(--sp-4)' }}>
+          {/* มือถือ: รูป → ชื่อ/ป้ายติดต่อ → ข้อมูล เรียงลงเป็นคอลัมน์ (.staff-profile ใน theme.css) */}
+          <div className="bg-bg rounded-xl staff-profile" style={{ flex: '1 1 420px', minWidth: 'min(420px,100%)', display: 'flex', gap: 'var(--sp-2)', alignItems: 'flex-start', padding: 'var(--sp-3) var(--sp-4)' }}>
             <Avatar name={sel.name} seed={sel.emp} size={80} />
             <div style={{ flex: 1, minWidth: 0, paddingLeft: 'var(--sp-1)' }}>
               {/* ชื่อ + ป้ายติดต่อ อยู่บรรทัดเดียวกัน (ป้ายชิดขวา) */}
@@ -478,7 +480,7 @@ export function ReportPerson() {
               </div>
 
               {/* 3 คอลัมน์ × 2 แถว ตาม Figma (คอลัมน์ละ 184) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 'var(--sp-4)', marginTop: 'var(--sp-4)' }}>
+              <div className="grid-2-sm" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 'var(--sp-4)', marginTop: 'var(--sp-4)' }}>
                 <Field label="รหัสพนักงาน" value={blank(sel.emp)} mono />
                 <Field label="แผนก" value={deptTxt(sel.dept)} />
                 <Field label="ตำแหน่ง" value={blank(sel.position)} />
@@ -489,7 +491,7 @@ export function ReportPerson() {
           </div>
 
           {/* การ์ดสรุป 2x2 — Figma ใบละ 173x84 ไม่มีขอบ พื้นเดียวกับการ์ดแม่ */}
-          <div className="grid gap-4 grid-cols-2" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)' }}>
+          <div className="grid gap-4 grid-cols-2 stat-grid" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)' }}>
             {SUM.map((k) => (
               <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit} layout="row"
                 icon={<Icon name={k.icon} size={24} color="currentColor" />}

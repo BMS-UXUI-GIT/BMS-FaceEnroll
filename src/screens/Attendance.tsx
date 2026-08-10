@@ -11,6 +11,7 @@ import { StatCard } from '../components/data-display/StatCard'
 import { ShiftBadge, shiftKindOf } from '../components/data-display/ShiftBadge'
 import { Button } from '../components/inputs/Button'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { Icon } from '../icons'
@@ -137,7 +138,7 @@ export function Attendance() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+            <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={daily.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
@@ -150,7 +151,7 @@ export function Attendance() {
           </div>
         </div>
 
-        <div className="relative grid gap-2 mt-4 max-w-190 grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))]">
+        <div className="relative grid gap-2 mt-4 max-w-190 grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] stat-grid">
           {SUMMARY.map((s) => (
             <StatCard key={s.key} tone={s.tone} label={s.label} unit="คน"
               icon={<Icon name={s.icon} size={24} color="currentColor" />}
@@ -160,8 +161,8 @@ export function Attendance() {
       </div>
 
       {/* ---------- แถบตัวกรอง (Figma node 227:7677) ---------- */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
+      <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0) + (onlyIssue ? 1 : 0)}
+        search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />}>
 
         <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
           <DateRangePicker bare from={dFrom} to={dTo} onFrom={setDFrom} onTo={setDTo} max={localISO()} />
@@ -183,7 +184,7 @@ export function Attendance() {
         {(fShifts.length > 0 || fDepts.length > 0 || onlyIssue) && (
           <Button variant="ghost" size="sm" onClick={() => { setFShifts([]); setFDepts([]); setOnlyIssue(false) }}>ล้างตัวกรอง</Button>
         )}
-      </div>
+      </FilterBar>
 
       {expErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ดาวน์โหลดไม่สำเร็จ: {expErr}</div>}
 

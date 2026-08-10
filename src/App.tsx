@@ -22,6 +22,7 @@ import { Account } from './screens/Account'
 import { useApp, isCentral, NAV_TAB, type Nav } from './state'
 import { SuperGate, isSuperUnlocked } from './components/SuperGate'
 import { CommandPalette } from './components/CommandPalette'
+import { PullToRefresh } from './components/PullToRefresh'
 
 // ลำดับหาแท็บแรกที่มีสิทธิ์ (ตรงกับ Sidebar)
 const NAV_ORDER: Nav[] = ['overview', 'face', 'attendance',
@@ -51,8 +52,11 @@ function DemoBanner() {
 
 export function App() {
   const { session, nav, setNav, currentHcode, isDemo } = useApp()
-  // จอเล็ก: sidebar เป็น drawer เปิดจากปุ่มเมนูบน topbar
-  const mobile = useMedia('(max-width: 920px)')
+  // จอเล็ก (แท็บเล็ตลงมา): sidebar เป็น drawer เปิดจากปุ่มเมนูบน topbar
+  // ⚠️ ต้องตรงกับ breakpoint tablet ใน theme.css (.hide-sm / .only-sm / .table-scroll)
+  const mobile = useMedia('(max-width: 1024px)')
+  // มือถือจริง ๆ (≤620) — ปุ่มรีเฟรชในหัวเรื่องถูกซ่อน ใช้ท่าลากลงแทน (ตรงกับ mobile ใน theme.css)
+  const phone = useMedia('(max-width: 620px)')
   const [menuOpen, setMenuOpen] = useState(false)
   // ปลดล็อกเมนูจัดการระบบแล้วหรือยัง (เก็บใน sessionStorage — เปิดแท็บใหม่/logout ต้องกรอกใหม่)
   const [superOk, setSuperOk] = useState(isSuperUnlocked)
@@ -128,15 +132,15 @@ export function App() {
   //   ในการ์ด: Topbar เต็มความกว้าง แล้ว Sidebar + เนื้อหาอยู่ใต้ ใช้พื้นผิวเดียวกัน
   return (
     <div style={{
-      height: '100vh', width: '100%', overflow: 'hidden',
-      padding: mobile ? 0 : 'var(--shell-gap)',
+      height: '100dvh', width: '100%', overflow: 'hidden',
+      padding: 'var(--shell-gap)',
       display: 'flex',
     }}>
       <div style={{
         position: 'relative',
         flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
         background: 'var(--bg)',
-        borderRadius: mobile ? 0 : 'var(--r-xl)',
+        borderRadius: 'var(--shell-radius)',
         overflow: 'hidden',
         boxShadow: 'var(--shadow-sm)',
       }}>
@@ -148,11 +152,11 @@ export function App() {
           <Sidebar mobile={mobile} open={menuOpen} onClose={() => setMenuOpen(false)} />
           <main style={{
             flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0,
-            padding: mobile ? 'var(--sp-3)' : 'var(--sp-6)',
+            padding: mobile ? 'var(--sp-4)' : 'var(--sp-6)',
             paddingTop: 0,
           }}>
             {/* spacer แทน paddingTop — ให้ content เริ่มใต้ header แต่ sticky ยังวัดจากขอบบน main (top:0) */}
-            <div aria-hidden style={{ height: 'calc(var(--topbar-h) + var(--sp-4))' }} />
+            <div aria-hidden style={{ height: 'calc(var(--topbar-h) + var(--content-gap))' }} />
             {isDemo && <DemoBanner />}
             {/* key = หน้าปัจจุบัน -> เปลี่ยนเมนูแล้ว React สร้าง node ใหม่ อนิเมชัน .page-in เล่นซ้ำทุกครั้ง
                 ⚠️ ห้ามใส่ currentHcode ลงใน key — เปลี่ยนโรงแล้วหน้าจะถูกสร้างใหม่ทั้งก้อน
@@ -164,6 +168,8 @@ export function App() {
           </main>
         </div>
       </div>
+      {/* มือถือ: ลากลงจากหัวหน้าจอ = รีเฟรชทั้งหน้า (แทนปุ่มรีเฟรชในหัวเรื่องที่ซ่อนไว้) */}
+      <PullToRefresh enabled={phone} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} allowed={allowed} />
       <DialogHost />
       <ToastHost />

@@ -61,13 +61,13 @@ export function SystemApprove() {
               คิวคำขอจากฟอร์มลงทะเบียน · อนุมัติทดลองใช้ = เปิด 60 วันนับจากวันนี้ · ใช้งานจริง = เปิดถาวร
             </p>
           </div>
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={!tenants && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
         </div>
 
-        <div className="relative mt-4 flex gap-2 flex-wrap">
+        <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit="คำขอ"
               icon={<Icon name={k.icon} size={24} color="currentColor" />}

@@ -38,7 +38,7 @@ export function Pagination({ page, pageSize, total, shown, onPage }: {
   const count = shown ?? Math.min(pageSize, Math.max(0, total - page * pageSize))
 
   return (
-    <div style={{
+    <div className="pager-bar" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-4)',
       minHeight: 68, padding: 'var(--sp-4) var(--sp-6)', flexWrap: 'wrap',
     }}>

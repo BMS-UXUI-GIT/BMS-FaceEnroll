@@ -111,7 +111,7 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
       )}
 
       {/* โลโก้เฉพาะสัญลักษณ์ (ไม่มีตัวอักษร) — ชื่อระบบเป็นข้อความข้าง ๆ อยู่แล้ว */}
-      <img src={asset("/logo-mark.svg")} alt="" width={56} height={56}
+      <img className="topbar-logo" src={asset("/logo-mark.svg")} alt="" width={56} height={56}
         style={{ display: 'block', flex: 'none' }} />
 
       {/* ชื่อระบบใช้ wordmark จาก Figma (node 401:21401) แทนข้อความ */}

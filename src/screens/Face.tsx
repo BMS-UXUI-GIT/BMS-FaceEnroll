@@ -9,6 +9,7 @@ import { Pagination } from '../components/data-display/Pagination'
 import { Button } from '../components/inputs/Button'
 import { StatCard } from '../components/data-display/StatCard'
 import { SearchInput } from '../components/inputs/SearchInput'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Icon } from '../icons'
@@ -170,7 +171,7 @@ export function Face() {
             </p>
           </div>
           {/* Figma: ปุ่มแคปซูล 140x48 พื้นเทาอ่อน + ไอคอน rotate — ชุดเดียวกับหน้าลงเวลา */}
-          <Button variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
+          <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={busyLoad || stats.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
@@ -179,7 +180,7 @@ export function Face() {
         {/* การ์ดตัวเลข 4 ใบ — Figma 178x80 ไอคอนซ้าย ข้อความขวา */}
         {/* 4 คอลัมน์กว้างเท่ากันเสมอ (minmax(0,1fr) — ไม่ให้การ์ดที่ข้อความยาวดันคอลัมน์ตัวเอง)
             กว้างสุด = ที่ว่างหักภาพประกอบ 256 + ระยะห่าง 24 · จอแคบค่อยตกลงมาเป็น 2 คอลัมน์ */}
-        <div className="relative grid gap-4 mt-4 max-w-[calc(100%-264px)] grid-cols-4 max-md:grid-cols-2 max-md:max-w-full">
+        <div className="relative grid gap-4 mt-4 max-w-[calc(100%-264px)] grid-cols-4 max-md:grid-cols-2 max-md:max-w-full stat-grid">
           {SUMMARY.map((k) => (
             <StatCard key={k.label} tone={k.tone} label={k.label} unit="คน" layout="row"
               icon={<Icon name={k.icon} size={24} color="currentColor" />}
@@ -209,13 +210,13 @@ export function Face() {
       </div>
 
       {/* ---------- แถบตัวกรอง ---------- */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />
+      <FilterBar
+        search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />}>
         <FilterChip variant="choice" active={filter === 'notEnrolled'} onClick={() => setFilter((f) => f === 'notEnrolled' ? 'none' : 'notEnrolled')}
           icon={<Icon name="mood-x" size={14} width={2} />} label="ยังไม่ลงทะเบียน" />
         <FilterChip variant="choice" active={filter === 'incomplete'} onClick={() => setFilter((f) => f === 'incomplete' ? 'none' : 'incomplete')}
           icon={<Icon name="mood-cog" size={14} width={2} />} label="ใบหน้าไม่ครบ" />
-      </div>
+      </FilterBar>
 
       {actErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {actErr}</div>}
 

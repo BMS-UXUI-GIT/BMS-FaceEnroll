@@ -4,11 +4,23 @@ import { api } from './api'
 // hook โหลดข้อมูลกลาง ใช้ทุกหน้า
 // - เปลี่ยน path (สลับโรง/แท็บ) = ล้างข้อมูลเก่าก่อน กันข้อมูลข้ามโรงค้างจอ
 // - กดรีเฟรช (reloadKey) = คงข้อมูลเดิมไว้ระหว่างโหลด, loading บอกสถานะจริง
+// รีเฟรชทั้งหน้าจากที่เดียว — ทุก useFetch ที่ยัง mount อยู่จะโหลดใหม่พร้อมกัน
+// ใช้โดยท่าลากลงเพื่อรีเฟรชบนมือถือ (PullToRefresh) แทนปุ่มรีเฟรชในหัวเรื่อง
+export const REFRESH_EVENT = 'fh-refresh'
+export const refreshAll = () => window.dispatchEvent(new Event(REFRESH_EVENT))
+
 export function useFetch<T>(path: string | null, reloadKey = 0): { data: T | null; err: string | null; loading: boolean } {
   const [data, setData] = useState<T | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const lastPath = useRef<string | null>(null)
+  // นับรอบรีเฟรชจากอีเวนต์กลาง — รวมกับ reloadKey ของหน้าเป็นตัวกระตุ้น useEffect เดียวกัน
+  const [globalReload, setGlobalReload] = useState(0)
+  useEffect(() => {
+    const fn = () => setGlobalReload((r) => r + 1)
+    window.addEventListener(REFRESH_EVENT, fn)
+    return () => window.removeEventListener(REFRESH_EVENT, fn)
+  }, [])
   useEffect(() => {
     if (!path) { lastPath.current = null; setData(null); setErr(null); setLoading(false); return }
     let alive = true
@@ -20,7 +32,7 @@ export function useFetch<T>(path: string | null, reloadKey = 0): { data: T | nul
       .catch((e) => alive && setErr(e?.message || 'โหลดไม่สำเร็จ'))
       .finally(() => alive && setLoading(false))
     return () => { alive = false }
-  }, [path, reloadKey])
+  }, [path, reloadKey, globalReload])
   return { data, err, loading }
 }
 

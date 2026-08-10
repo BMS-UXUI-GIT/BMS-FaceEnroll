@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { useMedia } from '../../hooks'
+import { allChips, countChips, FilterSheetButton } from '../inputs/FilterSheet'
 import { TEXT } from '../../typography'
 
 // แผงเนื้อหา 1 ส่วน — Figma หน้ารายละเอียดพนักงาน (node 95:25395 "Group 19")
@@ -26,6 +28,13 @@ export function SectionPanel({ title, filters, meta, actions, children, bodyPadd
   bodyPadding?: boolean
 }) {
   const hasHeader = title != null || filters != null || actions != null || meta != null
+  // มือถือ: ชิปกรองในแถวหัวแผงตั้งแต่ 2 ใบ ยุบเหลือปุ่ม "ตัวกรอง" + แผงจากขอบล่างจอ
+  // (แถวหัวแผงแคบกว่าแถบตัวกรองของหน้า เพราะมีหัวข้อกินที่อยู่แล้ว จึงยุบไวกว่า 1 ใบ)
+  const phone = useMedia('(max-width: 620px)')
+  // ชิปใน actions (เช่น "เลือกช่วงวัน") ถูกรวมเข้าแผงเดียวกันด้วย ถ้า actions มีแต่ชิปล้วน
+  // — ถ้าเป็นปุ่มอื่น (ดาวน์โหลด/เมนู) ปล่อยไว้บนแถวหัวตามเดิม
+  const actionChips = actions != null && allChips(actions)
+  const collapseFilters = phone && countChips(filters) + (actionChips ? countChips(actions) : 0) >= 2
 
   return (
     // flex column + body flex:1 -> วางคู่กันใน grid แล้วสูงเท่ากัน (การ์ดขาวยืดเต็มความสูงแถว)
@@ -37,17 +46,19 @@ export function SectionPanel({ title, filters, meta, actions, children, bodyPadd
     }}>
       {hasHeader && (
         // เยื้องเข้ามา 16 → รวมกับ padding 8 ของกรอบ = 24 ตามที่ Figma วางไว้
-        <div className="flex items-center gap-2 flex-wrap" style={{ minHeight: 60, padding: '0 var(--sp-4)' }}>
+        <div className="flex items-center gap-2 flex-wrap panel-head" style={{ minHeight: 60, padding: '0 var(--sp-4)' }}>
           {title != null && <span style={{ ...TEXT.h3, color: 'var(--text)', marginRight: 'var(--sp-2)' }}>{title}</span>}
-          {filters}
-          {(actions != null || meta != null) && (
+          {collapseFilters
+            ? <FilterSheetButton>{filters}{actionChips ? actions : null}</FilterSheetButton>
+            : filters}
+          {((actions != null && !(collapseFilters && actionChips)) || meta != null) && (
             // minWidth:0 + shrink ได้ → ป้ายสรุปตัวกรองยาวเกินจะถูกตัดเป็น … ไม่ตกไปบรรทัดใหม่
             <span style={{ marginLeft: 'auto', minWidth: 0, display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
               {meta != null && (
                 <span title={typeof meta === 'string' ? meta : undefined}
                   style={{ ...TEXT.sm, color: 'var(--text-dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</span>
               )}
-              {actions != null && (
+              {actions != null && !(collapseFilters && actionChips) && (
                 <span style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>{actions}</span>
               )}
             </span>

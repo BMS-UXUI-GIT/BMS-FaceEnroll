@@ -123,7 +123,9 @@
   /* กว้างตาม Figma — ชื่อเมนูอิงหัวเรื่องของหน้า ตัวที่ยาวสุดคือ "ติดตามการเข้า-ออกงานผิดเวลา" */
   --sidebar-w: 262px;
   --topbar-h: 80px;    /* ความสูง Topbar — ใช้เว้น paddingTop ให้ content เลื่อนลอดใต้ header กระจก */
-  --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) */
+  --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) — มือถือเป็น 0 */
+  --content-gap: var(--sp-4); /* ระยะจากใต้ header ถึงเนื้อหาแถวแรก (spacer ใน App.tsx) */
+  --shell-radius: var(--r-xl); /* มุมการ์ดแอพ — มือถือเต็มจอจึงเป็น 0 */
 
   /* ลูกศร dropdown — ใช้สี --text-dim (#667385) */
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667385' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -427,7 +429,7 @@ body.no-page-scroll main { overflow: hidden !important; }
 .pick-hosp-list { min-height: 0; overflow-y: auto; }
 /* หัวเรื่องกินเต็มความกว้างการ์ด (อยู่แถวบน เหนือทั้งภาพและรายการ) */
 .pick-hosp-head { grid-column: 1 / -1; }
-@media (max-width: 920px) {
+@media (max-width: 1024px) {
   /* จอเล็ก: เปลือกแอพไม่มีขอบ (shell-gap 0) + main padding 12 */
   .pick-hosp { height: calc(100dvh - 108px); max-height: calc(100dvh - 108px); }
 }
@@ -445,12 +447,22 @@ body.no-page-scroll main { overflow: hidden !important; }
   .login-card { grid-template-columns: 1fr; }
   /* จอแคบไม่ต้องโชว์ภาพประกอบใหญ่ — เหลือโลโก้ + คำอธิบาย */
   .login-card .hero-rise { display: none; }
+  /* แผงภาพซ้ายเตี้ยลงเหลือเป็นแถบหัวการ์ด · ฟอร์มเกยขึ้นจากด้านบนแทนด้านซ้าย */
+  .login-card > :first-child { min-height: 200px !important; }
+  .login-card > :last-child {
+    margin-left: 0 !important;
+    margin-top: calc(var(--sp-6) * -1) !important;
+  }
+  .login-card p { white-space: normal !important; }
+}
+@media (max-width: 620px) {
+  .login-card > :first-child { min-height: 150px !important; padding: var(--sp-4) !important; }
+  .login-card > :last-child { padding: var(--sp-6) var(--sp-4) !important; }
 }
 
 /* เว้นที่ฝั่งขวาของหัวเรื่องให้ภาพประกอบ (จอแคบซ่อนภาพอยู่แล้ว จึงไม่ต้องเว้น) */
 .hero-reserve { padding-right: 480px; }
 @media (max-width: 1180px) { .hero-reserve { padding-right: 320px; } }
-@media (max-width: 920px) { .hero-reserve { padding-right: 0; } }
 
 /* การ์ดโปรไฟล์ท้าย sidebar — พื้นกึ่งโปร่ง + เบลอ เมนูที่เลื่อนลอดข้างหลังจึงเห็นเป็นฝ้า
    (ใส่ที่นี่เพราะ Button คุมพื้นด้วยคลาส .btn-soft — inline style จะชนกับ hover ของมัน) */
@@ -477,9 +489,6 @@ body.no-page-scroll main { overflow: hidden !important; }
   transform: translateX(-50%);
   max-width: calc(100vw - var(--sidebar-w) - var(--sp-6) * 2);
 }
-@media (max-width: 920px) {
-  .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(100vw - var(--sp-6)); }
-}
 
 /* การ์ดสรุปแถวละ 4 ใบ (จอแคบลดเป็น 2 แล้ว 1) */
 /* หน้าคู่มือ: จอแคบ = สารบัญขึ้นบน เนื้อหาอยู่ล่าง (คอลัมน์เดียว) */
@@ -487,23 +496,164 @@ body.no-page-scroll main { overflow: hidden !important; }
   .help-grid { grid-template-columns: 1fr !important; }
 }
 
+/* ตัวกรองในแผงล่างจอ (BottomSheet) — ชิปยืดเต็มความกว้าง เรียงลงเป็นรายการ
+   ชิปตัวเดียวกับบนแถบตัวกรองปกติ แค่เปลี่ยนทรงตอนอยู่ในแผง */
+.sheet-filters { display: flex; flex-direction: column; gap: var(--sp-2); }
+.sheet-filters > * { width: 100%; }
+.sheet-filters .chip { display: flex !important; justify-content: flex-start; white-space: normal; }
+.sheet-filters .chip > span:last-child { flex: 1; min-width: 0; justify-content: space-between; }
+
+/* ── แถบแท็บล่างจอของมือถือ (navbar) ────────────────────────────────
+   หน้าหลักมีหลายแท็บ — จอมือถือย้ายลงมาไว้ล่างจอแทนแคปซูลในหัวเรื่อง
+   ใช้เฉพาะ ≤620 (React เป็นคนตัดสินใจ render ผ่าน useMedia) แต่สไตล์ประกาศไว้นอก media
+   เพราะตัวมันเองไม่ได้ถูก render บนจอใหญ่อยู่แล้ว */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; align-items: stretch;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--control-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.bottom-nav-item {
+  flex: 1 1 0; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: var(--sp-2) var(--sp-1);
+  border: none; background: transparent; cursor: pointer;
+  font-family: var(--sans); font-size: 11px; line-height: 14px;
+  color: var(--text-dim);
+  transition: color .12s ease;
+}
+.bottom-nav-item > span {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bottom-nav-item.is-active { color: var(--accent-active); font-weight: 500; }
+.bottom-nav-item:active { background: var(--accent-light); }
+/* ที่ว่างท้ายหน้าเท่าความสูงแถบ (56) + safe-area */
+.bottom-nav-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex: none; }
+
+/* แถบแท็บทรงแคปซูล — จอแคบเลื่อนแนวนอน ไม่ตกบรรทัด (ปุ่มไม่ยุบ ไม่ตัดคำ) */
+.tab-strip { flex-wrap: nowrap; scroll-snap-type: x proximity; }
+.tab-strip > * { flex: none; scroll-snap-align: start; }
+.tab-strip .btn { white-space: nowrap; }
+
 /* ของที่โผล่เฉพาะจอเล็ก (คู่กับ .hide-sm) — เช่นตัวเลือกโรงในเมนูโปรไฟล์ */
 .only-sm { display: none !important; }
 
 /* header: ปุ่มกระดิ่ง + การ์ดโปรไฟล์ สูงเท่าการ์ดเลือกโรง (62) ให้เรียงเป็นแนวเดียวกัน
    จอแคบไม่บังคับ เพราะแถบบนเตี้ยลงและการ์ดเลือกโรงถูกซ่อนไปแล้ว */
-@media (min-width: 921px) {
+@media (min-width: 1025px) {
   /* !important เพราะ Button ใส่ min-height เป็น inline style (inline ชนะ class เสมอ) */
   .topbar .btn { min-height: 62px !important; }
   .topbar .btn-accent-soft { width: 62px; justify-content: center; }
 }
 
-/* จอเล็ก: ซ่อนของรอง + หัวเว็บกระชับ (sidebar เป็น drawer จัดการใน React แล้ว) */
-@media (max-width: 920px) {
+/* ══════════════════════════════════════════════════════════════════
+   Responsive — 3 ระดับ (ต้องตรงกับ useMedia ใน App.tsx)
+     desktop  > 1024px            เต็มรูปแบบตาม Figma
+     tablet   <= 1024px           sidebar เป็น drawer · ซ่อนของรองบน header (.hide-sm)
+                                  ตารางเลื่อนแนวนอนในกรอบตัวเอง
+     mobile   <= 620px            แถบบนเตี้ยลง · ระยะขอบแคบลง · การ์ด/กริดเหลือคอลัมน์เดียว
+   หน้าเว็บส่วนใหญ่เขียนด้วย inline style ซึ่งชนะ CSS class เสมอ
+   กฎในโซนนี้จึงต้องใช้ !important เป็นปกติ (ไม่ใช่ของแถม)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ---------- tablet ---------- */
+@media (max-width: 1024px) {
   .hide-sm { display: none !important; }
   .only-sm { display: block !important; }
   .topbar { padding: var(--sp-3) var(--sp-3) !important; gap: var(--sp-2) !important; }
   .topbar h1 { font-size: 16px !important; }
+  .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(100vw - var(--sp-6)); }
+  .hero-reserve { padding-right: 0; }
+
+  /* ตาราง: เลื่อนแนวนอนในกรอบของตัวเอง ไม่ลากทั้งหน้าไปด้วย
+     (กรอบที่ scroll ได้ทำให้ sticky thead อ้างขอบบนผิด — ปิด sticky ในระดับนี้) */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll thead th { position: static !important; }
+}
+
+/* ---------- mobile ---------- */
+@media (max-width: 620px) {
+  /* เปลือกแอพเต็มจอ ไม่มีขอบฟ้า/มุมมน — พื้นที่จอมีค่าทุกพิกเซล */
+  :root { --topbar-h: 64px; --shell-gap: 0px; --shell-radius: 0px; --content-gap: var(--sp-1); }
+
+  /* โลโก้/ปุ่มบนแถบบนเล็กลง — เหลือที่ให้ปุ่มเมนูกับกระดิ่ง */
+  .topbar { padding: var(--sp-2) var(--sp-3) !important; }
+  .topbar-logo { width: 40px !important; height: 40px !important; }
+
+  /* ระยะขอบหน้าเหลือ 16 รอบด้าน (เปลือกแอพเต็มจอแล้ว ไม่มีขอบฟ้าซ้อนอีกชั้น) */
+  main { padding: 0 var(--sp-4) var(--sp-4) !important; }
+
+  /* การ์ดหัวเรื่องของทุกหน้า (rounded-xl p-6) — ลดระยะขอบใน */
+  main .rounded-xl.p-6 { padding: var(--sp-4) !important; }
+  main .text-h2 { font-size: 17px !important; line-height: 24px !important; }
+  main .text-h1 { font-size: 20px !important; line-height: 28px !important; }
+
+  /* กริดที่ตั้งจำนวนคอลัมน์ตายตัวไว้ (2–4 ช่อง) — จอมือถือเหลือคอลัมน์เดียว */
+  .grid-collapse-sm { grid-template-columns: 1fr !important; }
+  /* กริดการ์ดเล็ก — 2 คอลัมน์กำลังพอดี ไม่ต้องยุบเหลือใบเดียว */
+  .grid-2-sm { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+  /* กล่องซ้อน: เกือบเต็มจอ ระยะขอบแคบลง */
+  .modal-wrap { padding: var(--sp-3) !important; }
+  .modal-card { max-height: 92vh !important; }
+  .modal-card > div { padding-left: var(--sp-4) !important; padding-right: var(--sp-4) !important; }
+
+  /* แถบแจ้งผลล่างขวา — ห้ามกว้างเกินจอ */
+  .toast-host { left: var(--sp-3); right: var(--sp-3); max-width: none !important; }
+
+  /* แถบลอยล่างจอ (โปรไฟล์พนักงานแบบย่อ) ต้องอยู่เหนือ navbar */
+  .float-bottom { bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--sp-2)); }
+
+  /* ── แถวที่มีของเยอะ → เรียงลงเป็นคอลัมน์ ────────────────────────
+     จอมือถือกว้างไม่พอให้อะไรยืนข้างกัน การให้ flex-wrap ทำงานเองได้ผลเป็นแถวครึ่ง ๆ กลาง ๆ
+     จึงบังคับเป็นคอลัมน์เต็มความกว้างไปเลย อ่านง่ายกว่าและปุ่มกดถูกกว่า */
+
+  /* หัวเรื่องของทุกหน้า: ชื่อหน้า/คำอธิบาย + กลุ่มปุ่ม (16 จุดใช้คลาสชุดนี้เหมือนกันหมด) */
+  main .flex.items-start.justify-between { flex-direction: column; align-items: stretch; }
+  main .flex.items-start.justify-between > * { width: 100%; }
+  /* กลุ่มปุ่มในหัวเรื่อง — แบ่งความกว้างเท่ากัน (ปุ่มเดียวก็กินเต็มบรรทัด) */
+  main .flex.items-start.justify-between .inline-flex > .btn { flex: 1 1 0; min-width: 0; }
+
+  /* แถวหัวแผง (SectionPanel): หัวข้อ + ตัวกรอง + ปุ่ม/สรุป */
+  .panel-head { align-items: stretch; }
+  .panel-head > span:last-child { margin-left: 0 !important; }
+
+  /* การ์ดตัวเลขสรุป — เต็มความกว้างเสมอ สูงสุด 2 ใบต่อแถว
+     (inline style ของหน้าเป็นคนตั้ง grid-template-columns ไว้ จึงต้อง !important ทับ) */
+  .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-width: none !important;
+  }
+  .stat-grid > * { width: 100% !important; min-width: 0 !important; }
+  /* ใบสุดท้ายที่เหลือเดี่ยว ๆ กินเต็มบรรทัด ไม่ทิ้งช่องว่างข้าง ๆ */
+  .stat-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  /* การ์ดโปรไฟล์พนักงาน — รูปอยู่บน ข้อมูลอยู่ล่าง (แนวนอนเหลือที่ให้ข้อความแคบเกินไป) */
+  .staff-profile { flex-direction: column; align-items: stretch !important; gap: var(--sp-3) !important; }
+  .staff-profile > :last-child { padding-left: 0 !important; }
+  /* ป้ายอีเมล/เบอร์ ไม่ต้องดันชิดขวาแล้ว — ต่อจากชื่อในบรรทัดถัดไป */
+  .staff-profile [style*="margin-left: auto"] { margin-left: 0 !important; }
+
+  /* แถวปุ่มชิดขวา (ท้ายฟอร์ม/ท้ายกล่อง) — ปุ่มกินเต็มความกว้าง กดง่ายด้วยนิ้วโป้ง */
+  main .flex.justify-end, .modal-card .flex.justify-end { flex-direction: column; align-items: stretch; }
+  main .flex.justify-end > .btn, .modal-card .flex.justify-end > .btn { width: 100%; }
+
+  /* แถบแบ่งหน้า: ข้อความ "แสดง x–y จาก z" กับปุ่มหน้าคนละบรรทัด */
+  .pager-bar { flex-direction: column; align-items: stretch !important; gap: var(--sp-2) !important; }
+  .pager-bar > * { justify-content: center; }
+
+  /* แถบตัวกรอง — ช่องค้นหากินเต็มบรรทัด ชิปตัวกรองตกลงไปอยู่แถวถัดไป */
+  .filter-bar > :first-child { flex: 1 1 100% !important; max-width: none !important; }
+
+  /* ปุ่มรีเฟรชในหัวเรื่อง — มือถือใช้ท่าลากลงจากหัวหน้าจอแทน (PullToRefresh.tsx) */
+  .btn-refresh { display: none !important; }
+
+  /* การ์ดคนมาสาย/ออกก่อน — ช่องตัวเลขตกลงบรรทัดใหม่แทนบีบชื่อจนอ่านไม่ออก */
+  .late-row { flex-wrap: wrap; }
+  .late-cell { min-width: 92px !important; }
 }
 
 /* dropdown แบบ custom (ลูกศรเอง + สีตามธีม) */
@@ -529,3 +679,4 @@ select option { background: var(--bg); color: var(--text); }
 @keyframes toastUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }

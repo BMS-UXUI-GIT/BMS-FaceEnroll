@@ -15,6 +15,8 @@ const P: Record<string, string> = {
   'calendar-week': "<path d=\"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12\" /><path d=\"M16 3v4\" /><path d=\"M8 3v4\" /><path d=\"M4 11h16\" /><path d=\"M7 14h.013\" /><path d=\"M10.01 14h.005\" /><path d=\"M13.01 14h.005\" /><path d=\"M16.015 14h.005\" /><path d=\"M13.015 17h.005\" /><path d=\"M7.01 17h.005\" /><path d=\"M10.01 17h.005\" />", // tabler: calendar-week
   'chevron-down': "<path d=\"M6 9l6 6l6 -6\" />", // tabler: chevron-down
   'chevron-left': "<path d=\"M15 6l-6 6l6 6\" />", // tabler: chevron-left
+  'chevron-right': "<path d=\"M9 6l6 6l-6 6\" />", // tabler: chevron-right
+  filter: "<path d=\"M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227z\" />", // tabler: filter
   clock: "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0\" /><path d=\"M12 7v5l3 3\" />", // tabler: clock
   'clock-alert': "<path d=\"M20.986 12.502a9 9 0 1 0 -5.973 7.98\" /><path d=\"M12 7v5l3 3\" /><path d=\"M19 16v3\" /><path d=\"M19 22v.01\" />", // tabler: clock-exclamation
   'clock-play': "<path d=\"M12 7v5l2 2\" /><path d=\"M17 22l5 -3l-5 -3l0 6\" /><path d=\"M13.017 20.943a9 9 0 1 1 7.831 -7.292\" />", // tabler: clock-play

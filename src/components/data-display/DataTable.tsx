@@ -73,8 +73,9 @@ export function DataTable<T>({
     : {}
 
   return (
-    // overflow visible — ปล่อยให้ scroll container แม่ (main/modal body) คุม เพื่อให้ sticky ทำงาน
-    <div style={{ width: '100%' }}>
+    // จอใหญ่: overflow visible — ปล่อยให้ scroll container แม่ (main/modal body) คุม เพื่อให้ sticky ทำงาน
+    // จอเล็ก: .table-scroll (theme.css) เปิด overflow-x ให้เลื่อนเฉพาะตาราง + ปิด sticky thead
+    <div className="table-scroll" style={{ width: '100%' }}>
       {/* border-collapse:separate — collapse ทำให้ sticky บน th ไม่ทำงานใน Chrome */}
       <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: layout, minWidth }}>
         <thead>

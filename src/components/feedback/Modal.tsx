@@ -34,6 +34,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
   return (
     <div
       onClick={onClose}
+      className="modal-wrap"
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'var(--overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--sp-5)',
@@ -42,6 +43,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        className="modal-card"
         role="dialog" aria-modal="true"
         style={{
           width: '100%', maxWidth: width, maxHeight: '88vh',

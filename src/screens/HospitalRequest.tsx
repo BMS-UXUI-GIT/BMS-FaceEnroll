@@ -585,7 +585,7 @@ export function HospitalRequest() {
                   {/* รูปแบบการใช้งาน */}
                   <div>
                     <label style={lbl}>รูปแบบการใช้งาน</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
+                    <div className="grid-collapse-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
                       {([['demo', 'ขอทดลองใช้', 'ทดลองใช้ฟรี 60 วัน'], ['real', 'ขอใช้งานจริง', 'รอเจ้าหน้าที่ติดต่อกลับ']] as const).map(([v, t, sub]) => {
                         const on = type === v
                         return (
@@ -612,7 +612,7 @@ export function HospitalRequest() {
                   </div>
 
                   {/* ผู้ติดต่อ */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                  <div className="grid-collapse-sm" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>
                       <label style={lbl}>ชื่อผู้ติดต่อ{req}</label>
                       <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="ชื่อ-สกุล" style={field} />
