@@ -120,7 +120,7 @@
 
   /* === Layout === */
   --page-max: 100%;
-  /* กว้างตาม Figma — ชื่อเมนูอิงหัวเรื่องของหน้า ตัวที่ยาวสุดคือ "ติดตามการเข้า-ออกงานผิดเวลา" */
+  /* กว้างตาม Figma — ชื่อเมนูอิงหัวเรื่องของหน้า ตัวที่ยาวสุดคือ "รายงานสถิติการเข้า - ออกงาน" */
   --sidebar-w: 262px;
   --topbar-h: 80px;    /* ความสูง Topbar — ใช้เว้น paddingTop ให้ content เลื่อนลอดใต้ header กระจก */
   --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) — มือถือเป็น 0 */
@@ -545,7 +545,6 @@ body.no-page-scroll main { overflow: hidden !important; }
 @media (min-width: 1025px) {
   /* !important เพราะ Button ใส่ min-height เป็น inline style (inline ชนะ class เสมอ) */
   .topbar .btn { min-height: 62px !important; }
-  .topbar .btn-accent-soft { width: 62px; justify-content: center; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -680,3 +679,17 @@ select option { background: var(--bg); color: var(--text); }
 @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+
+/* ปุ่มแจ้งเตือน — จัตุรัสเสมอ (กว้างเท่าสูง) ไม่ว่าจะเป็นสถานะไหน
+   aspect-ratio ทำให้กว้างตามความสูงจริงของแถบ (62 บนจอใหญ่ · 36 บนจอเล็ก) */
+.topbar .noti-btn { aspect-ratio: 1; padding: 0 !important; justify-content: center; }
+
+/* ปุ่มแจ้งเตือนตอนมีของใหม่ — วงแหวนกระเพื่อมช้า ๆ ดึงตาโดยไม่รบกวน (หยุดตอน hover/ลดการเคลื่อนไหว) */
+@keyframes notiPulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-active) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent-active) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-active) 0%, transparent); }
+}
+.noti-cta { animation: notiPulse 2.4s ease-out infinite; }
+.noti-cta:hover { animation: none; }
+@media (prefers-reduced-motion: reduce) { .noti-cta { animation: none; } }

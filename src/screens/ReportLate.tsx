@@ -249,7 +249,7 @@ export function ReportLate() {
 
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-h2 m-0 text-text">ติดตามการเข้า-ออกงานผิดเวลา</h1>
+            <h1 className="text-h2 m-0 text-text">รายงานสถิติการเข้า - ออกงาน</h1>
             <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
               ติดตามพนักงานที่มาสายหรือออกก่อนเวลาที่กำหนด
             </p>

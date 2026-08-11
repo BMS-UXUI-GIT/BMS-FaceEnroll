@@ -80,7 +80,7 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
             <NavItem id="rp-person" label="รายชื่อพนักงาน" icon="person" />
             <NavItem id="rp-dept" label="รายแผนก" icon="people" />
             <NavItem id="rp-shift" label="รายเวร" icon="calendar" />
-            <NavItem id="rp-late" label="ติดตามการเข้า-ออกงานผิดเวลา" icon="clock-alert" />
+            <NavItem id="rp-late" label="รายงานสถิติการเข้า - ออกงาน" icon="clock-alert" />
             {/* ซ่อนหน้า "รายงาน" ไว้ก่อน (ยังไม่เปิดใช้) — หน้าจอ/route ยังอยู่ครบ เปิดคืนได้ทันที
                 ⚠️ ปลดคอมเมนต์แล้วต้องเอา 'rp-reports' กลับเข้า NAV_ORDER + allowed() ใน App.tsx ด้วย */}
             {/* <NavItem id="rp-reports" label="รายงาน" icon="report" /> */}

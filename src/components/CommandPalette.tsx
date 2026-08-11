@@ -22,7 +22,7 @@ const MENUS: MenuEntry[] = [
   { nav: 'rp-person', label: 'รายบุคคล', group: 'รายงาน · วิเคราะห์', icon: 'person', alias: 'พนักงาน รายคน staff' },
   { nav: 'rp-dept', label: 'รายแผนก', group: 'รายงาน · วิเคราะห์', icon: 'people', alias: 'department แผนก' },
   { nav: 'rp-shift', label: 'รายเวร', group: 'รายงาน · วิเคราะห์', icon: 'calendar', alias: 'shift เวร กะ' },
-  { nav: 'rp-late', label: 'การมาสาย / ออกก่อน', group: 'รายงาน · วิเคราะห์', icon: 'clock-alert', alias: 'late early สาย ออกก่อน' },
+  { nav: 'rp-late', label: 'รายงานสถิติการเข้า - ออกงาน', group: 'รายงาน · วิเคราะห์', icon: 'clock-alert', alias: 'late early สาย ออกก่อน สถิติ' },
   { nav: 'settings', label: 'ตั้งค่าแอปสแกน', group: 'โรงพยาบาล', icon: 'system', alias: 'policy liveness นโยบาย ตั้งค่า' },
   { nav: 'locations', label: 'จุดลงเวลา', group: 'โรงพยาบาล', icon: 'map-pin', alias: 'gps พิกัด รัศมี geofence' },
   { nav: 'hosp-audit', label: 'ประวัติการจัดการ', group: 'โรงพยาบาล', icon: 'clock', alias: 'audit log ประวัติ' },

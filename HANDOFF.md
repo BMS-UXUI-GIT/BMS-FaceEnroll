@@ -40,7 +40,9 @@ Body:   { "password": "..." }
 
 ## 2. ของที่ยังเป็น mock / ยังไม่ต่อจริง
 
-- **ปุ่มกระดิ่งบน header** (`src/components/Topbar.tsx`) — ยังไม่มีระบบแจ้งเตือน กดแล้วไม่มีอะไรเกิดขึ้น
+- **การแจ้งเตือน** (`src/components/NotificationMenu.tsx`) — UI ครบแล้ว (แผงลอยบนจอใหญ่ · bottom sheet บนมือถือ · badge จำนวนที่กระดิ่ง)
+  แต่ **ข้อมูลยังเป็นตัวอย่างในไฟล์** (`SAMPLE`) เพราะ backend ยังไม่มี endpoint
+  ต่อของจริง: เปลี่ยนเป็น `useFetch<Notification[]>('/admin/notifications')` แล้วให้ "อ่านทั้งหมด"/ปิดรายการยิง API แทนเก็บใน state
 - **หน้า "รายงาน" (rp-reports)** — ซ่อนไว้ก่อน โค้ดยังอยู่ครบ (`src/screens/ReportsHub.tsx`)
   เปิดคืน: ปลดคอมเมนต์ `NavItem` ใน `src/components/layout/Sidebar.tsx` + เอา `'rp-reports'` กลับเข้า `NAV_ORDER` และ `allowed()` ใน `src/App.tsx`
 - **ภาษา** ในหน้าจัดการบัญชี — แสดง "ไทย" อย่างเดียว ยังไม่มีระบบหลายภาษา

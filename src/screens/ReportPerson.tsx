@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clock, nf, useFetch, useServerPage } from '../hooks'
-import { daysAgoISO, localISO, toggle, useAttFilterOptions } from '../components/AttFilters'
-import { MonthRangePicker, TH_M, thShort } from '../components/DatePicker'
+import { daysAgoISO, filterQS, localISO, toggle, useAttFilterOptions } from '../components/AttFilters'
+import { DatePicker, MonthRangePicker, TH_M, thShort } from '../components/DatePicker'
 import { GroupedBars, GroupedBarsSkeleton } from '../components/charts'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { Loading } from '../components/Spinner'
@@ -39,7 +39,7 @@ type EmpHist = {
   rows: HistRow[]
 }
 /** แถวลงเวลาของ "วันนี้" ที่เอามา join กับรายชื่อ (Figma มีคอลัมน์ เวลาเข้า-ออก + สถานะ) */
-type TodayRow = { emp: string; in: string; out: string; late: boolean; early: boolean; no_out: boolean }
+type TodayRow = { emp: string; in: string; out: string; shift: string; late: boolean; early: boolean; no_out: boolean }
 
 // ค่าว่าง: แผนก = "ไม่ระบุแผนก" / อื่นๆ = "—"
 const deptTxt = (d: string) => (d ? d : 'ไม่ระบุแผนก')
@@ -163,6 +163,9 @@ export function ReportPerson() {
   const [search, setSearch] = useState('')
   // เลือกได้หลายแผนก (ว่าง = ทุกแผนก)
   const [fDepts, setFDepts] = useState<string[]>([])
+  const [fShifts, setFShifts] = useState<string[]>([])
+  // วันที่ของคอลัมน์ เวร/เวลาเข้า-ออก/สถานะ ในตารางรายชื่อ (ค่าเริ่มต้น = วันนี้)
+  const [date, setDate] = useState(localISO)
   const [sel, setSel] = useState<Emp | null>(null)
   // ช่วงวันของ detail (default 30 วันล่าสุด)
   const [from, setFrom] = useState(daysAgoISO(29))
@@ -184,17 +187,21 @@ export function ReportPerson() {
   useEffect(() => { const t = setTimeout(() => setDq(search.trim()), 300); return () => clearTimeout(t) }, [search])
   // list โหลดทีละหน้า — กดกลับจาก detail หน้าเดิมยังอยู่
   const listF = useServerPage<EmpList>(hcode ? `/admin/employees?${q}${dq ? `&q=${encodeURIComponent(dq)}` : ''}` : null, reload)
-  // การลงเวลา "วันนี้" ของทั้งโรง — เอามา join เป็นคอลัมน์ เวลาเข้า-ออก/สถานะ ตาม Figma
+  // การลงเวลาของ "วันที่ที่เลือก" (ค่าเริ่มต้น = วันนี้) ของทั้งโรง
+  // เอามา join เป็นคอลัมน์ เวร/เวลาเข้า-ออก/สถานะ ตาม Figma
   const today = localISO()
   const todayF = useFetch<{ rows: (TodayRow & { late_min: number; early_min: number })[] }>(
-    hcode && !sel ? `/admin/attendance/daily?${q}&date_from=${today}&date_to=${today}&limit=500&offset=0` : null, reload)
+    hcode && !sel
+      ? `/admin/attendance/daily?${q}&date_from=${date}&date_to=${date}&limit=500&offset=0${filterQS(fShifts, [])}`
+      : null,
+    reload)
   const todayBy = useMemo(() => {
     const m = new Map<string, TodayRow & { late_min: number; early_min: number }>()
     for (const r of todayF.data?.rows ?? []) if (!m.has(r.emp)) m.set(r.emp, r)
     return m
   }, [todayF.data])
 
-  const { deptOpts } = useAttFilterOptions(hcode)
+  const { deptOpts, shiftOpts } = useAttFilterOptions(hcode)
 
   const histF = useFetch<EmpHist>(
     hcode && sel ? `/admin/attendance/employee?${q}&emp_id=${encodeURIComponent(sel.emp)}&date_from=${from}&date_to=${to}` : null,
@@ -278,8 +285,16 @@ export function ReportPerson() {
   }
 
   // server ทำ q + แบ่งหน้าให้แล้ว — ตัวกรองแผนกทำบนหน้าที่โหลดมา (backend ยังไม่มี query แผนก)
+  // เวร: backend กรองให้ตอนดึงการลงเวลาของวันที่เลือกแล้ว ที่นี่จึงเหลือแค่คัดคนที่ไม่มีแถวของวันนั้นออก
   const rows = listF.data?.rows ?? []
-  const shown = fDepts.length ? rows.filter((p) => fDepts.includes(p.dept)) : rows
+  const shown = useMemo(() => {
+    let r = rows
+    if (fDepts.length) r = r.filter((p) => fDepts.includes(p.dept))
+    if (fShifts.length) r = r.filter((p) => todayBy.has(p.emp))
+    return r
+  }, [rows, fDepts, fShifts, todayBy])
+  /** กรองอยู่ = ปิดการแบ่งหน้า (กรองบนหน้าที่โหลดมา จำนวนรวมของ server ใช้ไม่ได้) */
+  const clientFiltered = fDepts.length > 0 || fShifts.length > 0
 
   // ---------- โหมด list ----------
   if (!sel) {
@@ -289,7 +304,8 @@ export function ReportPerson() {
       { key: 'emp', header: 'รหัสพนักงาน', width: '15%', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-dim)' }, cell: (p) => blank(p.emp) },
       { key: 'dept', header: 'แผนก', width: '21%', tdStyle: { color: 'var(--text-dim)' }, cell: (p) => deptTxt(p.dept) },
       {
-        key: 'io', header: 'เวลาเข้า-ออก', width: '17%', tdStyle: { color: 'var(--text-dim)' }, cell: (p) => {
+        // เลือกวันอื่นที่ไม่ใช่วันนี้ = บอกวันที่ไว้ในหัวคอลัมน์ กันเข้าใจผิดว่าเป็นข้อมูลวันนี้
+        key: 'io', header: date === today ? 'เวลาเข้า-ออก' : `เวลาเข้า-ออก · ${thShort(date)}`, width: '17%', tdStyle: { color: 'var(--text-dim)' }, cell: (p) => {
           const t = todayBy.get(p.emp)
           if (!t) return <span style={{ color: 'var(--text-faint)' }}>- -</span>
           return `${clock(t.in)} - ${clock(t.out)}`
@@ -346,9 +362,18 @@ export function ReportPerson() {
           </div>
         </div>
 
-        {/* ---------- ค้นหา + กรองแผนก ---------- */}
-        <FilterBar activeCount={fDepts.length}
+        {/* ---------- ค้นหา + กรองวันที่ / เวร / แผนก ---------- */}
+        <FilterBar activeCount={(date !== today ? 1 : 0) + (fShifts.length ? 1 : 0) + (fDepts.length ? 1 : 0)}
           search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ-นามสกุล / รหัสพนักงาน" />}>
+          {/* วันที่ = วันที่ของคอลัมน์ เวร/เวลาเข้า-ออก/สถานะ (ค่าเริ่มต้นวันนี้) */}
+          <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="วันที่">
+            <DatePicker bare value={date} onChange={setDate} max={today} />
+          </FilterChip>
+          <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
+            <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])} clearLabel="เลือกทุกเวร"
+              options={shiftOpts}
+              placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
+          </FilterChip>
           <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
             <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก"
               options={deptOpts}
@@ -370,10 +395,10 @@ export function ReportPerson() {
                   layout="fixed"
                   minWidth={980}
                   loading={listF.loading && !listF.data ? <Loading /> : undefined}
-                  empty={dq || fDepts.length ? 'ไม่พบพนักงานที่ตรงกับที่เลือก' : 'ไม่มีข้อมูลพนักงาน'}
+                  empty={dq || clientFiltered ? 'ไม่พบพนักงานที่ตรงกับที่เลือก' : 'ไม่มีข้อมูลพนักงาน'}
                   emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }}
                 />
-                {!fDepts.length && (
+                {!clientFiltered && (
                   <Pagination page={listF.page} pageSize={PAGE_SIZE} total={listF.data?.total ?? 0}
                     shown={shown.length} onPage={listF.setPage} />
                 )}

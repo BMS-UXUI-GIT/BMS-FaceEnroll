@@ -3,6 +3,7 @@ import { TEXT } from '../typography'
 import { useApp } from '../state'
 import { Button } from './inputs/Button'
 import { SearchSelect } from './SearchSelect'
+import { NotificationMenu } from './NotificationMenu'
 import { asset } from '../assets'
 
 // แถบบนสุด — Figma node 227:6401 ("Group 18")
@@ -147,9 +148,7 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-3)', flex: 'none' }}>
       <HospitalSelect />
 
-      {/* r-lg เท่าการ์ดเลือกโรง/การ์ดโปรไฟล์ — มุมของทุกอย่างบน header ต้องเท่ากัน */}
-      <Button title="การแจ้งเตือน" variant="accent-soft" size="sm" radius="lg"
-        icon={<Icon name="bell" size={20} width={1.8} />} />
+      <NotificationMenu />
       </span>
 
     </header>
