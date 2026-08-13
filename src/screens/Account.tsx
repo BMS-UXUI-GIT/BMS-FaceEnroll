@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { HeroCard } from '../components/layout/PageHeader'
 import { api } from '../api'
 import { toast } from '../components/dialog'
 import { ROLE_TH, useApp } from '../state'
@@ -95,7 +96,7 @@ export function Account() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <HeroCard>
         <span aria-hidden className="hide-sm hero-rise" style={{ position: 'absolute', right: 24, bottom: -150, lineHeight: 0 }}>
           <HospitalArt width={300} />
         </span>
@@ -126,7 +127,7 @@ export function Account() {
             </span>
           </div>
         </div>
-      </div>
+      </HeroCard>
 
       <div className="grid gap-4 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
         <div className="flex flex-col gap-4">

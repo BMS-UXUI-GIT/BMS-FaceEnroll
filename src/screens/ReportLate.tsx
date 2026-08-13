@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { clock, nf, useFetch } from '../hooks'
 import { filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
@@ -241,25 +243,23 @@ export function ReportLate() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="รายงานสถิติการเข้า - ออกงาน"
+        desc="ติดตามพนักงานที่มาสายหรือออกก่อนเวลาที่กำหนด"
+        art={<>
         {/* ภาพประกอบ (Figma node 114:33516) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
         <img src={asset("/hero-late.svg")} alt="" aria-hidden width={356} height={232}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 0, bottom: 0 }} />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">รายงานสถิติการเข้า - ออกงาน</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ติดตามพนักงานที่มาสายหรือออกก่อนเวลาที่กำหนด
-            </p>
-          </div>
+        </>}
+        actions={<>
           {/* Figma หน้านี้ไม่มีปุ่มรีเฟรช แต่หน้ารายงานอื่นมีทุกหน้า — คงไว้ให้ใช้งานเหมือนกัน */}
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรช
           </Button>
-        </div>
+        </>}
+      >
 
         {/* การ์ดสรุป 2 ใบ (Figma: ไอคอนซ้าย ข้อความขวา) */}
         <div className="relative mt-4 flex gap-4 flex-wrap stat-grid">
@@ -280,9 +280,9 @@ export function ReportLate() {
           <Icon name="info" size={20} width={1.8} color="var(--accent)" />
           เกณฑ์: สาย = ลงเวลาเข้าหลังเวลาเริ่มเวร · ออกก่อน = ลงเวลาออกก่อนเวลาเลิกเวร
         </div>
-      </div>
+      </PageHeader>
 
-      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
       {/* ---------- ค้นหา + ตัวกรอง (แถวเดียวกัน เหนือแผงรายชื่อ) ---------- */}
       <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0)}

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { HeroCard, PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { clock, nf, useFetch, useServerPage } from '../hooks'
 import { daysAgoISO, filterQS, localISO, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { DatePicker, MonthRangePicker, TH_M, thShort } from '../components/DatePicker'
@@ -14,6 +16,7 @@ import { SearchInput } from '../components/inputs/SearchInput'
 import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Avatar } from '../components/data-display/Avatar'
+import { ContactPill, Field } from '../components/data-display/Field'
 import { StatCard } from '../components/data-display/StatCard'
 import { ShiftBadge, shiftKindOf } from '../components/data-display/ShiftBadge'
 import { StatusBadge } from '../components/data-display/StatusBadge'
@@ -82,36 +85,6 @@ function DayStatus({ r }: { r: { late: boolean; early: boolean; no_out: boolean;
   ].filter(Boolean)
   if (on.length === 0) return <StatusBadge status="ontime" />
   return <span style={{ display: 'inline-flex', gap: 'var(--sp-1)', flexWrap: 'wrap' }}>{on}</span>
-}
-
-/** ข้อมูล 1 ช่องในการ์ดโปรไฟล์ (ป้ายกำกับเล็ก + ค่าตัวหนา) */
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{label}</div>
-      <div style={{ ...TEXT.bodyMed, color: 'var(--text)', fontFamily: mono ? 'var(--mono)' : undefined, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
-    </div>
-  )
-}
-
-/** ป้ายติดต่อ (อีเมล/เบอร์โทร) — Figma: พื้น surface-blue · r-xl · padding 4/12 · ไอคอน 14 + ข้อความ 12 สี accent */
-function ContactPill({ icon, text }: { icon: string; text: string }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)',
-      padding: 'var(--sp-1) var(--sp-3)',
-      borderRadius: 'var(--r-xl)', background: 'var(--surface-blue)',
-      ...TEXT.sm, color: 'var(--accent)', whiteSpace: 'nowrap',
-    }}>
-      <span aria-hidden style={{
-        width: 26, height: 26, flex: 'none',
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <Icon name={icon} size={14} width={1.8} />
-      </span>
-      {text}
-    </span>
-  )
 }
 
 const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -333,26 +306,24 @@ export function ReportPerson() {
     return (
       <div className="max-w-[var(--page-max)] flex flex-col gap-4">
         {/* ---------- การ์ดหัวเรื่อง ---------- */}
-        <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+        <PageHeader
+          title="รายชื่อพนักงาน"
+          desc="จัดการข้อมูลพนักงาน ตรวจสอบสถานะการลงเวลา และดูรายงานสรุปประจำวัน"
+          art={<>
           {/* ภาพประกอบทีมพนักงาน (Figma node I66:18673;66:18975) — 309x297
               Figma วางที่ x 773 บนการ์ดกว้าง 1098 = ห่างขอบขวา 16 (ยึดขวาไว้ให้การ์ดยืดได้)
               การ์ดสูง 195 ส่วนที่เกินถูก crop ด้วย overflow-hidden ตามดีไซน์ */}
           <img src={asset("/hero-person.svg")} alt="" aria-hidden width={309} height={297}
             className="hide-sm pointer-events-none select-none"
             style={{ position: 'absolute', right: 16, top: 24 }} />
-
-          <div className="relative flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-h2 m-0 text-text">รายชื่อพนักงาน</h1>
-              <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-                จัดการข้อมูลพนักงาน ตรวจสอบสถานะการลงเวลา และดูรายงานสรุปประจำวัน
-              </p>
-            </div>
+          </>}
+          actions={<>
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={listF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
-          </div>
+          </>}
+        >
 
           {/* Figma: การ์ดเดียว กว้าง 360 (ไอคอนซ้าย ข้อความขวา) */}
           <div className="relative mt-4 max-w-90 stat-grid">
@@ -360,7 +331,7 @@ export function ReportPerson() {
               icon={<Icon name="person" size={24} color="currentColor" />}
               value={listF.data ? nf(listF.data.count) : listF.loading ? '…' : '—'} />
           </div>
-        </div>
+        </PageHeader>
 
         {/* ---------- ค้นหา + กรองวันที่ / เวร / แผนก ---------- */}
         <FilterBar activeCount={(date !== today ? 1 : 0) + (fShifts.length ? 1 : 0) + (fDepts.length ? 1 : 0)}
@@ -483,7 +454,7 @@ export function ReportPerson() {
 
       {/* ---------- การ์ดที่ 1 (Figma Frame 92) — พื้นไล่สีฟ้า ข้างในเป็นการ์ดขาวย่อย ----------
           ปุ่มย้อนกลับ · การ์ดโปรไฟล์ 672 · การ์ดสรุป 4 ใบ (173x84) ห่างกัน 16 */}
-      <div ref={heroRef} className="relative overflow-hidden rounded-xl" style={{ padding: 'var(--sp-6)', background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <HeroCard cardRef={heroRef}>
         <Button variant="outline-accent" size="xs" radius="lg" onClick={() => setSel(null)}
           icon={<Icon name="chevron-left" size={20} width={2} />}>
           ย้อนกลับ
@@ -524,9 +495,9 @@ export function ReportPerson() {
             ))}
           </div>
         </div>
-      </div>
+      </HeroCard>
 
-      {histF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {histF.err}</div>}
+      {histF.err && <ErrorBox>ผิดพลาด: {histF.err}</ErrorBox>}
 
       {/* ---------- การ์ดที่ 2: ประวัติเข้า-ออกงาน (Figma Group 19) ---------- */}
       <SectionPanel

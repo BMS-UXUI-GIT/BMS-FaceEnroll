@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { api } from '../api'
 import { nf } from '../hooks'
 import { useApp } from '../state'
@@ -93,22 +95,20 @@ export function SystemAudit() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="ประวัติการจัดการ"
+        desc={<>บันทึกทุกการกระทำของผู้ดูแล — ใครทำอะไร กับใคร เมื่อไร
+              {currentHcode !== '*' ? ` · เฉพาะโรงพยาบาล ${currentHcode}` : ' · ทุกโรงพยาบาล'}</>}
+        art={<>
         <HeroArt icon="clock" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">ประวัติการจัดการ</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              บันทึกทุกการกระทำของผู้ดูแล — ใครทำอะไร กับใคร เมื่อไร
-              {currentHcode !== '*' ? ` · เฉพาะโรงพยาบาล ${currentHcode}` : ' · ทุกโรงพยาบาล'}
-            </p>
-          </div>
+        </>}
+        actions={<>
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
-        </div>
+        </>}
+      >
 
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           <StatCard tone="accent" label="รายการทั้งหมด" unit="รายการ"
@@ -118,9 +118,9 @@ export function SystemAudit() {
             icon={<Icon name="clock" size={24} color="currentColor" />}
             value={audit ? nf(audit.length) : '…'} />
         </div>
-      </div>
+      </PageHeader>
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
       <FilterBar activeCount={(actor ? 1 : 0) + (action ? 1 : 0) + (from || to ? 1 : 0)}

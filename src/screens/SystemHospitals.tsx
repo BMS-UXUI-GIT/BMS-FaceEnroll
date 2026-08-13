@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Pagination } from '../components/data-display/Pagination'
 import { api } from '../api'
@@ -174,21 +176,19 @@ export function SystemHospitals() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="จัดการโรงพยาบาล"
+        desc="โรงที่เปิดใช้งานแล้ว · คลิกชื่อโรงเพื่อดูรายละเอียด ผู้ติดต่อ ผู้ใช้ และตั้งค่าความปลอดภัยรายโรง"
+        art={<>
         <HeroArt icon="hospital" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">จัดการโรงพยาบาล</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              โรงที่เปิดใช้งานแล้ว · คลิกชื่อโรงเพื่อดูรายละเอียด ผู้ติดต่อ ผู้ใช้ และตั้งค่าความปลอดภัยรายโรง
-            </p>
-          </div>
+        </>}
+        actions={<>
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={!tenants && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
-        </div>
+        </>}
+      >
 
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
@@ -197,9 +197,9 @@ export function SystemHospitals() {
               value={k.v != null ? nf(k.v) : '…'} />
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
       <FilterBar activeCount={(statusF !== 'all' ? 1 : 0)}

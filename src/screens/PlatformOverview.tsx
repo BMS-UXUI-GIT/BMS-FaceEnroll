@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { nf, useFetch } from '../hooks'
 import { SkelRows } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
@@ -333,7 +335,7 @@ export function PlatformPanels({ d, err }: { d?: Data | null; err?: string | nul
 
   return (
     <div className="flex flex-col gap-4">
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
         <div className="flex flex-col gap-4">
@@ -415,21 +417,18 @@ export function PlatformOverview() {
   const { data: d, err, loading } = usePlatformOverview(reload)
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">ภาพรวมระบบ</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              สถานะโรงพยาบาลทั้งหมดในระบบ · คำขอลงทะเบียน · โรงที่ต้องติดตาม
-            </p>
-          </div>
+      <PageHeader
+        title="ภาพรวมระบบ"
+        desc="สถานะโรงพยาบาลทั้งหมดในระบบ · คำขอลงทะเบียน · โรงที่ต้องติดตาม"
+        actions={<>
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรช
           </Button>
-        </div>
+        </>}
+      >
         <div className="relative mt-4"><PlatformStats d={d} loading={loading} /></div>
-      </div>
+      </PageHeader>
       <PlatformPanels d={d} err={err} />
     </div>
   )

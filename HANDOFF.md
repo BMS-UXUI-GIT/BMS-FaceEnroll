@@ -162,3 +162,33 @@ npm run build      # tsc -b + vite build ต้องผ่านก่อน co
 - **`BottomSheet` ต้อง render ผ่าน portal ไป `<body>`** — การ์ดหน้า/แท็บมี `transform` (อนิเมชัน `.page-in`/`.tab-in`) ซึ่งทำให้ `position: fixed` ยึดกับกล่องนั้นแทนทั้งจอ (เคยพลาดมาแล้ว: แผงโผล่อยู่ในตาราง)
 - นับชิปด้วย `countChips()` ซึ่ง**แผ่ Fragment ก่อนนับ** — หน้าจอส่วนใหญ่ส่งชิปมาเป็น `<>…</>` ก้อนเดียว ถ้านับตรง ๆ จะได้ 1 เสมอ
 - เทียบชนิด element ด้วย `c.type === FilterChip` ห้ามเทียบจากชื่อ component (ถูกย่อตอน build)
+
+
+## 8. ระบบดีไซน์ (Design System)
+
+หน้า **ระบบดีไซน์** (เมนู "อื่น ๆ" ท้าย Sidebar หรือ ⌘K > "ระบบดีไซน์" · `src/screens/DesignSystem.tsx`)
+**เป็นเครื่องมือของนักพัฒนา ไม่ใช่หน้าใช้งานจริง** — เห็นเฉพาะตอน `npm run dev` เท่านั้น (`DEV_TOOLS` ใน `mock.ts`)
+ทุก build รวมเว็บ demo: ไม่มีเมนู · `allowed()` บล็อก nav · และ `vite.config.ts` สลับ import ไปที่ `DesignSystem.stub.tsx`
+จึงไม่มีโค้ดแคตตาล็อกติดไปกับ bundle เลย (ตรวจแล้ว: `dist/` มีแต่ `DesignSystem.stub-*.js`)
+คือแคตตาล็อกของทุกอย่างที่ประกอบหน้าจอ — 3 แท็บ:
+
+1. **Token** — สี (7 กลุ่ม) · type scale · spacing · radius · elevation — อ่านค่าจาก `theme.css` ตรง ๆ ไม่ใช่ค่าที่พิมพ์ซ้ำ
+2. **Component** — ทุกตัวใน `src/components` พร้อม variant ที่ใช้งานจริง (กดเล่นได้ ไม่ยิง API)
+3. **ไอคอน** — ทั้งชุด (Tabler) ค้นชื่อได้ · รายการมาจาก `ICON_NAMES` ใน `icons.tsx`
+
+**กติกา: เพิ่ม/แก้ component ใหม่ ต้องมาเพิ่มตัวอย่างในหน้านี้ด้วย** ไม่งั้นแคตตาล็อกจะไม่ตรงของจริง
+
+### 8.1 component กลางที่ต้องใช้ (ห้ามเขียนซ้ำในหน้าจอ)
+
+| ต้องการ | ใช้ | เดิมเคยก๊อปซ้ำ |
+|---|---|---|
+| การ์ดหัวเรื่องหน้า | `<PageHeader title desc actions art>` | 19 หน้า |
+| การ์ดหัวเรื่องทรงพิเศษ (แท็บ/ปุ่มย้อนกลับแทนชื่อหน้า) | `<HeroCard>` | — |
+| สวิตช์เปิด/ปิด | `<Toggle on onClick>` (ไม่ส่ง onClick = อ่านอย่างเดียว) | 4 หน้า |
+| ป้ายกำกับ + ค่า | `<Field label value mono wrap>` | 2 หน้า |
+| ป้ายอีเมล/เบอร์โทร | `<ContactPill icon text>` | 2 หน้า |
+| แถบแดงบอกข้อผิดพลาด | `<ErrorBox prefix>` | 18 จุด |
+| ที่ว่างตอนไม่มีข้อมูล | `<EmptyState text icon compact>` | หลายหน้า |
+| แถบตัวกรอง (ค้นหา + ชิป) | `<FilterBar search>` | — |
+
+ลบทิ้งแล้ว: `RefreshButton.tsx` (ไม่มีใครเรียก — ปุ่มรีเฟรชจริงใช้ `<Button className="btn-refresh">`)

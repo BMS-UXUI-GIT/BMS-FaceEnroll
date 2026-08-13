@@ -19,6 +19,11 @@ import type { Role, Session } from './state'
 const DEMO = import.meta.env.VITE_DEMO === '1'
 export const MOCK = (import.meta.env.DEV && import.meta.env.VITE_MOCK === '1') || DEMO
 
+// เครื่องมือของนักพัฒนา (หน้าระบบดีไซน์) — โผล่เฉพาะตอนรัน dev ในเครื่องเท่านั้น
+// ทุก build (รวมเว็บ demo) = false -> ไม่มีเมนู ไม่มี route ไม่โผล่ในค้นหาทั้งระบบ
+// และ vite.config.ts สลับ import ไปที่ไฟล์ stub ตอน build โค้ดจึงไม่ติดไปกับ bundle เลย
+export const DEV_TOOLS = import.meta.env.DEV
+
 const ROLES: Role[] = ['superadmin', 'bmsadmin', 'admin', 'user']
 
 // โรงพยาบาลตัวอย่าง — ส่วนกลางเห็นหลายโรง, admin/user ถูกปักไว้โรงเดียว

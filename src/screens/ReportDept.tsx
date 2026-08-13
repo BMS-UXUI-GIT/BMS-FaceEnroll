@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
 import { nf, useFetch } from '../hooks'
 import { daysAgoISO, localISO, selLabel, toggle } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
@@ -6,6 +7,7 @@ import { Donut, PercentBars } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
 import { SectionPanel } from '../components/layout/SectionPanel'
+import { EmptyState, ErrorBox } from '../components/feedback/Message'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
@@ -114,19 +116,16 @@ export function ReportDept() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง (Figma Frame 93) ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="รายแผนก"
+        desc="ดูสถิติและเปรียบเทียบข้อมูลการเข้า-ออกงานของแต่ละแผนก"
+        art={<>
         {/* ภาพประกอบทีมแพทย์ (Figma image 10) — 328x328 ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
         <img src={asset("/hero-dept.png")} alt="" aria-hidden width={328} height={328}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 8, top: 0 }} />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">รายแผนก</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ดูสถิติและเปรียบเทียบข้อมูลการเข้า-ออกงานของแต่ละแผนก
-            </p>
-          </div>
+        </>}
+        actions={<>
           <span className="inline-flex gap-2 items-center flex-wrap">
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
@@ -137,7 +136,8 @@ export function ReportDept() {
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
             </FilterChip>
           </span>
-        </div>
+        </>}
+      >
 
         {/* การ์ดสรุป 5 ใบ (Figma 130x142 · เรียงแถวเดียว ห่าง 8) */}
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
@@ -147,9 +147,9 @@ export function ReportDept() {
               value={k.v != null ? nf(k.v) : anaF.loading ? '…' : '—'} />
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
       {/* ---------- 2 แผงกราฟ (Figma Frame 117) ---------- */}
       <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
@@ -157,7 +157,7 @@ export function ReportDept() {
           {!ana && !anaF.err
             ? <Loading />
             : depts.length === 0
-              ? <Empty />
+              ? <EmptyState text="ไม่มีข้อมูลในช่วงที่เลือก" />
               : <PercentBars fit colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
         </SectionPanel>
 
@@ -165,7 +165,7 @@ export function ReportDept() {
           {!ana && !anaF.err
             ? <Loading />
             : lateSegs.length === 0
-              ? <Empty text="ไม่มีการมาสายในช่วงที่เลือก" />
+              ? <EmptyState text="ไม่มีการมาสายในช่วงที่เลือก" />
               // เลือกแผนกไว้น้อย = legend สั้น เหลือที่ว่างเยอะ → ขยายวงโดนัทแล้วจัดกึ่งกลางแทน
               : <Donut stretch segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} คน`}
                   size={lateSegs.length <= 3 ? 260 : lateSegs.length <= 6 ? 230 : 200} />}
@@ -197,6 +197,3 @@ export function ReportDept() {
   )
 }
 
-function Empty({ text = 'ไม่มีข้อมูลในช่วงที่เลือก' }: { text?: string }) {
-  return <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>{text}</div>
-}

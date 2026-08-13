@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { HeroCard } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { clock, nf, useFetch, useMedia } from '../hooks'
 import { daysAgoISO, filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
@@ -252,7 +254,7 @@ export function Overview() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง: แท็บ + ชิป + ตัวเลขสรุป ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <HeroCard>
         {/* ภาพประกอบ — เฉพาะแท็บ "ล่าสุด" (แท็บภาพรวมระบบเป็นการ์ดตัวเลขล้วน ไม่ใส่ภาพ)
             ยังไม่เลือกโรง = ยังไม่มีข้อมูล → ภาพเป็นขาวดำจาง ๆ สื่อว่ายัง "ไม่ปลดล็อก" */}
         {tab === 'recent' && <img src={asset('/hero-scan.svg')} alt="" aria-hidden
@@ -359,11 +361,11 @@ export function Overview() {
         </div>
         )}
         </div>
-      </div>
+      </HeroCard>
 
       {demoBanner}
 
-      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
       {/* มือถือ: แท็บของหน้าหลักกลายเป็นแถบล่างจอ (ติดขอบล่าง เลี่ยง safe-area ของ iOS) */}
       {compactTabs && (

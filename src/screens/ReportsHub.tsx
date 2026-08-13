@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
 import { nf, useFetch } from '../hooks'
 import { PAGE_SIZE, usePaged } from '../components/Pager'
 import { filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
@@ -240,19 +241,16 @@ export function ReportsHub() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="รายงาน"
+        desc="สร้างรายงานและส่งออกข้อมูลสำหรับการวิเคราะห์"
+        art={<>
         {/* ภาพประกอบส่งออกไฟล์ (Figma node 114:36843) */}
         <img src={asset("/hero-report.svg")} alt="" aria-hidden width={230} height={230}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 8, bottom: -12 }} />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">รายงาน</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              สร้างรายงานและส่งออกข้อมูลสำหรับการวิเคราะห์
-            </p>
-          </div>
+        </>}
+        actions={<>
           <span className="inline-flex gap-2 items-center flex-wrap">
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
@@ -282,14 +280,15 @@ export function ReportsHub() {
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
             </FilterChip>
           </span>
-        </div>
+        </>}
+      >
 
         <div className="relative mt-4 max-w-90 stat-grid">
           <StatCard tone="accent" layout="row" label="เทมเพลต" unit="ไฟล์"
             icon={<Icon name="report" size={24} color="currentColor" />}
             value={nf(REPORTS.length)} />
         </div>
-      </div>
+      </PageHeader>
 
       {/* ---------- เทมเพลต + ตัวอย่างรายงาน ---------- */}
       <SectionPanel

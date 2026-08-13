@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { HeroCard } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { ROLE_TH } from '../state'
 import { thDate, thDateTime, nf } from '../hooks'
 import { DataTable } from '../components/data-display/DataTable'
 import { StatCard } from '../components/data-display/StatCard'
+import { ContactPill, Field } from '../components/data-display/Field'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { Skel } from '../components/Skeleton'
 import { SearchSelect } from '../components/SearchSelect'
@@ -10,6 +13,7 @@ import { NewUserModal } from '../components/NewUserModal'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Button } from '../components/inputs/Button'
 import { Icon } from '../icons'
+import { Toggle } from '../components/inputs/Toggle'
 import { TEXT } from '../typography'
 import { dialog, toast } from '../components/dialog'
 import { api } from '../api'
@@ -54,46 +58,6 @@ const TABS: [ 'settings' | 'users' | 'note' | 'audit', string, string ][] = [
 ]
 
 /** ช่องข้อมูล 1 ค่า (ป้ายเล็กบน · ค่าใหญ่ล่าง) — ชุดเดียวกับหน้ารายละเอียดพนักงาน */
-function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{label}</div>
-      <div style={{ ...TEXT.bodyMed, color: 'var(--text)', fontFamily: mono ? 'var(--mono)' : undefined, wordBreak: 'break-word' }}>
-        {value || '—'}
-      </div>
-    </div>
-  )
-}
-
-/** สวิตช์เปิด/ปิด — ชุดเดียวกับหน้าตั้งค่าแอปสแกน */
-function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} onClick={onClick} disabled={disabled} style={{
-      width: 44, height: 24, borderRadius: 'var(--r-full)', border: 'none', flex: 'none', position: 'relative',
-      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1,
-      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s',
-    }}>
-      <span style={{
-        position: 'absolute', top: 3, left: on ? 23 : 3, width: 18, height: 18, borderRadius: 'var(--r-full)',
-        background: 'var(--bg)', boxShadow: 'var(--shadow)', transition: 'left .15s',
-      }} />
-    </button>
-  )
-}
-
-/** ป้ายติดต่อ (อีเมล/เบอร์โทร) */
-function ContactPill({ icon, text }: { icon: string; text: string }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
-      padding: 'var(--sp-1) var(--sp-3)', borderRadius: 'var(--r-xl)',
-      background: 'var(--surface-blue)', ...TEXT.sm, color: 'var(--accent)', whiteSpace: 'nowrap',
-    }}>
-      <Icon name={icon} size={16} width={1.8} />{text}
-    </span>
-  )
-}
-
 /** แถวตั้งค่า 1 ข้อ — ป้าย/คำอธิบายซ้าย · ตัวควบคุมขวา (ทรงเดียวกับหน้าตั้งค่าแอปสแกน) */
 function FlagRow({ label, sub, override, onReset, busy, children }: {
   label: string; sub?: string; override?: boolean; onReset?: () => void; busy?: boolean; children: React.ReactNode
@@ -272,7 +236,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
       </div>
 
       {/* ---------- การ์ดหัวเรื่อง: ย้อนกลับ + ข้อมูลโรง + ตัวเลขการใช้งาน ---------- */}
-      <div ref={heroRef} className="relative overflow-hidden rounded-xl" style={{ padding: 'var(--sp-6)', background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <HeroCard cardRef={heroRef}>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline-accent" size="xs" radius="lg" onClick={onClose}
             icon={<Icon name="chevron-left" size={20} width={2} />}>
@@ -332,9 +296,9 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
             ))}
           </div>
         </div>
-      </div>
+      </HeroCard>
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- แท็บ (ชุดเดียวกับหน้าหลัก) + ปุ่มสั่งงานของแท็บตั้งค่า ---------- */}
       {/* ค้างไว้ใต้ header ตอนเลื่อน — top วัดจากขอบบนของ main (header เป็นเลเยอร์ลอยทับ) */}

@@ -12,9 +12,18 @@ import pkg from './package.json'   // เลข version มาจากที่
 declare const process: { env: Record<string, string | undefined> }
 const base = process.env.BASE_PATH || '/'
 
-export default defineConfig({
+// หน้าระบบดีไซน์ (แคตตาล็อก component) = เครื่องมือของนักพัฒนา เห็นเฉพาะตอน `npm run dev`
+// ทุก build (รวมเว็บ demo) สลับไปใช้ไฟล์ stub ที่ว่างเปล่า -> โค้ดไม่ติดไปกับ bundle เลย
+
+export default defineConfig(({ command }) => ({
   base,
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: command === 'build'
+      // ต้อง match ทั้ง specifier (ไม่ใช่แค่ส่วนท้าย) ไม่งั้น './' เดิมจะไปต่อหน้า path เต็ม
+      ? [{ find: './screens/DesignSystem', replacement: new URL('./src/screens/DesignSystem.stub.tsx', import.meta.url).pathname }]
+      : [],
+  },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   server: { port: 5273 },
-})
+}))

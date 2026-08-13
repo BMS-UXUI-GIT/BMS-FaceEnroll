@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { ROLE_TH, useApp } from '../state'
 import { nf } from '../hooks'
 import { Icon } from '../icons'
+import { Toggle } from '../components/inputs/Toggle'
 import { Info } from '../components/Info'
 import { api } from '../api'
 import { dialog, toast } from '../components/dialog'
@@ -60,22 +63,6 @@ function ActionPill({ label, tone = 'plain', disabled, onClick }: {
   )
 }
 
-/** สวิตช์เปิด/ปิด — ชุดเดียวกับหน้าตั้งค่าแอปสแกน */
-function Toggle({ on, disabled }: { on: boolean; disabled?: boolean }) {
-  return (
-    <span aria-hidden style={{
-      width: 44, height: 24, borderRadius: 'var(--r-full)', flex: 'none', position: 'relative',
-      opacity: disabled ? 0.6 : 1,
-      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s',
-    }}>
-      <span style={{
-        position: 'absolute', top: 3, left: on ? 23 : 3, width: 18, height: 18, borderRadius: 'var(--r-full)',
-        background: 'var(--bg)', boxShadow: 'var(--shadow)', transition: 'left .15s',
-      }} />
-    </span>
-  )
-}
-
 // แถวสิทธิ์ 1 กลุ่มเมนู — ไอคอน → ชื่อเมนู → สวิตช์ (สิทธิ์ระดับระบบใช้โทนส้ม)
 function PermCard({ tab, on, busy, onClick }: { tab: string; on: boolean; busy: boolean; onClick: () => void }) {
   const info = TAB_INFO[tab] ?? { name: tab, tip: tab, icon: 'info' }
@@ -102,7 +89,6 @@ function PermCard({ tab, on, busy, onClick }: { tab: string; on: boolean; busy: 
     </button>
   )
 }
-
 
 // แท็บใน popup จัดการสิทธิ์
 const PERM_TABS: ['scope' | 'perms' | 'account', string][] = [
@@ -467,23 +453,21 @@ export function Users({ me }: { me: string }) {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="ผู้ใช้และสิทธิ์"
+        desc="สร้างบัญชี ตั้งบทบาท และเลือกกลุ่มเมนูที่เห็นได้รายคน (Super Admin เห็นครบเสมอ)"
+        art={<>
         <HeroArt icon="people" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">ผู้ใช้และสิทธิ์</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              สร้างบัญชี ตั้งบทบาท และเลือกกลุ่มเมนูที่เห็นได้รายคน (Super Admin เห็นครบเสมอ)
-            </p>
-          </div>
+        </>}
+        actions={<>
           <div className="flex gap-2 items-center flex-wrap">
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={!data && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
           </div>
-        </div>
+        </>}
+      >
 
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
@@ -492,9 +476,9 @@ export function Users({ me }: { me: string }) {
               value={k.v != null ? nf(k.v) : '…'} />
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      {err && !showNew && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && !showNew && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- แถวตัวกรอง ---------- */}
       <FilterBar activeCount={(hf ? 1 : 0)}
@@ -519,7 +503,6 @@ export function Users({ me }: { me: string }) {
             เพิ่มผู้ใช้
           </Button>
         }>
-
 
       {!data ? <SkelRows rows={6} /> : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>

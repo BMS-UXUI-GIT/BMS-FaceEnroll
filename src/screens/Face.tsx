@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { api } from '../api'
 import { dialog, toast } from '../components/dialog'
 import { nf, useFetch, useServerPage } from '../hooks'
@@ -155,7 +157,10 @@ export function Face() {
   return (
     <div className="max-w-[var(--page-max)] flex flex-col gap-4">
       {/* ---------- หัวเรื่อง + ตัวเลขสรุป (Figma 284:3189 — การ์ดสูง 245) ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="ลงทะเบียนใบหน้า"
+        desc="ตรวจสอบการลงทะเบียนใบหน้าของพนักงานทั้งหมด"
+        art={<>
         {/* ภาพประกอบพยาบาล (Figma node 220:5938) — 256x256 ชิดขวา 24
             เยื้องลงนอกการ์ด 64 แล้วถูก crop ด้วย overflow-hidden ของการ์ดตามดีไซน์ */}
         <img src={asset("/hero-face.svg")} alt="" aria-hidden width={256} height={256}
@@ -163,19 +168,15 @@ export function Face() {
           style={{ position: 'absolute', right: 'var(--sp-6)', bottom: -64 }} />
 
         {/* Figma: บล็อกซ้ายกว้าง 760 คงที่ — ที่เหลือด้านขวาเว้นไว้ให้ภาพประกอบ */}
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">ลงทะเบียนใบหน้า</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ตรวจสอบการลงทะเบียนใบหน้าของพนักงานทั้งหมด
-            </p>
-          </div>
+        </>}
+        actions={<>
           {/* Figma: ปุ่มแคปซูล 140x48 พื้นเทาอ่อน + ไอคอน rotate — ชุดเดียวกับหน้าลงเวลา */}
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={busyLoad || stats.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
-        </div>
+        </>}
+      >
 
         {/* การ์ดตัวเลข 4 ใบ — Figma 178x80 ไอคอนซ้าย ข้อความขวา */}
         {/* 4 คอลัมน์กว้างเท่ากันเสมอ (minmax(0,1fr) — ไม่ให้การ์ดที่ข้อความยาวดันคอลัมน์ตัวเอง)
@@ -207,7 +208,7 @@ export function Face() {
             หากพนักงานลงทะเบียนจำนวนใบหน้าน้อยกว่า {MIN_FACES} รูป จะนับว่าลงทะเบียนใบหน้าไม่ครบ
           </span>
         </div>
-      </div>
+      </PageHeader>
 
       {/* ---------- แถบตัวกรอง ---------- */}
       <FilterBar
@@ -218,7 +219,7 @@ export function Face() {
           icon={<Icon name="mood-cog" size={14} width={2} />} label="ใบหน้าไม่ครบ" />
       </FilterBar>
 
-      {actErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {actErr}</div>}
+      {actErr && <ErrorBox>ผิดพลาด: {actErr}</ErrorBox>}
 
       {/* ---------- ตาราง ---------- */}
       <div className="bg-bg border border-control-border rounded-lg">

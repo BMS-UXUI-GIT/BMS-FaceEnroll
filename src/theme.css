@@ -491,9 +491,15 @@ body.no-page-scroll main { overflow: hidden !important; }
 }
 
 /* การ์ดสรุปแถวละ 4 ใบ (จอแคบลดเป็น 2 แล้ว 1) */
-/* หน้าคู่มือ: จอแคบ = สารบัญขึ้นบน เนื้อหาอยู่ล่าง (คอลัมน์เดียว) */
-@media (max-width: 760px) {
-  .help-grid { grid-template-columns: 1fr !important; }
+/* หน้าคู่มือแบบบทความ: จอแคบ = เหลือคอลัมน์เดียว (สารบัญถูกซ่อนด้วย .hide-sm อยู่แล้ว)
+   + ลดระยะขอบในการ์ดบทความ ให้บรรทัดยาวขึ้นบนจอเล็ก */
+@media (max-width: 1024px) {
+  .help-article-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 620px) {
+  .help-article { padding: var(--sp-5) var(--sp-4) var(--sp-8) !important; }
+  .help-article h1 { font-size: 24px !important; }
+  .help-article h2 { font-size: 19px !important; }
 }
 
 /* ตัวกรองในแผงล่างจอ (BottomSheet) — ชิปยืดเต็มความกว้าง เรียงลงเป็นรายการ

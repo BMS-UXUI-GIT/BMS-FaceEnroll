@@ -31,7 +31,9 @@ const MENUS: MenuEntry[] = [
   { nav: 'sys-users', label: 'ผู้ใช้และสิทธิ์', group: 'จัดการระบบ', icon: 'people', alias: 'user permission บัญชี สิทธิ์' },
   { nav: 'sys-audit', label: 'ประวัติการจัดการ (ทุกโรงพยาบาล)', group: 'จัดการระบบ', icon: 'clock', alias: 'audit log ประวัติ' },
   { nav: 'health', label: 'สถานะระบบ', group: 'จัดการระบบ', icon: 'health', alias: 'health status เซิร์ฟเวอร์' },
-  { nav: 'help', label: 'ช่วยเหลือ', group: 'อื่น ๆ', icon: 'info', alias: 'help คู่มือ วิธีใช้' },
+  { nav: 'help', label: 'คู่มือการใช้งาน', group: 'อื่น ๆ', icon: 'info', alias: 'help ช่วยเหลือ วิธีใช้' },
+  // ระบบดีไซน์ = เครื่องมือ dev — allowed() ใน App.tsx เป็นคนกันไม่ให้โผล่บน server จริง
+  { nav: 'design', label: 'ระบบดีไซน์', group: 'อื่น ๆ', icon: 'haze', alias: 'design system ui component token สี ไอคอน' },
 ]
 
 type Row =

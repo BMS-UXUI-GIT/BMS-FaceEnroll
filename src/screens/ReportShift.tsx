@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
 import { clock, nf, useFetch } from '../hooks'
 import { localISO } from '../components/AttFilters'
 import { MonthPicker, thMonth, thShort } from '../components/DatePicker'
@@ -6,6 +7,7 @@ import { DayTimeBars, Donut } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
 import { SectionPanel } from '../components/layout/SectionPanel'
+import { EmptyState, ErrorBox } from '../components/feedback/Message'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { StatCard } from '../components/data-display/StatCard'
@@ -94,19 +96,16 @@ export function ReportShift() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง (Figma Frame 128:3610) ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="รายเวร"
+        desc="ดูสถิติการเข้า-ออกงานแยกตามเวรการทำงาน"
+        art={<>
         {/* ภาพประกอบ 3 เวร (Figma node 114:30977) — ยึดขวา ส่วนที่เกินถูก crop ตามดีไซน์ */}
         <img src={asset("/hero-shift.svg")} alt="" aria-hidden width={397} height={251}
           className="hide-sm pointer-events-none select-none"
           style={{ position: 'absolute', right: 0, bottom: 0 }} />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">รายเวร</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ดูสถิติการเข้า-ออกงานแยกตามเวรการทำงาน
-            </p>
-          </div>
+        </>}
+        actions={<>
           <span className="inline-flex gap-2 items-center flex-wrap">
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
@@ -116,7 +115,8 @@ export function ReportShift() {
               <MonthPicker bare value={month} onChange={setMonth} max={localISO().slice(0, 7)} />
             </FilterChip>
           </span>
-        </div>
+        </>}
+      >
 
         {/* การ์ดสรุปเวรละใบ — ตัวเลขคือคนที่ลงเวลาในเวรนั้น + สัดส่วน */}
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
@@ -131,9 +131,9 @@ export function ReportShift() {
             </div>
           )}
         </div>
-      </div>
+      </PageHeader>
 
-      {anaF.err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {anaF.err}</div>}
+      {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
       {/* ---------- 2 แผงกราฟ ---------- */}
       <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
@@ -141,7 +141,7 @@ export function ReportShift() {
           {!ana && !anaF.err
             ? <Loading />
             : total === 0
-              ? <Empty />
+              ? <EmptyState text="ไม่มีข้อมูลในเดือนที่เลือก" />
               : (
                 /* เวรมีแค่ 2-3 กะ = legend สั้นมาก ถ้าปล่อยขนาดเดิมจะเหลือที่ว่างครึ่งการ์ด
                    -> ขยายวงตามจำนวนเวรแล้วจัดกึ่งกลางเต็มความสูง (แผงคู่กันสูงกว่า) */
@@ -187,6 +187,3 @@ export function ReportShift() {
   )
 }
 
-function Empty({ text = 'ไม่มีข้อมูลในเดือนที่เลือก' }: { text?: string }) {
-  return <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>{text}</div>
-}

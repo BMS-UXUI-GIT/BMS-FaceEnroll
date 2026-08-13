@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ErrorBox } from '../components/feedback/Message'
 import { useScreenZoom } from '../hooks'
 import { Icon } from '../icons'
 import { useApp } from '../state'
@@ -168,7 +169,7 @@ export function Login() {
   }, [splash])
 
   const errorBox = (msg: string) => (
-    <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">{msg}</div>
+    <ErrorBox>{msg}</ErrorBox>
   )
 
   return (

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { api } from '../api'
 import { nf, useServerPage } from '../hooks'
 import { daysAgoISO, filterQS, localISO, useAttFilterOptions } from '../components/AttFilters'
@@ -124,19 +126,16 @@ export function Attendance() {
       {/* ---------- การ์ดหัวเรื่อง + ตัวเลขสรุป ---------- */}
       {/* Figma: gradient handles (0.5,1) -> (0.5,0) = ไล่จากล่างขึ้นบน (#F0F6FD -> ขาว)
           จุดจบของการไล่สีดันลงมาที่ 65% ของความสูง — สีฟ้ากองอยู่ครึ่งล่าง ขาวยาวขึ้น */}
-      <div className="relative overflow-hidden rounded-xl p-6 bg-linear-to-t from-hero from-0% to-bg to-65%">
+      <PageHeader
+        title="การลงเวลาของพนักงาน"
+        desc="ตรวจสอบการลงเวลาของพนักงานทั้งหมด"
+        art={<>
         {/* ภาพประกอบ export จาก Figma (node I227:7677;227:9723) — 298x298 ชิดขวา
             ยึดจากขอบล่างแล้วเยื้องลงไปนอกการ์ด ส่วนที่เกินถูก crop ด้วย overflow:hidden */}
         <img src={asset("/hero-attendance.svg")} alt="" aria-hidden width={298} height={298}
           className="hide-sm absolute right-0 -bottom-24 pointer-events-none select-none" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">การลงเวลาของพนักงาน</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ตรวจสอบการลงเวลาของพนักงานทั้งหมด
-            </p>
-          </div>
+        </>}
+        actions={<>
           <div className="flex gap-2 flex-wrap">
             <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
               icon={<Icon name="recon" size={20} style={daily.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
@@ -149,7 +148,8 @@ export function Attendance() {
               {exporting ? 'กำลังส่งออก…' : 'ดาวโหลดไฟล์'}
             </Button>
           </div>
-        </div>
+        </>}
+      >
 
         <div className="relative grid gap-2 mt-4 max-w-190 grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] stat-grid">
           {SUMMARY.map((s) => (
@@ -158,7 +158,7 @@ export function Attendance() {
               value={daily.data ? nf((daily.data.summary as any)[s.key]) : daily.loading ? '…' : '—'} />
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       {/* ---------- แถบตัวกรอง (Figma node 227:7677) ---------- */}
       <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0) + (onlyIssue ? 1 : 0)}
@@ -186,7 +186,7 @@ export function Attendance() {
         )}
       </FilterBar>
 
-      {expErr && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ดาวน์โหลดไม่สำเร็จ: {expErr}</div>}
+      {expErr && <ErrorBox>ดาวน์โหลดไม่สำเร็จ: {expErr}</ErrorBox>}
 
       {/* ---------- ตาราง ---------- */}
       {/* Figma: การ์ดตาราง = พื้นขาว · ขอบ 1px #E5E7EB · r-lg (16) */}

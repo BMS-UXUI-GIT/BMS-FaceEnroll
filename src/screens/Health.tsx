@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { nf, useFetch } from '../hooks'
 import { PAGE_SIZE, usePaged } from '../components/Pager'
 import { DataTable, type Column } from '../components/data-display/DataTable'
@@ -156,7 +158,7 @@ export function HealthSummary({ d, err, loading, onReload, onOpen }: {
         </>
       }>
       {err
-        ? <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ตรวจสถานะระบบไม่สำเร็จ: {err}</div>
+        ? <ErrorBox>ตรวจสถานะระบบไม่สำเร็จ: {err}</ErrorBox>
         : <ServiceGrid d={d} />}
     </SectionPanel>
   )
@@ -185,29 +187,27 @@ export function Health() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="สถานะระบบ"
+        desc="ตรวจบริการหลักของระบบ และทดสอบเชื่อมต่อระบบของแต่ละโรงพยาบาลพร้อมกัน"
+        art={<>
         <HeroArt icon="health" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">สถานะระบบ</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              ตรวจบริการหลักของระบบ และทดสอบเชื่อมต่อระบบของแต่ละโรงพยาบาลพร้อมกัน
-            </p>
-          </div>
+        </>}
+        actions={<>
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             ตรวจใหม่อีกครั้ง
           </Button>
-        </div>
+        </>}
+      >
 
         {/* สรุปการเชื่อมต่อรายโรง */}
         <div className="relative mt-4 flex gap-2 flex-wrap">
           <HealthStats d={d} loading={loading} />
         </div>
-      </div>
+      </PageHeader>
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- บริการหลัก ---------- */}
       <SectionPanel title="บริการหลัก" meta={!d && !err ? 'กำลังตรวจทุกระบบ…' : undefined}>

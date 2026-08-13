@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { thDate } from '../hooks'
 import { api } from '../api'
 import { dialog, toast } from '../components/dialog'
@@ -51,21 +53,19 @@ export function SystemApprove() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="อนุมัติโรงพยาบาล"
+        desc="คิวคำขอจากฟอร์มลงทะเบียน · อนุมัติทดลองใช้ = เปิด 60 วันนับจากวันนี้ · ใช้งานจริง = เปิดถาวร"
+        art={<>
         <HeroArt icon="rosette-check" />
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">อนุมัติโรงพยาบาล</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              คิวคำขอจากฟอร์มลงทะเบียน · อนุมัติทดลองใช้ = เปิด 60 วันนับจากวันนี้ · ใช้งานจริง = เปิดถาวร
-            </p>
-          </div>
+        </>}
+        actions={<>
           <Button className="btn-refresh" variant="soft" size="lg" pill onClick={() => setReload((r) => r + 1)}
             icon={<Icon name="recon" size={20} style={!tenants && !err ? { animation: 'spin .7s linear infinite' } : undefined} />}>
             รีเฟรชข้อมูลล่าสุด
           </Button>
-        </div>
+        </>}
+      >
 
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
@@ -74,9 +74,9 @@ export function SystemApprove() {
               value={k.v != null ? nf(k.v) : '…'} />
           ))}
         </div>
-      </div>
+      </PageHeader>
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- คิวคำขอ ---------- */}
       <SectionPanel title="คำขอรออนุมัติ" meta={tenants ? `${pending.length} คำขอ` : undefined}>

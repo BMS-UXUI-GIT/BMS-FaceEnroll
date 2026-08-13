@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
+import { DEV_TOOLS } from '../../mock'
 import { Icon } from '../../icons'
 import { useApp, isCentral, type Nav } from '../../state'
 import { ProfileMenu } from '../ProfileMenu'
@@ -107,6 +108,10 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
             {has('health') && <NavItem id="health" label="สถานะระบบ" icon="health" />}
           </>
         )}
+        <SectionHeader>อื่น ๆ</SectionHeader>
+        <NavItem id="help" label="คู่มือการใช้งาน" icon="info" />
+        {/* แคตตาล็อก component/token — เครื่องมือของนักพัฒนา ไม่โผล่บน server จริง */}
+        {DEV_TOOLS && <NavItem id="design" label="ระบบดีไซน์" icon="haze" />}
       </nav>
 
       {/* การ์ดโปรไฟล์ — ลอยทับท้ายแถบเมนูจริง ๆ (absolute) เมนูที่เหลือจึงโผล่ลอดข้างหลังให้เห็น */}

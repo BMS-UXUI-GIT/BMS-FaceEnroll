@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { ErrorBox } from '../components/feedback/Message'
 import { api } from '../api'
 import { dialog } from '../components/dialog'
 import { LocationModal, type GeoLoc } from '../components/LocationModal'
@@ -10,6 +12,7 @@ import { SearchSelect } from '../components/SearchSelect'
 import { Skel } from '../components/Skeleton'
 import { Button } from '../components/inputs/Button'
 import { Icon } from '../icons'
+import { Toggle } from '../components/inputs/Toggle'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
 
@@ -20,22 +23,6 @@ import { useApp } from '../state'
 // เพิ่ม/แก้/ลบจุด = บันทึกทันที (เป็นการกระทำที่ผู้ใช้ยืนยันเองอยู่แล้ว ไม่ต้องมีปุ่มบันทึกซ้ำ)
 
 type Pol = Record<string, any>
-
-/** สวิตช์เปิด/ปิด — ชุดเดียวกับหน้าตั้งค่าแอปสแกน */
-function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} onClick={onClick} disabled={disabled} style={{
-      width: 44, height: 24, borderRadius: 'var(--r-full)', border: 'none', flex: 'none', position: 'relative',
-      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.6 : 1,
-      background: on ? 'var(--ok)' : 'var(--surface-gray)', transition: 'background .15s',
-    }}>
-      <span style={{
-        position: 'absolute', top: 3, left: on ? 23 : 3, width: 18, height: 18, borderRadius: 'var(--r-full)',
-        background: 'var(--bg)', boxShadow: 'var(--shadow)', transition: 'left .15s',
-      }} />
-    </button>
-  )
-}
 
 /** หัวแผงพร้อมไอคอนในกล่องสี (ชุดเดียวกับหน้าตั้งค่าแอปสแกน) */
 function PanelTitle({ icon, title }: { icon: string; title: string }) {
@@ -123,40 +110,16 @@ export function Locations() {
   return (
     <div className="max-w-(--page-max) flex flex-col gap-4">
       {/* ---------- การ์ดหัวเรื่อง ---------- */}
-      <div className="relative overflow-hidden rounded-xl p-6" style={{ background: 'linear-gradient(to top, var(--surface-blue), var(--bg) 65%)' }}>
+      <PageHeader
+        title="จุดลงเวลา"
+        desc={<>โรงพยาบาล {currentHcode} · พนักงานลงเวลาได้เฉพาะในรัศมีของจุดที่กำหนด</>}
+        art={<>
         {/* ภาพประกอบชุดเดียวกับหน้าเลือกโรงพยาบาล (ตึก + blob + หมุด) */}
         <span aria-hidden className="hide-sm hero-rise" style={{ position: 'absolute', right: 24, bottom: -150, lineHeight: 0 }}>
           <HospitalArt width={300} />
         </span>
-
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-h2 m-0 text-text">จุดลงเวลา</h1>
-            <p className="text-body mt-2 mb-0 text-[color-mix(in_srgb,var(--text-faint)_50%,transparent)]">
-              โรงพยาบาล {currentHcode} · พนักงานลงเวลาได้เฉพาะในรัศมีของจุดที่กำหนด
-            </p>
-            {canSwitch && (
-              <div className="mt-3">
-                {/* ทรงเดียวกับปุ่มหลัก — ตัวเลือกเด่นของหน้านี้ */}
-                <SearchSelect hideCaret value={currentHcode} onChange={setHcode} options={hospOpts}
-                  searchPlaceholder="ค้นชื่อ/รหัสโรงพยาบาล…"
-                  triggerStyle={{
-                    display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
-                    minHeight: 48, padding: 'var(--sp-2) var(--sp-4)', borderRadius: 'var(--r-full)',
-                    background: 'var(--accent-active)', color: 'var(--bg)', ...TEXT.bodyMed,
-                  }}
-                  renderTrigger={(sel) => (
-                    <>
-                      <Icon name="hospital" size={20} width={1.8} />
-                      <span style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {sel?.label ?? 'เลือกโรงพยาบาล'}
-                      </span>
-                      <Icon name="chevron-down" size={16} width={2} style={{ flex: 'none' }} />
-                    </>
-                  )} />
-              </div>
-            )}
-          </div>
+        </>}
+        actions={<>
           {readOnly && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
@@ -166,10 +129,12 @@ export function Locations() {
               <Icon name="eye" size={16} width={1.8} />ดูอย่างเดียว
             </span>
           )}
-        </div>
-      </div>
+        </>}
+      >
 
-      {err && <div className="text-body py-3 px-4 rounded-lg bg-danger-light text-danger">ผิดพลาด: {err}</div>}
+      </PageHeader>
+
+      {err && <ErrorBox>ผิดพลาด: {err}</ErrorBox>}
 
       {/* ---------- สวิตช์บังคับ GPS ---------- */}
       <SectionPanel title={<PanelTitle icon="map-pin" title="พื้นที่ลงเวลา" />}>

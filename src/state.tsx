@@ -12,7 +12,7 @@ export const ROLE_TH: Record<string, string> = {
 export type Nav =
   | 'overview' | 'face' | 'attendance' | 'settings' | 'locations' | 'health'
   | 'hosp-audit' | 'sys-approve' | 'sys-hospitals' | 'sys-users' | 'sys-audit'
-  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help' | 'account'
+  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help' | 'account' | 'design'
 export type Hospital = { value: string; label: string }
 
 // เมนูย่อย → แท็บสิทธิ์ (สิทธิ์คุมระดับแท็บหลัก 6 ตัวเหมือนเดิม — เมนูย่อยเกาะแท็บแม่)
@@ -26,6 +26,7 @@ export const NAV_TAB: Record<Nav, string> = {
   'rp-late': 'attendance', 'rp-reports': 'attendance',
   help: 'help', // ช่วยเหลือ — เปิดได้ทุกบทบาท (App override allowed ให้เสมอ)
   account: 'help', // จัดการบัญชีของตัวเอง — เปิดได้ทุกคนเช่นกัน
+  design: 'help',  // ระบบดีไซน์ (แคตตาล็อก component) — เปิดได้ทุกคน ไม่มีข้อมูลจริงในหน้านี้
 }
 
 export type Session = {

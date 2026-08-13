@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { DialogHost, ToastHost } from './components/dialog'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Sidebar } from './components/layout/Sidebar'
@@ -19,6 +19,7 @@ import { SystemAudit } from './screens/SystemAudit'
 import { Users } from './screens/Users'
 import { Help } from './screens/Help'
 import { Account } from './screens/Account'
+import { DEV_TOOLS } from './mock'
 import { useApp, isCentral, NAV_TAB, type Nav } from './state'
 import { SuperGate, isSuperUnlocked } from './components/SuperGate'
 import { CommandPalette } from './components/CommandPalette'
@@ -33,6 +34,10 @@ const NAV_ORDER: Nav[] = ['overview', 'face', 'attendance',
 
 // เมนูกลุ่ม "จัดการระบบ" — เข้าครั้งแรกของแต่ละ session ต้องกรอกรหัสผ่านยืนยันตัวตนก่อน
 const SUPER_NAVS: Nav[] = ['sys-approve', 'sys-hospitals', 'sys-users', 'sys-audit', 'health']
+
+// หน้าระบบดีไซน์เป็นเครื่องมือของนักพัฒนา — แยกเป็น chunk ต่างหาก
+// build ขึ้น server จริง (DEV_TOOLS = false) จะไม่มีทางไปถึงจุดที่ import มัน
+const DesignSystem = lazy(() => import('./screens/DesignSystem').then((m) => ({ default: m.DesignSystem })))
 
 // แถบเตือนเมื่อกำลังดู "โรงพยาบาลสาธิต" — กันสับสนว่าเป็นข้อมูลจริง
 function DemoBanner() {
@@ -83,7 +88,8 @@ export function App() {
   const tabs = session?.tabs ?? []
   const central = !!session && isCentral(session)
   const allowed = (n: Nav) =>
-    n === 'help' || n === 'account' // ช่วยเหลือ + จัดการบัญชี เปิดได้ทุกคน
+    n === 'help' || n === 'account'      // ช่วยเหลือ + จัดการบัญชี เปิดได้ทุกคน
+    || (n === 'design' && DEV_TOOLS)     // ระบบดีไซน์ = เครื่องมือ dev เท่านั้น (ไม่มีบน server จริง)
     || (n !== 'rp-reports' // หน้า "รายงาน" ซ่อนไว้ก่อน — กันคนที่ค้างอยู่หน้านี้ (nav เก็บใน storage)
       && (tabs.includes(NAV_TAB[n]) || (NAV_TAB[n] === 'users' && session?.role === 'superadmin'))
       && !(n === 'hosp-audit' && session?.role !== 'admin')
@@ -123,6 +129,7 @@ export function App() {
       case 'rp-reports': return <ReportsHub />
       case 'help': return <Help />
       case 'account': return <Account />
+      case 'design': return <Suspense fallback={null}><DesignSystem /></Suspense>
       default: return <Overview />
     }
   })()
