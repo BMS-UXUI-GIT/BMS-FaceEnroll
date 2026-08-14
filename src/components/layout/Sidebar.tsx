@@ -35,7 +35,7 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
   const [pending, setPending] = useState(0)
 
   const aside = (
-    <aside style={{
+    <aside className="app-sidebar" style={{
       position: mobile ? 'fixed' : 'relative',
       width: 'var(--sidebar-w)', flex: 'none',
       background: 'var(--bg)',
@@ -110,6 +110,7 @@ export function Sidebar({ mobile = false, open = false, onClose }: {
         )}
         <SectionHeader>อื่น ๆ</SectionHeader>
         <NavItem id="help" label="คู่มือการใช้งาน" icon="info" />
+        <NavItem id="display" label="การแสดงผล" icon="haze" />
         {/* แคตตาล็อก component/token — เครื่องมือของนักพัฒนา ไม่โผล่บน server จริง */}
         {DEV_TOOLS && <NavItem id="design" label="ระบบดีไซน์" icon="haze" />}
       </nav>

@@ -32,6 +32,7 @@ const MENUS: MenuEntry[] = [
   { nav: 'sys-audit', label: 'ประวัติการจัดการ (ทุกโรงพยาบาล)', group: 'จัดการระบบ', icon: 'clock', alias: 'audit log ประวัติ' },
   { nav: 'health', label: 'สถานะระบบ', group: 'จัดการระบบ', icon: 'health', alias: 'health status เซิร์ฟเวอร์' },
   { nav: 'help', label: 'คู่มือการใช้งาน', group: 'อื่น ๆ', icon: 'info', alias: 'help ช่วยเหลือ วิธีใช้' },
+  { nav: 'display', label: 'การแสดงผล', group: 'อื่น ๆ', icon: 'haze', alias: 'theme ธีม มืด สว่าง dark light ขนาดตัวอักษร font ฟอนต์' },
   // ระบบดีไซน์ = เครื่องมือ dev — allowed() ใน App.tsx เป็นคนกันไม่ให้โผล่บน server จริง
   { nav: 'design', label: 'ระบบดีไซน์', group: 'อื่น ๆ', icon: 'haze', alias: 'design system ui component token สี ไอคอน' },
 ]
@@ -147,7 +148,7 @@ export function CommandPalette({ open, onClose, allowed }: {
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
     }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ค้นหาทั้งระบบ" className="page-in" style={{
-        marginTop: '12vh', width: 'min(640px, 100%)',
+        marginTop: 'calc(var(--app-h) * 0.12)', width: 'min(640px, 100%)',
         background: 'var(--bg)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>

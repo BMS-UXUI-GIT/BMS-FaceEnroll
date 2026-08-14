@@ -41,7 +41,7 @@ export function SuperGate({ onUnlock }: { onUnlock: () => void }) {
 
   return (
     // จัดกลางพื้นที่เนื้อหา (แนวตั้ง+แนวนอน) — หน้านี้มีของชิ้นเดียว
-    <div style={{ minHeight: 'calc(100dvh - 220px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: 'calc(var(--app-h) - 220px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ maxWidth: 520, width: '100%' }}>
       <div className="rounded-xl" style={{
         background: 'var(--surface-alt)', padding: 'var(--sp-6)',

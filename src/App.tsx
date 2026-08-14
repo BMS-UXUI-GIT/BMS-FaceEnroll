@@ -19,6 +19,7 @@ import { SystemAudit } from './screens/SystemAudit'
 import { Users } from './screens/Users'
 import { Help } from './screens/Help'
 import { Account } from './screens/Account'
+import { Display } from './screens/Display'
 import { DEV_TOOLS } from './mock'
 import { useApp, isCentral, NAV_TAB, type Nav } from './state'
 import { SuperGate, isSuperUnlocked } from './components/SuperGate'
@@ -88,7 +89,7 @@ export function App() {
   const tabs = session?.tabs ?? []
   const central = !!session && isCentral(session)
   const allowed = (n: Nav) =>
-    n === 'help' || n === 'account'      // ช่วยเหลือ + จัดการบัญชี เปิดได้ทุกคน
+    n === 'help' || n === 'account' || n === 'display'  // ช่วยเหลือ + จัดการบัญชี + การแสดงผล เปิดได้ทุกคน
     || (n === 'design' && DEV_TOOLS)     // ระบบดีไซน์ = เครื่องมือ dev เท่านั้น (ไม่มีบน server จริง)
     || (n !== 'rp-reports' // หน้า "รายงาน" ซ่อนไว้ก่อน — กันคนที่ค้างอยู่หน้านี้ (nav เก็บใน storage)
       && (tabs.includes(NAV_TAB[n]) || (NAV_TAB[n] === 'users' && session?.role === 'superadmin'))
@@ -129,6 +130,7 @@ export function App() {
       case 'rp-reports': return <ReportsHub />
       case 'help': return <Help />
       case 'account': return <Account />
+      case 'display': return <Display />
       case 'design': return <Suspense fallback={null}><DesignSystem /></Suspense>
       default: return <Overview />
     }
@@ -139,7 +141,7 @@ export function App() {
   //   ในการ์ด: Topbar เต็มความกว้าง แล้ว Sidebar + เนื้อหาอยู่ใต้ ใช้พื้นผิวเดียวกัน
   return (
     <div style={{
-      height: '100dvh', width: '100%', overflow: 'hidden',
+      height: '100%', width: '100%', overflow: 'hidden',
       padding: 'var(--shell-gap)',
       display: 'flex',
     }}>

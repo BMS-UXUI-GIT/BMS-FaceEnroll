@@ -4,7 +4,7 @@
    ห้ามใส่ hex/rgb ที่ไม่มีใน Figma ลงไฟล์นี้ และห้ามเขียนสีตรงๆ ในหน้าจอ
    ต้องการสีใหม่ → เพิ่มใน Figma ก่อน แล้วค่อยเพิ่มที่นี่ */
 :root {
-  color-scheme: light;
+  color-scheme: light;   /* state.tsx เปลี่ยนค่านี้ตามธีมที่เลือก */
 
   /* === Primary === */
   --accent: #5682E9;           /* primary/default */
@@ -126,15 +126,452 @@
   --shell-gap: 16px;   /* ระยะเว้นขอบจอให้เห็นพื้นหลังฟ้า (Figma: 16 รอบด้าน) — มือถือเป็น 0 */
   --content-gap: var(--sp-4); /* ระยะจากใต้ header ถึงเนื้อหาแถวแรก (spacer ใน App.tsx) */
   --shell-radius: var(--r-xl); /* มุมการ์ดแอพ — มือถือเต็มจอจึงเป็น 0 */
+  /* ความสูงจอที่ "ชดเชย zoom แล้ว" — ใช้แทน 100dvh ทุกที่ที่ต้องพอดีจอ
+     (ตั้งค่า --app-zoom จากหน้า "การแสดงผล" ผ่าน state.tsx) */
+  --app-zoom: 1;
+  --app-h: calc(100dvh / var(--app-zoom));
+  --app-w: calc(100vw / var(--app-zoom));   /* คู่กับ --app-h สำหรับความกว้างจอ */
 
   /* ลูกศร dropdown — ใช้สี --text-dim (#667385) */
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667385' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
+/* ════════════════════════════════════════════════════════════════
+   ธีมมืด — ทับเฉพาะ token ที่เป็น "พื้น/ตัวอักษร/เส้น" เท่านั้น
+   สีหลัก (accent) กับสีสถานะ (ok/warn/danger/info) ใช้ชุดเดียวกับธีมสว่าง
+   เพื่อให้ความหมายของสีไม่เปลี่ยนไปตามธีม (เขียว = ปกติ, แดง = ปัญหา เหมือนกันหมด)
+   ⚠️ Figma มีแต่โหมดสว่าง — ค่าชุดนี้จึงเป็นของฝั่งโค้ด ถ้า Figma เพิ่มโหมดมืดเมื่อไหร่ให้ยึดตามนั้น
+   ════════════════════════════════════════════════════════════════ */
+:root[data-theme='dark'] {
+  --bg: #161A23;
+  --surface: #1C212C;
+  --surface-alt: #1B2029;
+  --surface-card: #222835;
+  --border: #39414F;
+  --control-border: #2C333F;
+  --text: #E8EBF0;
+  --text-dim: #9AA5B8;
+  --text-dark: #E8EBF0;
+  --text-faint: #FFFFFF;
+
+  /* พื้นอ่อนของป้าย/แผง — ธีมมืดต้อง "สว่างขึ้นจากพื้น" ไม่ใช่จางลง */
+  --surface-blue: #1F2A3D;
+  --surface-wash: #223047;
+  --surface-gray: #2B323F;
+  --hero-bg: #1B2334;
+
+  --table-head-bg: #222835;
+  --table-head-dark: #2B3348;
+  --table-row-text: #DDE2EA;
+
+  /* ป้ายสถานะ: พื้นเข้มโปร่ง + ตัวอักษรสีเดียวกับไอคอน (ชุดสว่างอ่านไม่ออกบนพื้นมืด) */
+  --badge-ontime-bg: rgba(39, 174, 96, 0.18);   --badge-ontime-text: #6EE7A8;
+  --badge-late-bg: rgba(252, 151, 9, 0.18);     --badge-late-text: #FFC46B;
+  --badge-leave-bg: rgba(30, 110, 128, 0.22);   --badge-leave-text: #7FC7D6;
+  --badge-outarea-bg: rgba(154, 165, 184, 0.16); --badge-outarea-text: #B7C0D0;
+  --badge-early-bg: rgba(141, 88, 211, 0.20);   --badge-early-text: #C9A6F0;
+
+  --shift-morning-bg: #23324A; --shift-morning-text: #A9BEEA;
+  --shift-afternoon-bg: #3A2F1C; --shift-afternoon-text: #F2C879;
+  --shift-night-bg: #232B3B;   --shift-night-text: #9FB2D8;
+
+  --page-bg-from: #0E1420;
+  --page-bg-to: #182234;
+
+  --overlay: rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA5B8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ธีมมืด: ตัวอักษรในปุ่มเป็นสีขาว — สีฟ้า accent บนพื้นเข้มอ่านยาก
+   ยกเว้น primary (พื้นทึบสีหลัก ตัวอักษรตัดกันอยู่แล้ว) และ ghost-danger (ต้องคงสีแดงไว้) */
+:is(:root[data-theme='dark'], :root[data-theme='midnight']) :is(
+  .btn-ghost, .btn-soft, .btn-secondary, .btn-outline-accent, .btn-accent-soft
+) { color: var(--text); }
+:is(:root[data-theme='dark'], :root[data-theme='midnight']) :is(
+  .btn-ghost, .btn-accent-soft
+):not(:disabled):hover { color: var(--text); }
+
+/* ── มิดไนต์ — พื้นน้ำเงินเข้ม โทนเย็นกว่า dark ────────────────────
+   ต่อยอดจากชุด dark: ทับเฉพาะพื้น/เส้น/เงา ที่ต้องเป็นโทนน้ำเงิน */
+:root[data-theme='midnight'] {
+  --bg: #101A2E;
+  --surface: #16233C;
+  --surface-alt: #152136;
+  --surface-card: #1B2A45;
+  --border: #35486B;
+  --control-border: #24354F;
+  --text: #E6ECF7;
+  --text-dim: #97A6C2;
+  --text-dark: #E6ECF7;
+  --text-faint: #FFFFFF;
+
+  --accent: #6E9BFF;
+  --accent-active: #5B8DFF;
+  --accent-light: rgba(110, 155, 255, 0.14);
+
+  --surface-blue: #1B2C4A;
+  --surface-wash: #203457;
+  --surface-gray: #263857;
+  --hero-bg: #16243D;
+
+  --table-head-bg: #1B2A45;
+  --table-head-dark: #22355A;
+  --table-row-text: #DCE4F2;
+
+  --badge-ontime-bg: rgba(39, 174, 96, 0.20);   --badge-ontime-text: #6EE7A8;
+  --badge-late-bg: rgba(252, 151, 9, 0.20);     --badge-late-text: #FFC46B;
+  --badge-leave-bg: rgba(30, 110, 128, 0.24);   --badge-leave-text: #7FC7D6;
+  --badge-outarea-bg: rgba(151, 166, 194, 0.18); --badge-outarea-text: #BAC6DC;
+  --badge-early-bg: rgba(141, 88, 211, 0.22);   --badge-early-text: #C9A6F0;
+
+  --shift-morning-bg: #22334F; --shift-morning-text: #AFC3EE;
+  --shift-afternoon-bg: #3B3020; --shift-afternoon-text: #F2C879;
+  --shift-night-bg: #1F2C46;   --shift-night-text: #A6B8DC;
+
+  --page-bg-from: #070E1C;
+  --page-bg-to: #14213A;
+
+  --overlay: rgba(4, 10, 22, 0.65);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
+
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2397A6C2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ── เซเปีย — พื้นกระดาษโทนอุ่น (ยังเป็นธีมสว่าง) ─────────────────
+   ลดแสงฟ้าจ้าจากพื้นขาว เหมาะกับคนที่จ้องจอนาน ๆ */
+:root[data-theme='sepia'] {
+  --bg: #FBF6EC;
+  --surface: #F5EEE0;
+  --surface-alt: #F3EBDC;
+  --surface-card: #EFE6D5;
+  --border: #D8C9AE;
+  --control-border: #E3D7C2;
+  --text: #2E2618;
+  --text-dim: #6E6350;
+  --text-dark: #3A3122;
+  --text-faint: #2E2618;
+
+  --accent: #A8763A;
+  --accent-active: #8F5F2A;
+  --accent-light: rgba(168, 118, 58, 0.12);
+
+  --surface-blue: #F0E6D2;
+  --surface-wash: #E9DCC3;
+  --surface-gray: #E3D7C2;
+  --hero-bg: #F6EEDF;
+
+  --table-head-bg: #EFE6D5;
+  --table-head-dark: #6E6350;
+  --table-row-text: #3A3122;
+
+  --page-bg-from: #E9D9BC;
+  --page-bg-to: #F3E8D3;
+}
+
+/* ── คอนทราสต์สูง — ขาว-ดำ เส้นขอบเข้ม ตัวอักษรหนัก ────────────────
+   สำหรับคนสายตาไม่ดี/จอสะท้อนแสง: ตัดสีจาง ๆ ออกให้หมด */
+:root[data-theme='contrast'] {
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-alt: #F2F2F2;
+  --surface-card: #EAEAEA;
+  --border: #000000;
+  --control-border: #767676;
+  --text: #000000;
+  --text-dim: #3A3A3A;
+  --text-dark: #000000;
+  --text-faint: #000000;
+
+  --accent: #0B4FD1;
+  --accent-active: #0B4FD1;
+  --accent-light: rgba(11, 79, 209, 0.14);
+
+  --ok: #0B6B33;
+  --warn: #8A4B00;
+  --danger: #B3120F;
+  --info: #5B21A8;
+
+  --surface-blue: #E6EEFC;
+  --surface-wash: #DCE8FB;
+  --surface-gray: #D7D7D7;
+  --hero-bg: #F2F5FC;
+
+  --table-head-bg: #EAEAEA;
+  --table-row-text: #000000;
+
+  --badge-ontime-bg: #D6F5E1; --badge-ontime-text: #04421F;
+  --badge-late-bg: #FBE7CC;   --badge-late-text: #6B3A00;
+  --badge-early-bg: #E9DDF9;  --badge-early-text: #3E1276;
+
+  --page-bg-from: #C9D8F5;
+  --page-bg-to: #E4ECFB;
+
+  --shadow-sm: 0 0 0 1px #000000;
+  --shadow: 0 0 0 1px #000000;
+  --shadow-md: 0 2px 0 1px #000000;
+  --shadow-lg: 0 4px 0 1px #000000;
+}
+/* ── HOSxP — หน้าตา uniGUI / ExtJS ธีม Blue (แบบที่ HOSxP ใช้จริง) ──────────
+   จุดเด่น: ฟ้าอ่อนไล่เฉด "มีแสง" (gloss) · เส้นขอบฟ้า #99BCE8 บาง ๆ ทุกกล่อง
+   · หัวแผงตัวหนาสีน้ำเงิน #15428B · ตารางแถวสลับสี แถวที่เลือกเป็นฟ้าอ่อน
+   · มุมเล็ก 3px · เดสก์ท็อปนอกหน้าต่างเป็นน้ำเงินเข้ม
+   ทำด้วย token + กฎเฉพาะธีม ไม่แตะโค้ดหน้าจอ */
+:root[data-theme='hosxp'] {
+  --bg: #FFFFFF;
+  --surface: #DFE8F6;        /* พื้นหัวแผง/แถบเครื่องมือ (ฟ้าอ่อน) */
+  --surface-alt: #EDF3FB;    /* กรอบนอกของแผง */
+  --surface-card: #E8EFF9;
+  --border: #99BCE8;
+  --control-border: #B7CFEA;
+  --text: #10305B;
+  --text-dim: #55606E;
+  --text-dark: #15428B;
+  --text-faint: #10305B;
+
+  --accent: #15428B;         /* ตัวอักษรหัวแผง/ลิงก์ */
+  --accent-active: #1B5FAF;
+  --accent-sidebar: #15428B;
+  --accent-light: #DFE8F6;   /* แถบที่เลือกในตาราง/เมนู */
+
+  --secondary-teal: #4E97D0;
+  --secondary-blue: #3892D3;
+  --secondary-dark: #15428B;
+  --secondary-navy: #0B2C5E;
+
+  --surface-blue: #DFE8F6;
+  --surface-wash: #C6D9F1;
+  --surface-gray: #DCE3EC;
+  --hero-bg: #EAF1FB;
+
+  --table-head-bg: #EDF1F7;
+  --table-head-dark: #15428B;
+  --table-row-text: #1B2733;
+
+  --icon: #15428B;
+
+  --cat-1: #15428B;
+  --cat-2: #3892D3;
+  --cat-3: #7FB2E0;
+  --cat-4: #A9C7E8;
+
+  /* เดสก์ท็อปน้ำเงินเข้มหลังหน้าต่าง */
+  --page-bg-from: #0E4A93;
+  --page-bg-to: #1C63B4;
+
+  /* ฟอนต์ยุคนั้น — Tahoma มีอักขระไทยครบ ใช้ได้ทั้งไทย/อังกฤษ/ตัวเลข */
+  --sans: Tahoma, 'Noto Sans Thai Looped', system-ui, sans-serif;
+  --mono: Tahoma, 'Noto Sans Thai Looped', system-ui, sans-serif;
+
+  /* มุมเล็กแบบ ExtJS (r-full ยังกลม เพราะใช้กับรูปโปรไฟล์/จุดสถานะ) */
+  --r-sm: 2px;
+  --r-md: 3px;
+  --r-lg: 3px;
+  --r-xl: 4px;
+
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-md: 0 1px 3px rgba(16, 48, 91, 0.25);
+  --shadow-lg: 0 4px 14px rgba(16, 48, 91, 0.35);
+}
+
+/* ---- ปุ่ม: ไล่เฉดขาว→ฟ้าเทา มีเส้นขอบ กดแล้วไล่เฉดกลับด้าน ---- */
+:root[data-theme='hosxp'] .btn {
+  border: 1px solid #A3BAD4 !important;
+  background-image: linear-gradient(#FFFFFF 0%, #F3F7FC 48%, #DCE6F3 52%, #E8EFF8 100%);
+  box-shadow: inset 0 1px 0 #FFFFFF, inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+  color: #10305B;
+}
+:root[data-theme='hosxp'] .btn:not(:disabled):hover { background-image: linear-gradient(#FFFFFF 0%, #EFF6FE 48%, #CFE1F7 52%, #DDEAFA 100%); }
+:root[data-theme='hosxp'] .btn:not(:disabled):active { background-image: linear-gradient(#C3D8F0 0%, #D8E6F7 48%, #EDF3FB 52%, #F7FAFE 100%);
+  box-shadow: inset 0 1px 2px rgba(16, 48, 91, 0.25); }
+:root[data-theme='hosxp'] .btn-primary {
+  border-color: #2A5EA0 !important;
+  background-image: linear-gradient(#8CBFEE 0%, #5D9BDD 48%, #2E6CB3 52%, #4A83C4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: #FFFFFF;
+}
+:root[data-theme='hosxp'] .btn-primary:not(:disabled):hover { background-image: linear-gradient(#9ACCF6 0%, #6BA8E6 48%, #3577BE 52%, #558FCD 100%); }
+:root[data-theme='hosxp'] .btn:focus-visible { outline: 1px dotted #10305B; outline-offset: -4px; }
+
+/* ---- ชิป/ช่องค้นหา: ทรงเดียวกับปุ่มแต่เฉดจางกว่า ---- */
+:root[data-theme='hosxp'] .chip,
+:root[data-theme='hosxp'] .searchbox {
+  border: 1px solid #B7CFEA !important;
+  background-image: linear-gradient(#FFFFFF 0%, #F7FAFE 48%, #E6EEF9 52%, #F0F5FC 100%);
+  box-shadow: inset 0 1px 0 #FFFFFF;
+}
+
+/* ---- หัวแผง (SectionPanel) = แถบไล่เฉดฟ้า + ตัวหนาน้ำเงิน แบบหัวหน้าต่าง ExtJS ---- */
+:root[data-theme='hosxp'] .panel-head {
+  background-image: linear-gradient(#F2F7FE 0%, #DCE8F8 48%, #C3D7F0 52%, #D6E4F6 100%);
+  box-shadow: inset 0 1px 0 #FFFFFF;
+  border: 1px solid #99BCE8;
+  border-bottom: none;
+  color: #15428B;
+  font-weight: 700;
+}
+
+/* ---- ตาราง: หัวไล่เฉดเทาอ่อน มีเส้นแบ่งคอลัมน์ · แถวสลับสี · แถวที่ชี้/เลือกเป็นฟ้า ---- */
+:root[data-theme='hosxp'] thead th {
+  background-image: linear-gradient(#FFFFFF 0%, #F6F9FD 48%, #E1E8F2 52%, #EEF2F8 100%);
+  box-shadow: inset 0 1px 0 #FFFFFF;
+  border-right: 1px solid #D6DDE6;
+  border-bottom: 1px solid #B7C4D4 !important;
+  color: #15428B;
+  font-weight: 700;
+}
+:root[data-theme='hosxp'] tbody tr:nth-child(even) { background: #FAFBFD; }
+:root[data-theme='hosxp'] .row-hover:hover { background: #E4EDF9; }
+:root[data-theme='hosxp'] .row-hover:active { background: #DFE8F6; }
+:root[data-theme='hosxp'] tbody td { border-right: 1px solid #EDF0F4; }
+
+/* ---- แถบบน = ไตเติลบาร์ไล่เฉดฟ้า · แถบข้าง = แผงฟ้าอ่อนมีเส้นแบ่ง ---- */
+:root[data-theme='hosxp'] .topbar {
+  background-image: linear-gradient(#FBFDFF 0%, #E9F2FD 45%, #C9DDF4 55%, #DCE9F8 100%) !important;
+  box-shadow: inset 0 1px 0 #FFFFFF;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid #99BCE8;
+}
+:root[data-theme='hosxp'] .app-sidebar {
+  background-image: linear-gradient(90deg, #FAFCFF 0%, #EFF5FD 55%, #E2ECF9 100%);
+  border-right: 1px solid #99BCE8;
+}
+/* การ์ดหัวเรื่อง (HeroCard) — ไล่เฉดฟ้าอ่อนพร้อมเส้นไฮไลต์ขอบบน เหมือนแผงของ ExtJS */
+:root[data-theme='hosxp'] .rounded-xl.p-6 {
+  background-image: linear-gradient(#FFFFFF 0%, #F2F7FE 45%, #DCE8F8 100%) !important;
+  border: 1px solid #99BCE8;
+  box-shadow: inset 0 1px 0 #FFFFFF;
+}
+
+/* เมนูที่เลือกอยู่ = แถบไล่เฉดน้ำเงินเต็มความกว้าง */
+:root[data-theme='hosxp'] .app-sidebar .btn-primary { background-image: linear-gradient(#7FB2E6 0%, #4E8CD2 48%, #2A66AE 52%, #4179BC 100%); }
+
+/* ── Liquid Glass — พื้นผิวกระจกฝ้าแบบ iOS ─────────────────────────────
+   หลักการ: ทุกพื้นผิวเป็นสีขาวโปร่ง + เบลอสิ่งที่อยู่ข้างหลัง (backdrop-filter)
+   + ขอบสว่างบาง ๆ กับเส้นไฮไลต์ด้านบน ให้ดูเป็นแผ่นกระจกลอย
+   พื้นหลังนอกการ์ดเป็นสีไล่หลายจุด — ของที่ลอยอยู่จึงมีอะไรให้เบลอจริง ๆ
+   ⚠️ พื้นผิวเป็น rgba ทั้งหมด: ถ้าเพิ่มกล่องใหม่ ต้องเติมคลาสลงในลิสต์ .glass-surface ด้านล่าง
+      ไม่งั้นจะโปร่งแต่ไม่เบลอ (เห็นตัวหนังสือซ้อนกันมั่ว) */
+:root[data-theme='glass'] {
+  --bg: rgba(255, 255, 255, 0.58);
+  --surface: rgba(255, 255, 255, 0.42);
+  --surface-alt: rgba(255, 255, 255, 0.34);
+  --surface-card: rgba(255, 255, 255, 0.5);
+  --border: rgba(255, 255, 255, 0.7);
+  --control-border: rgba(255, 255, 255, 0.55);
+  --text: #0F1F38;
+  --text-dim: rgba(15, 31, 56, 0.62);
+  --text-dark: #0F1F38;
+  --text-faint: #0F1F38;
+
+  --accent: #0A84FF;          /* ฟ้า iOS */
+  --accent-active: #0A6CE0;
+  --accent-sidebar: #0A84FF;
+  --accent-light: rgba(10, 132, 255, 0.16);
+
+  --secondary-teal: #32ADE6;
+  --secondary-blue: #5AC8FA;
+  --secondary-dark: #0A6CE0;
+  --secondary-navy: #0B3B78;
+
+  --surface-blue: rgba(10, 132, 255, 0.12);
+  --surface-wash: rgba(90, 200, 250, 0.18);
+  --surface-gray: rgba(15, 31, 56, 0.12);
+  --hero-bg: rgba(255, 255, 255, 0.3);
+
+  --table-head-bg: rgba(255, 255, 255, 0.45);
+  --table-head-dark: #0B3B78;
+  --table-row-text: #0F1F38;
+
+  --icon: #0A84FF;
+
+  --cat-1: #0A84FF; --cat-2: #5AC8FA; --cat-3: #30D158; --cat-4: #FF9F0A;
+
+  /* มุมมนกว่าปกติแบบ iOS */
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+
+  --shadow-sm: 0 1px 2px rgba(11, 32, 66, 0.06);
+  --shadow: 0 4px 16px rgba(11, 32, 66, 0.10);
+  --shadow-md: 0 10px 30px rgba(11, 32, 66, 0.14);
+  --shadow-lg: 0 24px 60px rgba(11, 32, 66, 0.22);
+}
+
+/* ฉากหลัง: สีไล่หลายจุด (มีอะไรให้กระจกเบลอ) */
+:root[data-theme='glass'] body {
+  background-image:
+    radial-gradient(60% 55% at 12% 10%, rgba(90, 200, 250, 0.85), transparent 70%),
+    radial-gradient(55% 50% at 88% 12%, rgba(191, 90, 242, 0.65), transparent 70%),
+    radial-gradient(65% 60% at 75% 88%, rgba(10, 132, 255, 0.75), transparent 72%),
+    radial-gradient(50% 45% at 20% 92%, rgba(48, 209, 88, 0.45), transparent 70%),
+    linear-gradient(140deg, #EAF4FF, #DCE9FF 45%, #F3E9FF);
+  background-attachment: fixed;
+}
+
+/* แผ่นกระจก: โปร่ง + เบลอฉากหลัง + ขอบสว่าง + เส้นไฮไลต์ด้านบน */
+:root[data-theme='glass'] :is(
+  .rounded-xl, .rounded-lg, .btn, .chip, .searchbox, .topbar, .app-sidebar,
+  .panel-head, .modal-card, .bottom-nav, .tab-strip
+) {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--control-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+/* ตารางไม่ต้องมีขอบรอบทุกเซลล์ — กระจกอยู่ที่การ์ดที่ครอบอยู่แล้ว */
+:root[data-theme='glass'] :is(td, th) { border-color: rgba(255, 255, 255, 0.5); }
+
+/* ปุ่มหลัก/เมนูที่เลือก = กระจกสีฟ้า ไม่ใช่สีทึบ */
+:root[data-theme='glass'] .btn-primary {
+  background: linear-gradient(180deg, rgba(10, 132, 255, 0.92), rgba(10, 108, 224, 0.92));
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
+}
+:root[data-theme='glass'] .btn-ghost { border-color: transparent; box-shadow: none; }
+
+/* หัวเรื่องของหน้า: แผ่นกระจกใส ไม่ต้องมีไล่สีฟ้าเดิม */
+:root[data-theme='glass'] .rounded-xl.p-6 {
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+
+/* ฉากหลังทึบของ modal: ใช้เบลอแทนดำจาง ๆ (แบบ iOS) */
+:root[data-theme='glass'] .modal-wrap { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+
+/* คอนทราสต์สูง: ทุกการ์ด/แผงต้องมีเส้นขอบชัด ไม่พึ่งเงาจาง ๆ อย่างเดียว */
+:root[data-theme='contrast'] .btn { border-color: currentColor; }
+:root[data-theme='contrast'] .chip { border-color: var(--control-border); }
+
+/* ภาพประกอบ/โลโก้เป็น SVG พื้นสว่าง — ลดความจ้าลงนิดบนธีมมืด ไม่ให้แสบตา
+   (wordmark มีไฟล์เฉพาะของธีมมืดอยู่แล้ว จึงไม่ต้องหรี่ซ้ำ) */
+:is(:root[data-theme='dark'], :root[data-theme='midnight']) img:not(.topbar-logo):not([alt='BMS FaceEnroll']) {
+  filter: brightness(0.92) saturate(0.95);
+}
+
+/* ขนาดตัวอักษรทั้งแอพ — ผู้ใช้เลือกได้ในหน้า "การแสดงผล" (state.tsx ตั้งค่า --app-zoom)
+   ใช้ zoom เพราะสเกลข้อความในโค้ดเป็น px ตายตัว (inline style) การคูณด้วย rem อย่างเดียวไม่ครอบคลุม
+   ⚠️ zoom อยู่ที่ <body> ไม่ใช่ #root — modal/bottom sheet/toast วางผ่าน portal ไปที่ body
+      ถ้า zoom อยู่ที่ #root ของพวกนั้นจะไม่ขยายตาม
+   ⚠️ หน่วย vh/dvh ไม่รู้จัก zoom (นับจากจอจริงเสมอ) — ในโค้ดจึงต้องใช้ var(--app-h)
+      ไม่งั้นพอขยายตัวอักษร เปลือกแอพจะสูงเกินจอแล้วเลื่อนลงไม่สุด */
+body { zoom: var(--app-zoom, 1); }
+
 * { box-sizing: border-box; }
-html, body, #root { margin: 0; padding: 0; min-height: 100vh; }
+html, body, #root { margin: 0; padding: 0; }
 /* ปิดการเด้ง/ยางยืดของเบราว์เซอร์ (rubber-band, pull-to-refresh) — เปลือกแอพสูงเท่าจอพอดีอยู่แล้ว */
-html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html { height: 100%; overflow: hidden; overscroll-behavior: none; }
+body { height: var(--app-h); min-height: var(--app-h); overflow: hidden; overscroll-behavior: none; }
+#root { height: 100%; }
 /* กล่องที่เลื่อนได้ภายใน: เลื่อนจนสุดแล้วไม่ส่งต่อ scroll ให้ตัวแม่ */
 main, .no-scrollbar, .pick-hosp-list { overscroll-behavior: contain; }
 body {
@@ -386,8 +823,8 @@ input:focus, select:focus { border-color: var(--accent) !important; }
   /* สูงเท่าที่เหลือในจอพอดี — หน้าไม่ต้อง scroll (รายการโรงเลื่อนในตัวเองแทน)
      100dvh − ขอบเปลือกแอพบน/ล่าง (2×16) − สเปเซอร์ใต้ header (80+16) − padding ล่างของ main (24)
      dvh เพราะ 100vh บนมือถือคิดรวมแถบ URL ที่ยุบได้ (จะสูงเกินจริงแล้วเกิด scroll) */
-  height: calc(100dvh - 152px);
-  max-height: calc(100dvh - 152px);
+  height: calc(var(--app-h) - 152px);
+  max-height: calc(var(--app-h) - 152px);
   overflow: hidden;
 }
 /* หน้าเลือกโรงล็อกความสูงพอดีจอ → พื้นที่เนื้อหาไม่ต้องมี scrollbar */
@@ -431,7 +868,7 @@ body.no-page-scroll main { overflow: hidden !important; }
 .pick-hosp-head { grid-column: 1 / -1; }
 @media (max-width: 1024px) {
   /* จอเล็ก: เปลือกแอพไม่มีขอบ (shell-gap 0) + main padding 12 */
-  .pick-hosp { height: calc(100dvh - 108px); max-height: calc(100dvh - 108px); }
+  .pick-hosp { height: calc(var(--app-h) - 108px); max-height: calc(var(--app-h) - 108px); }
 }
 @media (max-width: 860px) {
   .pick-hosp { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); height: auto; max-height: none; overflow: visible; }
@@ -487,7 +924,7 @@ body.no-page-scroll main { overflow: hidden !important; }
   bottom: calc(var(--shell-gap) + var(--sp-6));
   left: calc(50% + var(--sidebar-w) / 2);
   transform: translateX(-50%);
-  max-width: calc(100vw - var(--sidebar-w) - var(--sp-6) * 2);
+  max-width: calc(var(--app-w) - var(--sidebar-w) - var(--sp-6) * 2);
 }
 
 /* การ์ดสรุปแถวละ 4 ใบ (จอแคบลดเป็น 2 แล้ว 1) */
@@ -569,7 +1006,7 @@ body.no-page-scroll main { overflow: hidden !important; }
   .only-sm { display: block !important; }
   .topbar { padding: var(--sp-3) var(--sp-3) !important; gap: var(--sp-2) !important; }
   .topbar h1 { font-size: 16px !important; }
-  .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(100vw - var(--sp-6)); }
+  .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(var(--app-w) - var(--sp-6)); }
   .hero-reserve { padding-right: 0; }
 
   /* ตาราง: เลื่อนแนวนอนในกรอบของตัวเอง ไม่ลากทั้งหน้าไปด้วย

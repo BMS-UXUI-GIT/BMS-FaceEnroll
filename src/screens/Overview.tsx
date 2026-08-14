@@ -294,7 +294,7 @@ export function Overview() {
           {!compactTabs && (
             <span className="inline-flex gap-2 items-center tab-strip no-scrollbar" style={{
               background: 'var(--bg)', padding: 'var(--sp-2)',
-              borderRadius: 'var(--r-full)', border: '1px solid rgba(0,0,0,0.1)',
+              borderRadius: 'var(--r-full)', border: '1px solid var(--control-border)',
               maxWidth: '100%', overflowX: 'auto',
             }}>
               {TABS.map(([k, label, icon]) => (

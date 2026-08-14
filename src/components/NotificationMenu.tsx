@@ -109,7 +109,7 @@ export function NotificationMenu() {
       ) : open && createPortal((
         <div style={{
           position: 'fixed', top: pos.top, right: pos.right, zIndex: 200,
-          width: 'min(400px, calc(100vw - 16px))', maxHeight: 'min(70vh, 560px)',
+          width: 'min(400px, calc(var(--app-w) - 16px))', maxHeight: 'min(calc(var(--app-h) * 0.7), 560px)',
           display: 'flex', flexDirection: 'column',
           background: 'var(--bg)', borderRadius: 'var(--r-lg)',
           border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)',

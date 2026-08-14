@@ -145,7 +145,7 @@ function PermissionsModal({ u, data, busy, isMe, patch, onResetPassword, onRemov
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="rounded-xl" style={{
         background: 'var(--bg)', boxShadow: 'var(--shadow-lg)', borderRadius: 'var(--r-xl)',
-        width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+        width: '100%', maxWidth: 720, maxHeight: 'calc(var(--app-h) * 0.88)', display: 'flex', flexDirection: 'column',
         position: 'relative',
       }}>
         <div style={{ padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--control-border)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>

@@ -67,7 +67,7 @@ export function EmployeeModal({ hcode, row, fences, initialTab = 'daily', onClos
       animation: 'overlayIn .12s ease',
     }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
-        width: '100%', maxWidth: 720, height: 'min(703px, 88vh)',
+        width: '100%', maxWidth: 720, height: 'min(703px, calc(var(--app-h) * 0.88))',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
         background: 'var(--bg)', borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-lg)',
         animation: 'modalIn .16s ease',

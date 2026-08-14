@@ -46,7 +46,7 @@ export function Modal({ open, title, subtitle, onClose, children, footer, width 
         className="modal-card"
         role="dialog" aria-modal="true"
         style={{
-          width: '100%', maxWidth: width, maxHeight: '88vh',
+          width: '100%', maxWidth: width, maxHeight: 'calc(var(--app-h) * 0.88)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           background: 'var(--bg)',
           borderRadius: 'var(--r-lg)',

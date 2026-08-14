@@ -311,7 +311,7 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
         }}>
         <span className="inline-flex gap-2 items-center flex-wrap" style={{
           background: 'var(--bg)', padding: 'var(--sp-2)',
-          borderRadius: 'var(--r-full)', border: '1px solid rgba(0,0,0,0.1)',
+          borderRadius: 'var(--r-full)', border: '1px solid var(--control-border)',
         }}>
           {TABS.map(([k, label, icon]) => (
             <Button key={k} variant={tab === k ? 'primary' : 'soft'} size="md" pill

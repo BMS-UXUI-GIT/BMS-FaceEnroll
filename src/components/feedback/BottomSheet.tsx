@@ -31,7 +31,7 @@ export function BottomSheet({ open, title, onClose, children, footer }: {
       display: 'flex', alignItems: 'flex-end', animation: 'overlayIn .12s ease',
     }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
-        width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+        width: '100%', maxHeight: 'calc(var(--app-h) * 0.85)', display: 'flex', flexDirection: 'column',
         background: 'var(--bg)', borderRadius: 'var(--r-xl) var(--r-xl) 0 0',
         boxShadow: 'var(--shadow-lg)', animation: 'sheetUp .2s cubic-bezier(.16,.84,.28,1)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',

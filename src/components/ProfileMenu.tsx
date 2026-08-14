@@ -21,7 +21,7 @@ function MenuAction({ icon, label, danger, onClick }: { icon: string; label: str
 }
 
 export function ProfileMenu({ fullWidth }: { fullWidth?: boolean } = {}) {
-  const { session, logout, isSuper, isDemo, currentHcode, setHcode, setNav } = useApp()
+  const { session, logout, isSuper, isDemo, currentHcode, setHcode, setNav, isDark } = useApp()
   const [menu, setMenu] = useState(false)
 
   // Topbar มี overflow:hidden (คุมความสูงแถบ) เมนูที่วางแบบ absolute เลยโดนตัด
@@ -101,6 +101,8 @@ export function ProfileMenu({ fullWidth }: { fullWidth?: boolean } = {}) {
             </div>
           )}
           <MenuAction icon="person" label="จัดการบัญชี" onClick={() => { setNav('account'); setMenu(false) }} />
+          {/* ธีม/ขนาดตัวอักษร — ทางลัดจากเมนูโปรไฟล์ (หน้าเต็มอยู่ในเมนู "อื่น ๆ") */}
+          <MenuAction icon={isDark ? 'moon' : 'sun'} label="การแสดงผล" onClick={() => { setNav('display'); setMenu(false) }} />
           <MenuAction icon="logout" label="ออกจากระบบ" danger onClick={logout} />
         </div>
       ), document.body)}

@@ -12,7 +12,7 @@ export const ROLE_TH: Record<string, string> = {
 export type Nav =
   | 'overview' | 'face' | 'attendance' | 'settings' | 'locations' | 'health'
   | 'hosp-audit' | 'sys-approve' | 'sys-hospitals' | 'sys-users' | 'sys-audit'
-  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help' | 'account' | 'design'
+  | 'rp-person' | 'rp-dept' | 'rp-shift' | 'rp-late' | 'rp-reports' | 'help' | 'account' | 'design' | 'display'
 export type Hospital = { value: string; label: string }
 
 // เมนูย่อย → แท็บสิทธิ์ (สิทธิ์คุมระดับแท็บหลัก 6 ตัวเหมือนเดิม — เมนูย่อยเกาะแท็บแม่)
@@ -27,6 +27,7 @@ export const NAV_TAB: Record<Nav, string> = {
   help: 'help', // ช่วยเหลือ — เปิดได้ทุกบทบาท (App override allowed ให้เสมอ)
   account: 'help', // จัดการบัญชีของตัวเอง — เปิดได้ทุกคนเช่นกัน
   design: 'help',  // ระบบดีไซน์ (แคตตาล็อก component) — เปิดได้ทุกคน ไม่มีข้อมูลจริงในหน้านี้
+  display: 'help', // การแสดงผล (ธีม/ขนาดตัวอักษร) — ค่าของเครื่อง เปิดได้ทุกคน
 }
 
 export type Session = {
@@ -42,9 +43,36 @@ export type Session = {
   demo_hcode?: string   // โรงพยาบาลสาธิต (ข้อมูลตัวอย่าง) — '' = ปิดฟีเจอร์
 }
 
+// การแสดงผลของผู้ใช้แต่ละคน (เก็บในเครื่อง ไม่ผูกกับบัญชี)
+//   theme 'system' = ตามค่าของเครื่อง (prefers-color-scheme) และเปลี่ยนตามทันทีถ้าผู้ใช้สลับ
+//   fontScale = ย่อ/ขยายทั้งแอพด้วย zoom (สเกลข้อความเป็น px ในโค้ด คูณด้วย CSS อย่างเดียวไม่พอ)
+// ธีมที่มีให้เลือก — ค่าที่ใส่ใน data-theme ของ <html> (ชุดสีอยู่ใน theme.css)
+//   light    = ชุดตาม Figma (ค่าเริ่มต้น)
+//   dark     = พื้นเทาเข้ม
+//   midnight = พื้นน้ำเงินเข้ม โทนเย็นกว่า dark
+//   sepia    = พื้นกระดาษโทนอุ่น (สว่าง) ลดแสงฟ้าจ้า
+//   contrast = ขาว-ดำคอนทราสต์สูง เส้นขอบเข้ม (อ่านง่ายสุด)
+//   hosxp    = หน้าตาโปรแกรมเดสก์ท็อป uniGUI/ExtJS ที่ HOSxP ใช้
+//   glass    = กระจกฝ้าแบบ iOS (Liquid Glass) — พื้นผิวโปร่ง เบลอฉากหลัง ขอบสว่าง
+export const THEME_IDS = ['light', 'dark', 'midnight', 'sepia', 'contrast', 'hosxp', 'glass'] as const
+export type ThemeId = (typeof THEME_IDS)[number]
+/** ธีมตระกูลพื้นเข้ม — ใช้ตัดสินใจเรื่องโลโก้/ตัวอักษรในปุ่ม */
+export const DARK_THEMES: ThemeId[] = ['dark', 'midnight']
+export type ThemeMode = ThemeId | 'system'
+export const FONT_SCALES = [0.9, 1, 1.15, 1.3] as const
+export type FontScale = (typeof FONT_SCALES)[number]
+
 type Ctx = {
-  theme: 'light' | 'dark'
+  /** ธีมที่แสดงอยู่จริง (แปลง 'system' เป็นค่าจริงแล้ว) */
+  theme: ThemeId
+  /** ธีมที่ใช้อยู่เป็นตระกูลพื้นเข้มไหม (โลโก้/ปุ่มต้องสลับชุดสี) */
+  isDark: boolean
+  /** ค่าที่ผู้ใช้เลือกไว้ ('system' = ตามเครื่อง) */
+  themeMode: ThemeMode
+  setThemeMode: (m: ThemeMode) => void
   toggleTheme: () => void
+  fontScale: FontScale
+  setFontScale: (s: FontScale) => void
   session: Session | null
   login: (username: string, password: string) => Promise<void>
   loginStaff: (hcode: string, username: string, password: string, hospitalName?: string) => Promise<void>
@@ -69,13 +97,29 @@ export const useApp = () => {
 export const isCentral = (s: Session) => s.kind !== 'staff' && (s.role === 'superadmin' || s.role === 'bmsadmin')
 
 const THEME_KEY = 'facehub_theme'
+const FONT_KEY = 'facehub_font_scale'
 // v3: เปลี่ยน role exec -> user — บังคับ login ใหม่ให้ session เก่าไม่ค้าง role เดิม
 const SESSION_KEY = 'facecheck_session_v3'
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<'light' | 'dark'>(
-    () => (localStorage.getItem(THEME_KEY) as 'light' | 'dark') || 'light',
+  const [themeMode, setThemeMode] = useState<ThemeMode>(
+    () => (localStorage.getItem(THEME_KEY) as ThemeMode) || 'light',
   )
+  // ค่าของเครื่อง — ใช้ตอนเลือก 'system' และอัปเดตทันทีเมื่อผู้ใช้สลับธีมของ OS
+  const [sysDark, setSysDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
+  useEffect(() => {
+    const m = window.matchMedia('(prefers-color-scheme: dark)')
+    const fn = () => setSysDark(m.matches)
+    m.addEventListener('change', fn)
+    return () => m.removeEventListener('change', fn)
+  }, [])
+  const theme: ThemeId = themeMode === 'system' ? (sysDark ? 'dark' : 'light') : themeMode
+  const isDark = DARK_THEMES.includes(theme)
+
+  const [fontScale, setFontScale] = useState<FontScale>(() => {
+    const v = Number(localStorage.getItem(FONT_KEY))
+    return (FONT_SCALES as readonly number[]).includes(v) ? (v as FontScale) : 1
+  })
   const [session, setSession] = useState<Session | null>(() => {
     try {
       const raw = localStorage.getItem(SESSION_KEY)
@@ -91,9 +135,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentHcode, setHcode] = useState<string>('*')
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem(THEME_KEY, theme)
-  }, [theme])
+    // หน้าก่อน login (เข้าสู่ระบบ / ฟอร์มลงทะเบียนโรง) บังคับธีมสว่างเสมอ
+    // — เป็นหน้าหน้าตาแบรนด์ที่ออกแบบมาบนพื้นขาว (คลิปเปิดแอป/ภาพประกอบ) ธีมมืดทำให้เพี้ยน
+    const shown = session ? theme : 'light'
+    document.documentElement.setAttribute('data-theme', shown)
+    // color-scheme บอกเบราว์เซอร์ให้เปลี่ยนสี scrollbar/ช่องกรอกของระบบตามธีมด้วย
+    document.documentElement.style.colorScheme = DARK_THEMES.includes(shown) ? 'dark' : 'light'
+    localStorage.setItem(THEME_KEY, themeMode)
+  }, [theme, themeMode, session])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--app-zoom', String(fontScale))
+    localStorage.setItem(FONT_KEY, String(fontScale))
+  }, [fontScale])
 
   // token หมดอายุ/ไม่ถูกต้อง (401 จาก api) -> เคลียร์ session -> แอพเด้งกลับหน้า login เอง
   useEffect(() => {
@@ -114,7 +168,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [session])
 
-  const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
+  // ปุ่มสลับเร็ว — ยึดจากธีมที่เห็นอยู่จริง แล้วปักเป็นค่าตายตัว (ออกจากโหมด 'ตามระบบ')
+  const toggleTheme = () => setThemeMode(isDark ? 'light' : 'dark')
 
   const login = async (username: string, password: string) => {
     const s = await api.login(username.trim(), password)
@@ -153,7 +208,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: Ctx = {
     theme,
+    isDark,
+    themeMode,
+    setThemeMode,
     toggleTheme,
+    fontScale,
+    setFontScale,
     session,
     login,
     loginStaff,

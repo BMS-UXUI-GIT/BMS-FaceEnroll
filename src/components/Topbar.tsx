@@ -34,13 +34,13 @@ function HospitalSelect() {
   const cur = opts.find((o) => o.value === currentHcode)
 
   // การ์ดตาม Figma node 379:13946 — 333x62 · r-lg · ขอบบางจาง (control-border)
-  //   พื้นไล่สีขาว → ฟ้า #CCE3FF (ซ้าย→ขวา) · ป้าย "ฐานข้อมูลปัจจุบัน" 12/400 ดำ 60% · ชื่อโรง 14/500 ดำ
+  //   พื้นไล่สีขาว → ฟ้า (Figma #CCE3FF = token --surface-wash เพื่อให้ธีมมืดสลับตามได้)
   //   ภาพตึกโรงพยาบาล 64 ชิดขวา มุมขวาล่างมน 24 (ใช้ไฟล์เดียวกับภาพประกอบหน้าภาพรวมระบบ)
   const card: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', flex: 'none',
     width: 333, height: 62, paddingLeft: 'var(--sp-4)', overflow: 'hidden',
     borderRadius: 'var(--r-lg)', border: '0.5px solid var(--control-border)',
-    background: 'linear-gradient(to right, var(--bg), #CCE3FF)',
+    background: 'linear-gradient(to right, var(--bg), var(--surface-wash))',
   }
   // ภาพวางในกรอบ 77x60 ชิดขวา ล้นขอบล่างแล้วถูก crop ตามที่ Figma วางไว้ (frame 379:13950)
   const art = (
@@ -51,7 +51,7 @@ function HospitalSelect() {
     </span>
   )
   const caption = (
-    <span style={{ ...TEXT.caption, color: 'rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>ฐานข้อมูลปัจจุบัน</span>
+    <span style={{ ...TEXT.caption, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>ฐานข้อมูลปัจจุบัน</span>
   )
 
   // มีโรงเดียว → ไม่ต้องเลือก แสดงชื่อโรงเฉยๆ
@@ -94,7 +94,7 @@ function HospitalSelect() {
 }
 
 export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: () => void }) {
-  const { session } = useApp()
+  const { session, isDark } = useApp()
   if (!session) return null
 
   return (
@@ -111,12 +111,15 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
           icon={<Icon name="menu" size={18} width={2} />} />
       )}
 
-      {/* โลโก้เฉพาะสัญลักษณ์ (ไม่มีตัวอักษร) — ชื่อระบบเป็นข้อความข้าง ๆ อยู่แล้ว */}
-      <img className="topbar-logo" src={asset("/logo-mark.svg")} alt="" width={56} height={56}
+      {/* โลโก้เฉพาะสัญลักษณ์ (ไม่มีตัวอักษร) — ชื่อระบบเป็นข้อความข้าง ๆ อยู่แล้ว
+          ธีมมืดใช้ชุดสีขาวจาก Figma (node 535:233) เพราะชุดสีน้ำเงินจมไปกับพื้นเข้ม */}
+      <img className="topbar-logo" src={asset(isDark ? '/logo-mark-dark.svg' : '/logo-mark.svg')}
+        alt="" width={56} height={56}
         style={{ display: 'block', flex: 'none' }} />
 
-      {/* ชื่อระบบใช้ wordmark จาก Figma (node 401:21401) แทนข้อความ */}
-      <img className="hide-sm" src={asset("/wordmark.svg")} alt="BMS FaceEnroll"
+      {/* ชื่อระบบใช้ wordmark จาก Figma (node 401:21401) แทนข้อความ
+          ธีมมืดใช้ไฟล์คนละใบ (Figma node 535:233 — ชุดสีขาวสำหรับพื้นเข้ม) */}
+      <img className="hide-sm" src={asset(isDark ? '/wordmark-dark.svg' : '/wordmark.svg')} alt="BMS FaceEnroll"
         style={{ display: 'block', flex: 'none', height: 34, width: 'auto' }} />
 
       {/* ตัวเว้นสองข้างช่องค้นหา — ดันช่องค้นหาให้อยู่กลางที่ว่างที่เหลือเสมอ */}
