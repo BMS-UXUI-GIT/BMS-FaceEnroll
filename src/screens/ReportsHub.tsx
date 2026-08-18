@@ -179,7 +179,7 @@ export function ReportsHub() {
     if (active === 'shift') {
       return {
         title: 'รายงานสรุปตามเวร',
-        headers: ['เวร', 'ลงเวลา (คน)', 'มาสาย', 'ออกก่อน', 'เวลาเข้าเฉลี่ย'],
+        headers: ['เวร', 'ลงเวลา (คน)', 'มาสาย (ครั้ง)', 'ออกก่อน (ครั้ง)', 'เวลาเข้าเฉลี่ย'],
         rows: anaF.data.shifts.map((r) => [dash(r.name), r.persons, r.late, r.early, dash(r.avg_in)]),
       }
     }

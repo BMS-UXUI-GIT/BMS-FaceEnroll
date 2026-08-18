@@ -62,7 +62,7 @@ export function StackedBars({ data, height = 150, unit = 'คน' }: {
     ตัวเลข % บนหัวแท่ง · แกน Y 0-100%
     fit = ย่อทุกแท่งให้พอดีความกว้างกล่อง (ไม่มีแถบเลื่อน) แล้วบอกว่าแท่งไหนคือแผนกไหนด้วยสี + legend
          (ชื่อแผนกไทยยาว วางใต้แท่งแล้วชนกันจนอ่านไม่ออกเมื่อแผนกเยอะ) */
-export function PercentBars({ rows, color = 'var(--accent)', colors, height = 320, columnWidth = 96, fit, valueLabel = 'อัตราเข้าทำงาน' }: {
+export function PercentBars({ rows, color = 'var(--accent)', colors, height = 320, columnWidth = 96, fit, legendSide = 'top', valueLabel = 'อัตราเข้าทำงาน' }: {
   rows: { label: string; pct: number }[]
   color?: string
   /** สีรายแท่ง (วนซ้ำถ้าไม่พอ) — ใช้ตอนอยากแยกสีต่อหมวด เช่นต่อแผนก */
@@ -70,32 +70,39 @@ export function PercentBars({ rows, color = 'var(--accent)', colors, height = 32
   height?: number
   columnWidth?: number
   fit?: boolean
+  /** ตำแหน่ง legend (เฉพาะโหมด fit) — 'right' = คอลัมน์แนวตั้งข้างกราฟ (legend บนกิน 2 แถวแล้วดันกราฟเตี้ย) */
+  legendSide?: 'top' | 'right'
   /** ชื่อค่าที่วัด — ใช้ใน tooltip ทั้งของแท่งและของ legend */
   valueLabel?: string
 }) {
   const minWidth = fit ? undefined : Math.max(320, rows.length * columnWidth)
   const cellColor = (i: number) => (colors?.length ? colors[i % colors.length] : color)
   const [hi, setHi] = useState<number | null>(null)
+  const right = fit && legendSide === 'right'
+  // legend แทนชื่อใต้แกน X — เรียงลำดับเดียวกับแท่ง (ซ้าย→ขวา / บน→ล่าง) · ชี้แล้วเน้นแท่งนั้น
+  const legend = fit && (
+    <div style={right
+      ? { display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, flex: 'none', maxWidth: 200, minWidth: 0, paddingLeft: 'var(--sp-3)' }
+      : { display: 'flex', flexWrap: 'wrap', gap: '8px 20px', marginBottom: 'var(--sp-3)' }}>
+      {rows.map((r, i) => (
+        <span key={r.label} {...legendHover(setHi, i)}
+          style={{
+            position: 'relative',
+            display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, whiteSpace: 'nowrap',
+            color: hi == null || hi === i ? 'var(--text-dim)' : 'var(--text-faint)',
+            opacity: hi == null || hi === i ? 1 : 0.5, transition: 'opacity .12s ease',
+            ...(right ? { overflow: 'hidden', textOverflow: 'ellipsis' } : null),
+          }}>
+          <span style={{ width: 12, height: 12, borderRadius: 3, background: cellColor(i), flex: 'none' }} />
+          {r.label}
+        </span>
+      ))}
+    </div>
+  )
   return (
-    <div style={fit ? undefined : { overflowX: 'auto' }}>
-      {/* legend แทนชื่อใต้แกน X — เรียงลำดับเดียวกับแท่ง (ซ้าย→ขวา) · ชี้แล้วเน้นแท่งนั้น */}
-      {fit && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', marginBottom: 'var(--sp-3)' }}>
-          {rows.map((r, i) => (
-            <span key={r.label} {...legendHover(setHi, i)}
-              style={{
-                position: 'relative',
-                display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, whiteSpace: 'nowrap',
-                color: hi == null || hi === i ? 'var(--text-dim)' : 'var(--text-faint)',
-                opacity: hi == null || hi === i ? 1 : 0.5, transition: 'opacity .12s ease',
-              }}>
-              <span style={{ width: 12, height: 12, borderRadius: 3, background: cellColor(i), flex: 'none' }} />
-              {r.label}
-            </span>
-          ))}
-        </div>
-      )}
-      <div style={{ minWidth, height }}>
+    <div style={fit ? (right ? { display: 'flex', alignItems: 'stretch' } : undefined) : { overflowX: 'auto' }}>
+      {!right && legend}
+      <div style={{ minWidth, height, ...(right ? { flex: 1 } : null) }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 24, right: 8, left: 0, bottom: 0 }} barCategoryGap={fit ? '15%' : '25%'}>
             <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
@@ -124,6 +131,7 @@ export function PercentBars({ rows, color = 'var(--accent)', colors, height = 32
           </BarChart>
         </ResponsiveContainer>
       </div>
+      {right && legend}
     </div>
   )
 }

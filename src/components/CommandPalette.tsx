@@ -166,9 +166,21 @@ export function CommandPalette({ open, onClose, allowed }: {
 
         {/* ผลลัพธ์ */}
         <div ref={listRef} style={{ maxHeight: '52vh', overflowY: 'auto', padding: 'var(--sp-2)' }}>
+          {/* ยังไม่พิมพ์ = บอกขอบเขตการค้นหาก่อน (ตอบ "ค้นอะไรได้บ้าง" โดยไม่ต้องลองผิดลองถูก) */}
+          {showingRecent && (
+            <div style={{
+              ...TEXT.sm, color: 'var(--text-dim)', lineHeight: 1.7,
+              margin: 'var(--sp-2) var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)',
+              background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)',
+            }}>
+              พิมพ์เพื่อค้นหา 3 อย่างพร้อมกัน — <b>เมนู</b> (เฉพาะที่บัญชีนี้เข้าได้) ·{' '}
+              <b>โรงพยาบาล</b> (พิมพ์ชื่อหรือรหัส เลือกแล้วสลับไปดูโรงนั้นทันที) ·{' '}
+              <b>พนักงาน</b> ของโรงพยาบาลที่กำลังดูอยู่
+            </div>
+          )}
           {rows.length === 0 ? (
             <div style={{ ...TEXT.body, padding: '32px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
-              ไม่พบสิ่งที่ค้นหา
+              ไม่พบเมนู โรงพยาบาล หรือพนักงานที่ตรงกับคำค้น
             </div>
           ) : (
             <>

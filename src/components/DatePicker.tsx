@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Button as AriaButton, Calendar, CalendarCell, CalendarGrid, CalendarGridBody,
-  CalendarGridHeader, CalendarHeaderCell, Dialog, DialogTrigger, Heading, I18nProvider, Popover,
+  CalendarGridHeader, CalendarHeaderCell, Dialog, DialogTrigger, I18nProvider, Popover,
 } from 'react-aria-components'
-import { getLocalTimeZone, parseDate, today, type CalendarDate } from '@internationalized/date'
+import { GregorianCalendar, getLocalTimeZone, parseDate, toCalendar, today, type CalendarDate } from '@internationalized/date'
 
 // ปฏิทินเลือกวันที่/เดือน — เข้าธีมเอง (แทน <input type=date> ของ system)
 //
@@ -99,6 +99,16 @@ export function DatePicker({ value, onChange, min, max, bare }: {
   const todayISO = todayCal.toString()
   const canPickToday = (!max || todayISO <= max) && (!min || todayISO >= min)
 
+  // เดือน/ปีที่ปฏิทินกำลังแสดง — คุมเองเพื่อให้ dropdown เดือน+พ.ศ. กระโดดข้ามได้ทันที
+  // (เก็บเป็นเกรกอเรียนเสมอ; onFocusChange จาก RAC ส่งมาเป็นปฏิทินพุทธ ต้องแปลงกลับ)
+  const [focused, setFocused] = useState<CalendarDate | null>(null)
+  const focusedVal = focused ?? sel ?? toCal(max) ?? todayCal
+  const curY = todayCal.year
+  const yLo = Math.min(toCal(min)?.year ?? curY - 10, focusedVal.year)
+  const yHi = Math.max(toCal(max)?.year ?? curY + 10, focusedVal.year)
+  const years: number[] = []
+  for (let y = yLo; y <= yHi; y++) years.push(y)
+
   return (
     <I18nProvider locale="th-TH-u-ca-buddhist">
       <DialogTrigger>
@@ -112,14 +122,25 @@ export function DatePicker({ value, onChange, min, max, bare }: {
               <>
                 <Calendar
                   value={sel ?? null}
-                  defaultFocusedValue={sel ?? toCal(max) ?? todayCal}
+                  focusedValue={focusedVal}
+                  onFocusChange={(d) => setFocused(toCalendar(d, new GregorianCalendar()))}
                   minValue={toCal(min)}
                   maxValue={toCal(max)}
                   onChange={(d) => { onChange(d.toString()); close() }}
                 >
                   <header className="dp-head">
                     <AriaButton slot="previous" className="dp-nav" aria-label="เดือนก่อนหน้า">‹</AriaButton>
-                    <Heading className="dp-title" />
+                    {/* dropdown เดือน + พ.ศ. — กระโดดข้ามเดือน/ปีได้เลย ไม่ต้องกด ‹ › ทีละเดือน */}
+                    <span className="dp-my">
+                      <select className="dp-sel" aria-label="เลือกเดือน" value={focusedVal.month}
+                        onChange={(e) => setFocused(focusedVal.set({ month: Number(e.target.value) }))}>
+                        {TH_M.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                      </select>
+                      <select className="dp-sel" aria-label="เลือกปี พ.ศ." value={focusedVal.year}
+                        onChange={(e) => setFocused(focusedVal.set({ year: Number(e.target.value) }))}>
+                        {years.map((y) => <option key={y} value={y}>{y + 543}</option>)}
+                      </select>
+                    </span>
                     <AriaButton slot="next" className="dp-nav" aria-label="เดือนถัดไป">›</AriaButton>
                   </header>
                   {/* narrow = "อา จ อ ..." (short ของ locale ไทยคือชื่อเต็ม กว้างเกินช่อง) */}

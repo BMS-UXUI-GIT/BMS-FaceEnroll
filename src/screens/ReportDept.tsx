@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { nf, useFetch } from '../hooks'
-import { daysAgoISO, localISO, selLabel, toggle } from '../components/AttFilters'
+import { daysAgoISO, isoAddDays, localISO, selLabel, toggle } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
+import { DateRangePicker } from '../components/inputs/DateRangePicker'
 import { Donut, PercentBars } from '../components/charts'
+import { Info } from '../components/Info'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
 import { SectionPanel } from '../components/layout/SectionPanel'
@@ -100,15 +102,18 @@ export function ReportDept() {
   const filterMeta = `${thShort(from)} – ${thShort(to)} · ${selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก')}`
 
   // Figma: header สูง 40 · แถวสูง 53 · ชิดซ้ายทุกคอลัมน์ · แผนกตัวหนา · อัตราเข้าทำงานมีสีตามเกณฑ์
+  // หน่วยกำกับหัวคอลัมน์ — พนักงานนับเป็น "คน" แต่ มาสาย/ออกก่อน สะสมเป็น "ครั้ง" ตลอดช่วง
+  // (คนเดียวสายได้หลายวัน เลขจึงเกินจำนวนคนได้ — ต้องบอกหน่วยไม่งั้นอ่านแล้วขัดกัน)
   const cols: Column<DeptRow>[] = [
     { key: 'dept', header: 'แผนก', tdStyle: { ...TEXT.bodyMed, color: 'var(--text)' }, cell: (d) => deptName(d.dept) },
-    { key: 'staff', header: 'ทั้งหมด', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.staff) },
-    { key: 'present', header: 'มาทำงาน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.present) },
-    { key: 'late', header: 'มาสาย', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.late) },
-    { key: 'absent', header: 'ขาดงาน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(absentOf(d)) },
-    { key: 'early', header: 'ออกก่อน', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.early) },
+    { key: 'staff', header: 'พนักงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.staff) },
+    { key: 'present', header: 'มาทำงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.present) },
+    { key: 'absent', header: 'ขาดงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(absentOf(d)) },
+    { key: 'late', header: `รวมการมาสาย (${times})`, tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.late) },
+    { key: 'early', header: `รวมการออกก่อน (${times})`, tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.early) },
     {
-      key: 'rate', header: 'อัตราเข้าทำงาน',
+      key: 'rate',
+      header: <>อัตราเข้าทำงาน<Info text={`จำนวนครั้งที่มาลงเวลา ÷ (พนักงานในแผนก × ${nf(ana?.summary.days ?? 1)} วัน) × 100`} /></>,
       cell: (d) => <span style={{ ...TEXT.bodyMed, color: rateColor(d.rate) }}>{fmtRate(d.rate)}</span>,
     },
   ]
@@ -131,6 +136,12 @@ export function ReportDept() {
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
+            {/* ตัวเลือกช่วงวัน — เดิมหน้านี้ล็อก 7 วันล่าสุดโดยไม่มีที่ให้เปลี่ยน (backend รับช่วงยาวสุด 31 วัน) */}
+            <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+              <DateRangePicker bare from={from} to={to} max={localISO()}
+                onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
+                onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+            </FilterChip>
             <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
               <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก" options={deptOpts}
                 placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
@@ -158,7 +169,7 @@ export function ReportDept() {
             ? <Loading />
             : depts.length === 0
               ? <EmptyState text="ไม่มีข้อมูลในช่วงที่เลือก" />
-              : <PercentBars fit colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
+              : <PercentBars fit legendSide="right" colors={CYCLE} rows={depts.map((d) => ({ label: deptName(d.dept), pct: d.rate ?? 0 }))} />}
         </SectionPanel>
 
         <SectionPanel title="สัดส่วนการมาสาย" meta={filterMeta}>
@@ -167,13 +178,14 @@ export function ReportDept() {
             : lateSegs.length === 0
               ? <EmptyState text="ไม่มีการมาสายในช่วงที่เลือก" />
               // เลือกแผนกไว้น้อย = legend สั้น เหลือที่ว่างเยอะ → ขยายวงโดนัทแล้วจัดกึ่งกลางแทน
-              : <Donut stretch segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} คน`}
+              : <Donut stretch segs={lateSegs} centerLabel="รวม" centerValue={`${nf(lateSum)} ${times}`}
                   size={lateSegs.length <= 3 ? 260 : lateSegs.length <= 6 ? 230 : 200} />}
         </SectionPanel>
       </div>
 
       {/* ---------- ตารางสรุปรายแผนก (Figma Group 21) ---------- */}
-      <SectionPanel title="สรุปจำนวนพนักงานรายแผนก">
+      {/* เดิมเขียน "ของสัปดาห์นี้" — พอเลือกช่วงวันเองได้ ชื่อคงที่จะโกหก ให้ meta ขวาบอกช่วงจริงแทน */}
+      <SectionPanel title="สรุปจำนวนพนักงานรายแผนกตามช่วงที่เลือก" meta={filterMeta}>
         <div className="table-rounded rounded-lg" style={{ border: '1px solid var(--control-border)' }}>
           <DataTable
             columns={cols}
@@ -190,7 +202,9 @@ export function ReportDept() {
           )}
         </div>
         <p className="text-sm-fig mt-3 mb-0 text-text-dim">
-          โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก" · ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน
+          {multiDay && <>มาสาย/ออกก่อน นับสะสมเป็น "ครั้ง" ตลอดช่วงที่เลือก (คนเดียวสายได้หลายวัน เลขจึงมากกว่าจำนวนคนได้) · </>}
+          อัตราเข้าทำงาน = จำนวนครั้งที่มาลงเวลา ÷ (พนักงาน × {nf(ana?.summary.days ?? 1)} วัน) ·
+          ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน · โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก"
         </p>
       </SectionPanel>
     </div>

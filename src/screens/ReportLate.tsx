@@ -28,15 +28,23 @@ import { asset } from '../assets'
 //
 // แบ่งหน้าฝั่งเซิร์ฟเวอร์ — analytics ครั้งเดียวคืนทั้งสองฝั่ง แยก offset กันด้วย late_offset/early_offset
 
+// late_min/early_min มาคู่กันทั้งสองฝั่ง (backend ใหม่) — เก่าส่งมาแค่ min ของฝั่งตัวเอง ก็ยังแสดงได้
+type SideRow = {
+  emp: string; name: string; dept: string; date: string; shift: string
+  in?: string; out?: string; min: number; late_min?: number; early_min?: number
+}
 type Analytics = {
   late_total: number   // จำนวนจริงทั้งหมด (late_rows โดนตัดตาม limit)
   early_total: number
-  late_rows: { emp: string; name: string; dept: string; date: string; shift: string; in: string; min: number }[]
-  early_rows: { emp: string; name: string; dept: string; date: string; shift: string; out: string; min: number }[]
+  late_rows: SideRow[]
+  early_rows: SideRow[]
 }
 
-/** แถวแสดงผลร่วมของ 2 แผง (time = เวลาเข้า/ออก แล้วแต่ฝั่ง) */
-type IssueRow = { emp: string; name: string; dept: string; date: string; shift: string; time: string; min: number }
+/** แถวแสดงผลร่วมของ 2 มุมมอง — โชว์ครบทั้งเข้า/สาย/ออก/ออกก่อน (ตัวกรองแค่เลือกว่าเห็นใคร) */
+type IssueRow = {
+  emp: string; name: string; dept: string; date: string; shift: string
+  in: string; out: string; late_min: number; early_min: number
+}
 
 // Topbar เป็นแถบกระจกลอยทับ (App.tsx) — เลื่อนอัตโนมัติต้องเผื่อความสูงนี้
 const TOPBAR = 80
@@ -80,14 +88,10 @@ function Cell({ label, value, unit, color }: { label: string; value: string; uni
   )
 }
 
-/** การ์ด 1 คน — รูป + ชื่อ/แผนก + เวลา + จำนวนนาที (Figma "พนักงานที่มาสาย") */
-function IssueItem({ r, timeLabel, minLabel, color, showDate }: {
-  r: IssueRow
-  timeLabel: string
-  minLabel: string
-  color: string
-  showDate: boolean
-}) {
+/** การ์ด 1 คน — รูป + ชื่อ/แผนก + เข้า/สาย/ออก/ออกก่อน ครบทั้ง 4 ช่องทุกมุมมอง
+    (ผู้ใช้อยากเห็นในแถวเดียวว่าคนที่มาสาย ออกก่อนด้วยหรือไม่) */
+function IssueItem({ r, showDate }: { r: IssueRow; showDate: boolean }) {
+  const t = (v: string) => (v ? clock(v).replace(' น.', '') : '—')
   return (
     <div className="row-hover late-row" style={{
       display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
@@ -101,8 +105,12 @@ function IssueItem({ r, timeLabel, minLabel, color, showDate }: {
           {deptName(r.dept)}{showDate ? ` · ${thShort(r.date)}` : ''}
         </div>
       </div>
-      <Cell label={timeLabel} value={clock(r.time).replace(' น.', '')} unit="น." />
-      <Cell label={minLabel} value={nf(r.min)} unit="นาที" color={color} />
+      <Cell label="เวลาเข้า" value={t(r.in)} unit="น." />
+      <Cell label="สาย" value={r.late_min > 0 ? nf(r.late_min) : '—'} unit="นาที"
+        color={r.late_min > 0 ? 'var(--warn)' : 'var(--text-dim)'} />
+      <Cell label="เวลาออก" value={t(r.out)} unit="น." />
+      <Cell label="ออกก่อน" value={r.early_min > 0 ? nf(r.early_min) : '—'} unit="นาที"
+        color={r.early_min > 0 ? 'var(--info)' : 'var(--text-dim)'} />
     </div>
   )
 }
@@ -127,7 +135,7 @@ function IssueSkeleton({ count }: { count: number }) {
             <span className="skel" style={{ width: '45%', height: 14 }} />
             <span className="skel" style={{ width: '30%', height: 12 }} />
           </div>
-          {[0, 1].map((c) => (
+          {[0, 1, 2, 3].map((c) => (
             <div key={c} style={{ minWidth: 108, flex: 'none', padding: 'var(--sp-1) var(--sp-3)', borderLeft: '1px solid var(--control-border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span className="skel" style={{ width: 48, height: 12 }} />
               <span className="skel" style={{ width: 70, height: 18 }} />
@@ -139,14 +147,11 @@ function IssueSkeleton({ count }: { count: number }) {
   )
 }
 
-function IssueList({ rows: allRows, total, page, onPage, timeLabel, minLabel, color, showDate, loading, empty }: {
+function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empty }: {
   rows: IssueRow[]
   total: number
   page: number
   onPage: (p: number) => void
-  timeLabel: string
-  minLabel: string
-  color: string
   showDate: boolean
   loading: boolean
   empty: string
@@ -172,7 +177,7 @@ function IssueList({ rows: allRows, total, page, onPage, timeLabel, minLabel, co
         : allRows.length === 0
           ? <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--ok)', textAlign: 'center' }}>{empty}</div>
           : rows.map((r, i) => (
-            <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} timeLabel={timeLabel} minLabel={minLabel} color={color} showDate={showDate} />
+            <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} showDate={showDate} />
           ))}
       {total > PAGE_SIZE && (
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} shown={rows.length} onPage={goPage} />
@@ -191,10 +196,11 @@ export function ReportLate() {
   // เวร/แผนก เลือกได้หลายอัน
   const [fShifts, setFShifts] = useState<string[]>([])
   const [fDepts, setFDepts] = useState<string[]>([])
-  // ดูทีละฝั่ง (Figma มี 2 การ์ด แต่ผู้ใช้ขอเหลือใบเดียว + สวิตช์)
-  const [view, setView] = useState<'late' | 'early'>('late')
+  // ค่าเริ่มต้นเห็นรวมทุกคนที่มีปัญหา (สายหรือออกก่อน) — ชิปเป็นตัวกรอง กดเพื่อเหลือฝั่งเดียว กดซ้ำกลับมารวม
+  const [view, setView] = useState<'all' | 'late' | 'early'>('all')
   const [latePage, setLatePage] = useState(0)
   const [earlyPage, setEarlyPage] = useState(0)
+  const [allPage, setAllPage] = useState(0)
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
 
   // ค้นชื่อ/รหัส/แผนก — หน่วง 300ms แล้วกรองจากข้อมูลที่โหลดมา (backend ยังไม่มี q ให้ endpoint นี้)
@@ -203,7 +209,7 @@ export function ReportLate() {
 
   // สลับโรง = ล้างตัวกรอง + กลับมาดูวันนี้ · เปลี่ยนเงื่อนไข = กลับหน้าแรกทั้งสองแผง
   useEffect(() => { setFShifts([]); setFDepts([]); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
-  useEffect(() => { setLatePage(0); setEarlyPage(0) }, [from, to, fShifts, fDepts, dq, hcode])
+  useEffect(() => { setLatePage(0); setEarlyPage(0); setAllPage(0) }, [from, to, fShifts, fDepts, dq, hcode])
 
   const fq = filterQS(fShifts, fDepts)
   const anaF = useFetch<Analytics>(hcode
@@ -211,24 +217,49 @@ export function ReportLate() {
       + `&limit=${PAGE_SIZE}&late_offset=${latePage * PAGE_SIZE}&early_offset=${earlyPage * PAGE_SIZE}`
     : null, reload)
 
+  // รวมเป็นแถวหน้าตาเดียวกันทั้งสองมุมมอง — backend เก่าไม่ส่ง late_min/early_min ของอีกฝั่ง ก็ถอยไปใช้ min ของฝั่งตัวเอง
+  const toRow = (r: SideRow, side: 'late' | 'early'): IssueRow => ({
+    emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift,
+    in: r.in ?? '', out: r.out ?? '',
+    late_min: r.late_min ?? (side === 'late' ? r.min : 0),
+    early_min: r.early_min ?? (side === 'early' ? r.min : 0),
+  })
   const lateRows = useMemo<IssueRow[]>(
-    () => (anaF.data?.late_rows ?? []).map((r) => ({ emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.in, min: r.min })),
+    () => (anaF.data?.late_rows ?? []).map((r) => toRow(r, 'late')),
     [anaF.data])
   const earlyRows = useMemo<IssueRow[]>(
-    () => (anaF.data?.early_rows ?? []).map((r) => ({ emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, time: r.out, min: r.min })),
+    () => (anaF.data?.early_rows ?? []).map((r) => toRow(r, 'early')),
     [anaF.data])
+
+  // มุมมองรวม — คนเดียวกันวันเดียวกันโผล่ทั้งสองฝั่งได้ (สายด้วยออกก่อนด้วย) ต้องยุบเป็นแถวเดียว
+  const allRows = useMemo<IssueRow[]>(() => {
+    const seen = new Map<string, IssueRow>()
+    for (const r of [...lateRows, ...earlyRows]) {
+      const k = `${r.emp}:${r.date}`
+      const cur = seen.get(k)
+      if (!cur) seen.set(k, { ...r })
+      else {
+        // เติมข้อมูลฝั่งที่อีกแถวมี (backend เก่าส่งมาไม่ครบสองฝั่ง)
+        cur.in = cur.in || r.in
+        cur.out = cur.out || r.out
+        cur.late_min = Math.max(cur.late_min, r.late_min)
+        cur.early_min = Math.max(cur.early_min, r.early_min)
+      }
+    }
+    return [...seen.values()]
+  }, [lateRows, earlyRows])
 
   const match = (r: IssueRow) => !dq
     || r.name.toLowerCase().includes(dq) || r.emp.toLowerCase().includes(dq) || (r.dept ?? '').toLowerCase().includes(dq)
   const lateShown = dq ? lateRows.filter(match) : lateRows
   const earlyShown = dq ? earlyRows.filter(match) : earlyRows
+  const allShown = dq ? allRows.filter(match) : allRows
 
   if (currentHcode === '*') return <PickHospital />
   if (!hcode) {
     return <div className="max-w-(--page-max) text-body text-text-dim">ยังไม่มีโรงพยาบาลในสิทธิ์ของบัญชีนี้</div>
   }
 
-  const late = view === 'late'
   const multiDay = from !== to
   const ready = !!anaF.data
   // ป้ายมุมขวาหัวแผง — บอกทุกตัวกรองที่ใช้อยู่ ไม่ใช่แค่ช่วงวัน
@@ -305,30 +336,38 @@ export function ReportLate() {
         </FilterChip>
       </FilterBar>
 
-      {/* ---------- แผงรายชื่อใบเดียว สลับฝั่งด้วยชิป ---------- */}
+      {/* ---------- แผงรายชื่อใบเดียว — เริ่มที่รวมทุกคน · ชิปกรองเหลือฝั่งเดียว (กดซ้ำ = กลับมารวม) ---------- */}
       <SectionPanel
-        title={late ? 'พนักงานที่มาสาย' : 'พนักงานที่ออกก่อนเวลา'}
+        title={view === 'late' ? 'พนักงานที่มาสาย' : view === 'early' ? 'พนักงานที่ออกก่อนเวลา' : 'พนักงานที่มาสายหรือออกก่อนเวลา'}
         meta={rangeMeta}
         filters={<>
-          <FilterChip outlined variant="choice" tone="warn" active={late} onClick={() => setView('late')}
+          <FilterChip outlined variant="choice" tone="warn" active={view === 'late'}
+            onClick={() => setView(view === 'late' ? 'all' : 'late')}
             icon={<Icon name="clock-alert" size={16} width={2} />} label="มาสาย" />
-          <FilterChip outlined variant="choice" tone="accent" active={!late} onClick={() => setView('early')}
+          <FilterChip outlined variant="choice" tone="accent" active={view === 'early'}
+            onClick={() => setView(view === 'early' ? 'all' : 'early')}
             icon={<Icon name="time-duration-off" size={16} width={2} />} label="ออกก่อนเวลา" />
         </>}
       >
-        {late
+        {/* ตัวกรองเลือกแค่ว่า "เห็นใคร" — คอลัมน์แสดงครบทั้งเข้า/สาย/ออก/ออกก่อนเหมือนกันทุกมุมมอง */}
+        {view === 'late'
           ? (
             <IssueList rows={lateShown} total={dq ? lateShown.length : (anaF.data?.late_total ?? lateShown.length)}
-              page={latePage} onPage={setLatePage}
-              timeLabel="เวลาเข้า" minLabel="สาย" color="var(--warn)" showDate={multiDay}
+              page={latePage} onPage={setLatePage} showDate={multiDay}
               loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายในช่วงที่เลือก'} />
           )
-          : (
-            <IssueList rows={earlyShown} total={dq ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
-              page={earlyPage} onPage={setEarlyPage}
-              timeLabel="เวลาออก" minLabel="ก่อนเวลา" color="var(--info)" showDate={multiDay}
-              loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนออกก่อนเวลาในช่วงที่เลือก'} />
-          )}
+          : view === 'early'
+            ? (
+              <IssueList rows={earlyShown} total={dq ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
+                page={earlyPage} onPage={setEarlyPage} showDate={multiDay}
+                loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนออกก่อนเวลาในช่วงที่เลือก'} />
+            )
+            : (
+              /* รวมสองฝั่งแล้วยุบคนซ้ำ — จำนวนหน้าคิดจากรายการที่รวมแล้ว */
+              <IssueList rows={allShown} total={allShown.length}
+                page={allPage} onPage={setAllPage} showDate={multiDay}
+                loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายหรือออกก่อนเวลาในช่วงที่เลือก'} />
+            )}
       </SectionPanel>
     </div>
   )

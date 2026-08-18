@@ -5,9 +5,9 @@ import { clock, nf, useFetch, useMedia } from '../hooks'
 import { daysAgoISO, filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
 import { thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
-import { Donut, SegmentBar, StackedColumns, TrendLine, legendHover } from '../components/charts'
+import { SegmentBar, StackedColumns, TrendLine, legendHover } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
-import { Skel, SkelChart, SkelDonut, SkelRows, SkelSummary } from '../components/Skeleton'
+import { Skel, SkelChart, SkelRows, SkelSummary } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
@@ -19,6 +19,7 @@ import { StatusBadge } from '../components/data-display/StatusBadge'
 import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
 import { PlatformPanels, PlatformStats, usePlatformOverview } from './PlatformOverview'
 import { HealthSummary, useHealth } from './Health'
+import { Info } from '../components/Info'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
@@ -28,11 +29,8 @@ import { asset } from '../assets'
 //   แท็บ ภาพรวม / การเข้า-ออกงานล่าสุด · ชิปช่วงวัน-เวร-แผนก
 //   การ์ดหัวเรื่อง 5 ตัวเลข + ภาพประกอบ
 //   แผง: สถิติการเข้า-ออกงาน (คอลัมน์ซ้อน) · แนวโน้มการมาสาย (เส้น)
-//        สถิติแบ่งตามเวร · สรุปการขาดงาน (โดนัท)
-//        สรุปการมาสาย 5 อันดับ · สรุปสถานะการมาทำงาน
-//
-// ⚠️ ระบบไม่มีข้อมูล "ลา" (ลากิจ/ลาป่วย/ลาพักร้อน) — โดนัทสรุปการขาดงานจึงมีแต่ "ขาดงาน"
-//    ขาดงาน = พนักงานทั้งหมด × จำนวนวัน − จำนวนครั้งที่ลงเวลา
+//        สถิติแบ่งตามเวร · มาสาย/ออกก่อนเวลาแยกตามเวร
+//        สรุปการมาสาย 5 อันดับ (จำนวน/เฉลี่ย/สูงสุด) · สรุปสถานะการมาทำงาน
 
 type Row = { emp: string; seq?: number; name: string; date: string; in: string; out: string; shift: string; dept: string; late: boolean; status: string }
 type Analytics = {
@@ -41,7 +39,7 @@ type Analytics = {
   total_staff: number
   days: { date: string; punched: number; on_time: number; late: number; early: number; avg_late_min: number }[]
   shifts: { name: string; persons: number; late: number; early: number; avg_in: string }[]
-  top_late: { emp: string; name: string; dept: string; count: number; avg_min: number }[]
+  top_late: { emp: string; name: string; dept: string; count: number; avg_min: number; max_min?: number }[]
   avg_late_min: number
   late_rows: { emp: string; min: number }[]
 }
@@ -215,13 +213,10 @@ export function Overview() {
   const topShift = shifts.reduce<typeof shifts[number] | null>((a, b) => (!a || b.persons > a.persons ? b : a), null)
   const shiftPct = (v: number) => (shiftTotal > 0 ? Math.round((v / shiftTotal) * 100) : 0)
 
-  // ---------- ขาดงาน (ไม่มีข้อมูลลา → ชนิดอื่นเป็น 0) ----------
-  const absSegs = [
-    { v: absent ?? 0, color: 'var(--danger)', label: 'ขาดงาน' },
-    { v: 0, color: 'var(--accent)', label: 'ลากิจ' },
-    { v: 0, color: 'var(--ok)', label: 'ลาป่วย' },
-    { v: 0, color: 'var(--warn)', label: 'ลาพักร้อน' },
-    { v: 0, color: 'var(--info)', label: 'อื่นๆ' },
+  // ---------- มาสาย/ออกก่อน แยกตามเวร (การ์ดคู่กับสถิติแบ่งตามเวร) ----------
+  const SHIFT_METRICS = [
+    { key: 'late' as const, label: 'มาสาย', icon: 'clock-alert', color: 'var(--warn)', bg: 'var(--warn-light)' },
+    { key: 'early' as const, label: 'ออกก่อนเวลา', icon: 'time-duration-off', color: 'var(--info)', bg: 'var(--info-light)' },
   ]
 
   const top5 = (ana?.top_late ?? []).slice(0, 5)
@@ -417,7 +412,22 @@ export function Overview() {
         <PickHospital />
       ) : tab === 'recent' ? (
         /* ---------- แท็บ 2: การเข้า/ออกงานล่าสุด ---------- */
-        <SectionPanel title="การเข้า/ออกงานล่าสุด" meta={filterMeta}>
+        /* จำนวนรายการเป็นป้ายเด่นติดหัวข้อ — ผู้ใช้ถามว่า "ล่าสุด" คือกี่ราย (backend ส่งมาไม่เกิน 25 รายการล่าสุด) */
+        <SectionPanel
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              การเข้า/ออกงานล่าสุด
+              {ana && (
+                <span style={{
+                  ...TEXT.sm, fontWeight: 500, color: 'var(--accent-active)', background: 'var(--accent-light)',
+                  padding: '2px var(--sp-3)', borderRadius: 'var(--r-full)', whiteSpace: 'nowrap',
+                }}>
+                  {nf(ana.recent.length)} รายการ
+                </span>
+              )}
+            </span>
+          }
+          meta={filterMeta}>
           {!ana ? <SkelRows rows={6} /> : (ana.recent.length === 0 ? (
             <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
               {isToday ? 'ยังไม่มีคนเข้าเวรวันนี้' : `ไม่มีข้อมูลเข้าเวรช่วง ${dayLabel}`}
@@ -459,24 +469,36 @@ export function Overview() {
               )}
             </SectionPanel>
 
-            <SectionPanel title="สถิติการเข้า-ออกงาน"
+            {/* ชื่อเดิมซ้ำกับแผงซ้ายเป๊ะ ("สถิติการเข้า-ออกงาน" คู่กัน) — ผู้ใช้เลยไม่รู้ว่ากราฟเส้นนี้เล่าอะไร */}
+            <SectionPanel
+              title={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)' }}>
+                  แนวโน้มการมาสาย
+                  <Info text="เส้นแสดงนาทีที่มาสายโดยเฉลี่ยของแต่ละวัน — คิดเฉพาะคนที่มาสายวันนั้น เช่น 27 นาที = วันนั้นคนที่สาย เฉลี่ยแล้วสายคนละ 27 นาที" />
+                </span>
+              }
               meta={ana ? (
-                <span style={{
+                <span title="ค่าเฉลี่ยนาทีที่มาสายต่อครั้ง รวมทั้งช่วงวันที่เลือก" style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: 'var(--sp-1) var(--sp-3)', borderRadius: 'var(--r-full)',
                   background: 'var(--accent-light)', color: 'var(--accent-active)', ...TEXT.sm,
                 }}>
                   <Icon name="progress-alert" size={16} width={2} />
-                  เฉลี่ย {nf(ana.avg_late_min)} นาที
+                  ทั้งช่วงสายเฉลี่ย {nf(ana.avg_late_min)} นาที/ครั้ง
                 </span>
               ) : undefined}>
               {!ana ? <SkelChart /> : (
-                <TrendLine points={trend} height={185} />
+                <div>
+                  <TrendLine points={trend} height={185} />
+                  <div style={{ ...TEXT.sm, color: 'var(--text-dim)', lineHeight: 1.7, marginTop: 'var(--sp-2)' }}>
+                    แกนตั้ง = นาทีที่มาสายเฉลี่ยของวันนั้น (คิดเฉพาะคนที่มาสาย) — เส้นชันขึ้น = ช่วงนั้นคนสายหนักขึ้น
+                  </div>
+                </div>
               )}
             </SectionPanel>
           </div>
 
-          {/* ---------- แถว 2: สถิติแบ่งตามเวร + สรุปการขาดงาน ---------- */}
+          {/* ---------- แถว 2: สถิติแบ่งตามเวร + มาสาย/ออกก่อนเวลาแยกตามเวร ---------- */}
           <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
             <SectionPanel title="สถิติแบ่งตามเวร" meta={filterMeta}>
               {!ana ? <SkelSummary /> : shiftTotal === 0 ? (
@@ -503,20 +525,72 @@ export function Overview() {
               )}
             </SectionPanel>
 
-            <SectionPanel title="สรุปการขาดงาน" meta={filterMeta}>
-              {!ana ? <SkelDonut /> : (
-                /* วงกลม+legend กินที่ว่างทั้งหมดแล้วจัดกึ่งกลาง หมายเหตุปักไว้ล่างสุด
-                   (แผงคู่กัน "สถิติแบ่งตามเวร" สูงกว่า ถ้าไม่ยืดจะเหลือช่องว่างใต้โดนัท) */
-                <div style={{ height: '100%', padding: 'var(--sp-4) 0', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center' }}>
-                    <Donut stretch segs={absSegs} unit="คน" legendSize={14}
-                      size={absSegs.length <= 3 ? 260 : absSegs.length <= 6 ? 230 : 200}
-                      centerLabel="รวมทั้งหมด" centerValue={nf(absent)} />
-                  </div>
-                  <p className="text-sm-fig mt-4 mb-0 text-text-dim">
-                    ระบบยังไม่มีข้อมูลการลา — ตัวเลขลาทุกประเภทจึงเป็น 0 · ขาดงาน = พนักงานทั้งหมด × {nf(days)} วัน − จำนวนครั้งที่ลงเวลา
-                  </p>
-                </div>
+            <SectionPanel title="แยกการมาสายและออกก่อนของแต่ละเวร" meta={filterMeta}>
+              {!ana ? <SkelSummary /> : shiftTotal === 0 ? (
+                <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>ไม่มีข้อมูลในช่วงที่เลือก</div>
+              ) : (
+                /* แถวละเวร แต่ละเวรมีแท่งนอน 2 แท่ง (มาสาย/ออกก่อน) สเกลเดียวกันทั้งการ์ด
+                   — เทียบได้ทันทีว่าเวรไหนหนักสุด และเวรเดียวกันสายหรือออกก่อนมากกว่ากัน */
+                (() => {
+                  const maxV = Math.max(1, ...shifts.flatMap((x) => [x.late, x.early]))
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+                        <Legend items={SHIFT_METRICS.map((m) => ({ label: m.label, color: m.color }))} />
+                        <Headline label="รวมทั้งหมด" value={nf(shifts.reduce((a, x) => a + x.late + x.early, 0))} unit="ครั้ง" align="right" />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', gap: 'var(--sp-4)' }}>
+                        {shifts.map((x) => {
+                          const kind = shiftKindOf(x.name)
+                          return (
+                            <div key={x.name} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+                              {/* ป้ายเวร — ไอคอน+สีชุดเดียวกับแผง "สถิติแบ่งตามเวร" ข้าง ๆ */}
+                              <div style={{ width: 96, flex: 'none', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                                <span aria-hidden style={{
+                                  width: 32, height: 32, flex: 'none', borderRadius: 'var(--r-full)',
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                  background: shiftColor(kind), color: 'var(--bg)',
+                                }}>
+                                  <Icon name={SHIFT_ICON[kind]} size={16} width={2} />
+                                </span>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ ...TEXT.bodyMed, color: 'var(--text)', whiteSpace: 'nowrap' }}>เวร{shortShift(x.name)}</div>
+                                  <div style={{ ...TEXT.sm, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{nf(x.persons)} {u}</div>
+                                </div>
+                              </div>
+                              {/* แท่งนอน 2 แท่ง — ยาวตามจำนวนครั้ง (สเกลร่วมทั้งการ์ด) + % เทียบการเข้าเวรของเวรนั้น */}
+                              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                                {SHIFT_METRICS.map((m) => {
+                                  const v = x[m.key]
+                                  // % = ส่วนแบ่งของเวรนี้ในยอดรวมแต่ละประเภท (late กับ persons หน่วยคนละอย่าง หารกันตรง ๆ ไม่ได้)
+                                  const metricTotal = shifts.reduce((a, y) => a + y[m.key], 0)
+                                  const rate = metricTotal > 0 ? Math.round((v / metricTotal) * 100) : 0
+                                  return (
+                                    <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                                      <div title={`${m.label} ${nf(v)} ครั้ง`} style={{ flex: 1, minWidth: 0, height: 14, borderRadius: 'var(--r-full)', background: 'var(--surface-alt)', overflow: 'hidden' }}>
+                                        <div style={{
+                                          width: `${(v / maxV) * 100}%`, height: '100%', minWidth: v > 0 ? 6 : 0,
+                                          borderRadius: 'var(--r-full)', background: m.color, transition: 'width .3s ease',
+                                        }} />
+                                      </div>
+                                      <div style={{ width: 116, flex: 'none', display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)', whiteSpace: 'nowrap' }}>
+                                        <span style={{ ...TEXT.bodyMed, color: v > 0 ? m.color : 'var(--text-dim)' }}>{nf(v)}</span>
+                                        <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>ครั้ง ({rate}%)</span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <p className="text-sm-fig mt-4 mb-0 text-text-dim">
+                        % = ส่วนแบ่งของเวรนั้นจากยอดรวมแต่ละประเภท (มาสาย {nf(shifts.reduce((a, x) => a + x.late, 0))} · ออกก่อน {nf(shifts.reduce((a, x) => a + x.early, 0))} ครั้ง)
+                      </p>
+                    </div>
+                  )
+                })()
               )}
             </SectionPanel>
           </div>
@@ -562,6 +636,13 @@ export function Overview() {
                         <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>เฉลี่ย</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)' }}>
                           <span style={{ ...TEXT.h3, color: 'var(--warn)' }}>{nf(t.avg_min)}</span>
+                          <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>นาที</span>
+                        </div>
+                      </div>
+                      <div style={{ minWidth: 96, flex: 'none', padding: 'var(--sp-1) var(--sp-3)', borderLeft: '1px solid var(--control-border)' }}>
+                        <div style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>สูงสุด</div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)' }}>
+                          <span style={{ ...TEXT.h3, color: 'var(--danger)' }}>{t.max_min != null ? nf(t.max_min) : '—'}</span>
                           <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>นาที</span>
                         </div>
                       </div>

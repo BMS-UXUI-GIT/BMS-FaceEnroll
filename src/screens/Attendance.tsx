@@ -114,8 +114,12 @@ export function Attendance() {
     //        GPS = กึ่งกลาง · สถานะ = ชิดขวา กว้าง 200
     { key: 'shift', header: 'เวร', width: 70, align: 'center', cell: (r) => <ShiftBadge shift={shiftKindOf(r.shift)} /> },
     {
+      // โชว์ชื่อสถานที่จาก reverse geocode พิกัดสแกน (สไตล์ Google Maps) — "มีพิกัด" เฉย ๆ ไม่บอกอะไร
+      // นอกพื้นที่ยิ่งสำคัญ: เห็นเลยว่าสแกนจากสถานที่ไหน (backend เก่าไม่ส่งชื่อ = fallback เดิม)
       key: 'gps', header: 'GPS', align: 'center', cell: (r) => r.gps
-        ? <span className={`text-body ${r.out_area ? 'text-danger' : 'text-ok'}`}>● {r.out_area ? 'นอกพื้นที่' : 'มีพิกัด'}</span>
+        ? r.out_area
+          ? <span className="text-body text-danger">● นอกพื้นที่{r.gps_place ? ` · ${r.gps_place}` : ''}</span>
+          : <span className="text-body text-ok">● {r.gps_place || 'มีพิกัด'}</span>
         : <span className="text-body text-text-dim">— ไม่มี</span>,
     },
     { key: 'status', header: 'สถานะ', align: 'center', width: 400, cell: (r) => <IssueBadges r={r} /> },

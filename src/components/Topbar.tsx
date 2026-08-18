@@ -137,7 +137,8 @@ export function Topbar({ onMenu, onSearch }: { onMenu?: () => void; onSearch?: (
           color: 'var(--text-dim)', cursor: 'pointer', fontFamily: 'var(--sans)',
         }}>
           <Icon name="search" size={20} width={1.8} />
-          <span style={{ ...TEXT.sm, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ค้นหาทั้งระบบ…</span>
+          {/* บอกขอบเขตตั้งแต่ยังไม่กด — ผู้ใช้ไม่รู้ว่า "ทั้งระบบ" ค้นอะไรได้บ้าง */}
+          <span style={{ ...TEXT.sm, flex: 1, minWidth: 0, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>ค้นหาเมนู · โรงพยาบาล · พนักงาน…</span>
           <kbd style={{
             ...TEXT.caption, fontFamily: 'var(--mono)', color: 'var(--text-dim)',
             padding: '2px 8px', borderRadius: 'var(--r-sm)', background: 'var(--bg)', whiteSpace: 'nowrap',

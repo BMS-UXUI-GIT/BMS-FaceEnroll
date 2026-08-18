@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../icons'
+import { DatePicker } from './DatePicker'
 
 // dialog กลางของระบบ — แทน window.confirm/prompt/alert ที่หน้าตาเป็นของ browser
 // ใช้แบบ imperative: await dialog.confirm({...}) ; ต้อง mount <DialogHost/> ใน App หนึ่งครั้ง
@@ -17,9 +18,21 @@ type PromptOpts = {
 }
 type AlertOpts = { title?: string; body: string }
 
+// prompt แบบเลือกโหมดได้ — เช่น ต่ออายุด้วย "จำนวนวัน" หรือ "ระบุวันที่" ในกล่องเดียว
+type PromptMode = {
+  key: string; label: string                // ป้ายปุ่มสลับโหมด
+  inputLabel?: string
+  type?: 'text' | 'date'
+  initial?: string; placeholder?: string; mono?: boolean
+  min?: string; max?: string                // ใช้กับ type: 'date'
+  validate?: (v: string) => string | null
+}
+type PromptModesOpts = { title: string; body?: string; confirmText?: string; danger?: boolean; modes: PromptMode[] }
+
 type Req =
   | { kind: 'confirm'; o: ConfirmOpts; res: (v: boolean) => void }
   | { kind: 'prompt'; o: PromptOpts; res: (v: string | null) => void }
+  | { kind: 'promptm'; o: PromptModesOpts; res: (v: { mode: string; value: string } | null) => void }
   | { kind: 'alert'; o: AlertOpts; res: () => void }
 
 let push: ((r: Req) => void) | null = null
@@ -31,6 +44,9 @@ export const dialog = {
   /** ถามข้อความ — คืน null เมื่อยกเลิก */
   prompt: (o: PromptOpts) => new Promise<string | null>((res) =>
     push ? push({ kind: 'prompt', o, res }) : res(window.prompt(o.title, o.initial ?? ''))),
+  /** ถามข้อความแบบเลือกโหมดได้ — คืน { mode, value } หรือ null เมื่อยกเลิก */
+  promptModes: (o: PromptModesOpts) => new Promise<{ mode: string; value: string } | null>((res) =>
+    push ? push({ kind: 'promptm', o, res }) : res(null)),
   alert: (o: AlertOpts) => new Promise<void>((res) =>
     push ? push({ kind: 'alert', o, res }) : (window.alert(o.body), res())),
 }
@@ -93,42 +109,49 @@ export function ToastHost() {
 export function DialogHost() {
   const [req, setReq] = useState<Req | null>(null)
   const [value, setValue] = useState('')
+  const [mode, setMode] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     push = (r) => {
       setReq(r)
-      setValue(r.kind === 'prompt' ? r.o.initial ?? '' : '')
+      setValue(r.kind === 'prompt' ? r.o.initial ?? '' : r.kind === 'promptm' ? r.o.modes[0]?.initial ?? '' : '')
+      setMode(r.kind === 'promptm' ? r.o.modes[0]?.key ?? '' : '')
       setErr(null)
     }
     return () => { push = null }
   }, [])
   useEffect(() => {
-    if (req?.kind === 'prompt') setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
-  }, [req])
+    if (req?.kind === 'prompt' || req?.kind === 'promptm') setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 30)
+  }, [req, mode])
 
   if (!req) return null
 
   const close = () => setReq(null)
   const cancel = () => {
     if (req.kind === 'confirm') req.res(false)
-    else if (req.kind === 'prompt') req.res(null)
+    else if (req.kind === 'prompt' || req.kind === 'promptm') req.res(null)
     else req.res()
     close()
   }
+  const curMode = req.kind === 'promptm' ? req.o.modes.find((x) => x.key === mode) ?? req.o.modes[0] : null
   const ok = () => {
     if (req.kind === 'prompt') {
       const e = req.o.validate?.(value) ?? null
       if (e) { setErr(e); return }
       req.res(value)
+    } else if (req.kind === 'promptm') {
+      const e = curMode?.validate?.(value) ?? null
+      if (e) { setErr(e); return }
+      req.res({ mode: curMode!.key, value })
     } else if (req.kind === 'confirm') req.res(true)
     else req.res()
     close()
   }
 
   const o: any = req.o
-  const danger = (req.kind === 'confirm' || req.kind === 'prompt') && o.danger
+  const danger = (req.kind === 'confirm' || req.kind === 'prompt' || req.kind === 'promptm') && o.danger
   return (
     <div onClick={cancel} onKeyDown={(e) => e.key === 'Escape' && cancel()}
       style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -152,6 +175,44 @@ export function DialogHost() {
               {err && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 5 }}>{err}</div>}
             </div>
           )}
+          {req.kind === 'promptm' && curMode && (
+            <div>
+              {/* ปุ่มสลับโหมดกรอก — สลับแล้วค่าในช่องรีเซ็ตเป็นค่าเริ่มต้นของโหมดนั้น */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10, padding: 3, borderRadius: 9, background: 'var(--surface-card)', border: '1px solid var(--border)' }}>
+                {req.o.modes.map((mo) => {
+                  const active = mo.key === curMode.key
+                  return (
+                    <button key={mo.key} type="button"
+                      onClick={() => { if (mo.key === curMode.key) return; setMode(mo.key); setValue(mo.initial ?? ''); setErr(null) }}
+                      style={{
+                        flex: 1, padding: '7px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                        fontSize: 12.5, fontWeight: 500, fontFamily: 'var(--sans)',
+                        background: active ? 'var(--accent)' : 'transparent',
+                        color: active ? 'var(--bg)' : 'var(--text-dim)',
+                      }}>
+                      {mo.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {curMode.inputLabel && <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', marginBottom: 6 }}>{curMode.inputLabel}</label>}
+              {curMode.type === 'date' ? (
+                /* ปฏิทินของระบบ (พ.ศ. + ธีมเดียวกัน) — ไม่ใช้ <input type=date> ของ browser */
+                <DatePicker value={value} min={curMode.min} max={curMode.max}
+                  onChange={(v) => { setValue(v); setErr(null) }} />
+              ) : (
+                <input ref={inputRef} value={value} placeholder={curMode.placeholder}
+                  onChange={(e) => { setValue(e.target.value); setErr(null) }}
+                  onKeyDown={(e) => e.key === 'Enter' && ok()}
+                  style={{
+                    width: '100%', padding: '10px 12px', border: `1px solid ${err ? 'var(--danger)' : 'var(--border)'}`, borderRadius: 9,
+                    background: 'var(--surface-card)', color: 'var(--text)', fontSize: 13.5, outline: 'none',
+                    fontFamily: curMode.mono ? 'var(--mono)' : 'var(--sans)', letterSpacing: curMode.mono ? '1px' : undefined,
+                  }} />
+              )}
+              {err && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 5 }}>{err}</div>}
+            </div>
+          )}
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           {req.kind !== 'alert' && (
@@ -159,7 +220,7 @@ export function DialogHost() {
               {o.cancelText ?? 'ยกเลิก'}
             </button>
           )}
-          <button onClick={ok} autoFocus={req.kind !== 'prompt'} style={{
+          <button onClick={ok} autoFocus={req.kind !== 'prompt' && req.kind !== 'promptm'} style={{
             ...btnBase, fontWeight: 500, border: 'none',
             background: danger ? 'var(--danger)' : 'var(--accent)', color: danger ? 'var(--bg)' : 'var(--bg)',
           }}>

@@ -29,8 +29,9 @@ import { TEXT } from '../typography'
 const card: React.CSSProperties = { background: 'var(--bg)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)' }
 const field: React.CSSProperties = { padding: 'var(--sp-2) var(--sp-3)', minHeight: 40, border: '1px solid var(--control-border)', borderRadius: 'var(--r-md)', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: 13, outline: 'none' }
 
-type User = { username: string; display_name: string; role: string; hcodes: string[]; tabs: string[] | null; effective_tabs: string[]; active: boolean; last_login_at: string | null }
-type UsersRes = { users: User[]; roles: string[]; all_tabs: string[]; role_default_tabs: Record<string, string[]>; role_tabs: Record<string, string[]> }
+export type UserAccount = { username: string; display_name: string; role: string; hcodes: string[]; tabs: string[] | null; effective_tabs: string[]; active: boolean; last_login_at: string | null }
+type User = UserAccount
+export type UsersRes = { users: User[]; roles: string[]; all_tabs: string[]; role_default_tabs: Record<string, string[]>; role_tabs: Record<string, string[]> }
 
 // 1 สิทธิ์ = 1 กลุ่มเมนู — ชื่อตรงกับที่ขึ้นในแถบเมนูซ้าย, tip ขึ้นเป็น tooltip ที่ไอคอน ⓘ
 const TAB_INFO: Record<string, { name: string; tip: string; danger?: boolean; icon?: string }> = {
@@ -98,7 +99,7 @@ const PERM_TABS: ['scope' | 'perms' | 'account', string][] = [
 ]
 
 /** popup ตั้งสิทธิ์ของผู้ใช้ 1 คน — ขอบเขตโรง + กลุ่มเมนูที่เปิดใช้ได้ */
-function PermissionsModal({ u, data, busy, isMe, patch, onResetPassword, onRemove, hospOpts, searchHospitals, onClose }: {
+export function PermissionsModal({ u, data, busy, isMe, patch, onResetPassword, onRemove, hospOpts, searchHospitals, onClose }: {
   u: User
   data: UsersRes | null
   busy: boolean
@@ -507,7 +508,14 @@ export function Users({ me }: { me: string }) {
       {!data ? <SkelRows rows={6} /> : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
         {paged.pageRows.map((u, i) => (
-          <div key={u.username} style={{ background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)' }}>
+          <div key={u.username} className={u.role !== 'superadmin' ? 'row-hover' : undefined}
+            style={{ background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)', cursor: u.role !== 'superadmin' ? 'pointer' : undefined }}
+            title={u.role !== 'superadmin' ? 'กดเพื่อจัดการสิทธิ์' : undefined}
+            // กดที่ไหนของแถวก็เปิดหน้าจัดการสิทธิ์ได้ (ยกเว้นกดปุ่มในแถว — ปุ่มทำงานของมันเอง)
+            onClick={(e) => {
+              if (u.role === 'superadmin' || (e.target as HTMLElement).closest('button')) return
+              setEditing(u.username)
+            }}>
             <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
               <span style={{ width: 22, textAlign: 'right', fontFamily: 'var(--mono)', ...TEXT.sm, color: 'var(--text-faint)', flex: 'none' }}>{nf(paged.offset + i + 1)}</span>
               <div style={{ width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)', background: 'var(--accent-light)', color: 'var(--accent-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', ...TEXT.bodyMed }}>

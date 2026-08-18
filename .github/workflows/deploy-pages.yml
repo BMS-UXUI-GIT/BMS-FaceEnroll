@@ -47,6 +47,12 @@ jobs:
         # ให้ 404 เสิร์ฟหน้าเดียวกับ index.html แอปจะอ่าน path เองแล้วแสดงหน้าถูก
         run: cp dist/index.html dist/404.html
 
+      - name: Build สไลด์นำเสนอ -> /present/
+        # sub-app แยก (vite base './' = ใช้ path relative อยู่แล้ว วางใต้โฟลเดอร์ย่อยได้เลย)
+        run: |
+          npm run pres:build
+          cp -r presentation/dist dist/present
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

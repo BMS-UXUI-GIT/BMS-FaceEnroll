@@ -3,7 +3,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { clock, nf, useFetch } from '../hooks'
 import { localISO } from '../components/AttFilters'
 import { MonthPicker, thMonth, thShort } from '../components/DatePicker'
-import { DayTimeBars, Donut } from '../components/charts'
+import { Donut } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Loading } from '../components/Spinner'
 import { SectionPanel } from '../components/layout/SectionPanel'
@@ -26,7 +26,13 @@ import { asset } from '../assets'
 // ⚠️ ระบบไม่มีตารางเวรล่วงหน้า (ไม่รู้ว่าใครต้องอยู่เวรไหน) — คอลัมน์ "ขาดงาน/อัตราเข้าทำงาน"
 //    ของ Figma จึงคำนวณไม่ได้ ตารางนี้ใช้ตัวเลขที่วัดได้จริงจากการลงเวลาแทน
 
-type ShiftRow = { name: string; persons: number; late: number; early: number; avg_in: string }
+type ShiftRow = {
+  name: string; persons: number; late: number; early: number
+  avg_in: string
+  /* เวลาเข้า/ออก เร็วสุด–ช้าสุด และออกเฉลี่ย — สถิติออกคิดเฉพาะคนที่สแกนออกแล้ว */
+  min_in?: string; max_in?: string
+  avg_out?: string; min_out?: string; max_out?: string
+}
 type Analytics = { shifts: ShiftRow[] }
 
 const shiftName = (s: string) => (s.trim() === '' ? 'ไม่ระบุเวร' : s)
@@ -39,6 +45,101 @@ const ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', nig
 const toMinutes = (t: string): number | null => {
   const m = /^(\d{1,2}):(\d{2})$/.exec((t ?? '').trim())
   return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+/** เวลาเริ่มเวรจากชื่อ เช่น "เช้า (08:00-16:00)" -> 480 (ไม่มีวงเล็บเวลา = null) */
+const startOfShift = (name: string): number | null => {
+  const m = /\((\d{1,2}):(\d{2})/.exec(name)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+/** นาทีเบี่ยงเบนจากเวลาเริ่มเวร (ลบ = เข้าก่อน) — เวรดึกข้ามเที่ยงคืนคิดแบบ wrap */
+const devFromStart = (t: string | undefined, start: number | null): number | null => {
+  const m = toMinutes(t ?? '')
+  if (m == null || start == null) return null
+  return ((m - start + 720 + 1440) % 1440) - 720   // -720..719 นาที
+}
+
+/** กราฟ "เข้าก่อน/เข้าช้ากว่ากำหนด" — เน้นภาพ อ่านออกใน 3 วินาที:
+    เส้นกลาง = เวลากำหนดเข้าเวร · แท่งยื่นซ้าย (เขียว) = เข้าก่อน · ยื่นขวา (แดง) = เข้าช้า
+    สเกลคิดจากค่าเฉลี่ยเท่านั้น (เดิมรวมเร็วสุด/ช้าสุดแล้วสเกลบาน แท่งเฉลี่ยเลยจมมองไม่ออก) */
+function DeviationChart({ rows }: {
+  rows: { label: string; avg: number | null; avgTxt: string; startTxt?: string; outTxt?: string }[]
+}) {
+  const avgs = rows.map((r) => r.avg).filter((v): v is number => v != null)
+  if (avgs.length === 0) return null
+  // สเกลสมมาตร ปัดขึ้นเป็นช่วง 5 นาที ตามค่าเฉลี่ยที่มากสุด — แท่งเห็นชัดเสมอ
+  const lim = Math.max(5, Math.ceil(Math.max(...avgs.map(Math.abs)) / 5) * 5)
+  const x = (d: number) => 50 + (d / lim) * 50
+  const early = 'var(--ok)'
+  const late = 'var(--danger)'
+  return (
+    <div>
+      {/* หัวสเกล — ซ้าย = มาก่อน · ขวา = มาช้า */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', ...TEXT.caption, color: 'var(--text-dim)', marginBottom: 'var(--sp-2)' }}>
+        <span style={{ color: early, fontWeight: 600 }}>← เข้าก่อนกำหนด</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)' }}>เวลากำหนดเข้าเวร</span>
+        <span style={{ color: late, fontWeight: 600 }}>เข้าช้ากว่ากำหนด →</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)' }}>
+        {rows.map((r) => {
+          const d = r.avg
+          const isEarly = d != null && d < 0
+          const chip = d == null ? '—' : d === 0 ? 'ตรงกำหนดพอดี' : isEarly ? `เร็วกว่ากำหนด ${nf(-d)} นาที` : `ช้ากว่ากำหนด ${nf(d)} นาที`
+          const color = d == null || d === 0 || isEarly ? early : late
+          return (
+            <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+              {/* ซ้าย: ชื่อเวร + เวลาเข้าเฉลี่ยจริง */}
+              <div style={{ width: 148, flex: 'none', textAlign: 'right' }}>
+                <div style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>เวร{r.label}</div>
+                <div style={{ ...TEXT.caption, color: 'var(--text-dim)' }}>เข้าจริงเฉลี่ย {r.avgTxt}</div>
+              </div>
+              {/* กลาง: ป้ายเวลากำหนดของเวรนี้เกาะเส้นกลาง + แทร็ก */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {r.startTxt && (
+                  <div style={{ textAlign: 'center', ...TEXT.caption, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>
+                    กำหนดเข้าเวร {r.startTxt}
+                  </div>
+                )}
+                <div style={{ position: 'relative', height: 34, background: 'var(--surface-alt)', borderRadius: 'var(--r-lg)' }}>
+                  <span aria-hidden style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, marginLeft: -1, background: 'color-mix(in srgb, var(--text-faint) 40%, transparent)' }} />
+                  {d != null && d !== 0 && (
+                    <span aria-hidden style={{
+                      position: 'absolute', top: 6, bottom: 6,
+                      left: `${Math.min(50, x(d))}%`, width: `${Math.abs(x(d) - 50)}%`,
+                      background: color, opacity: 0.85,
+                      borderRadius: isEarly ? 'var(--r-md) 0 0 var(--r-md)' : '0 var(--r-md) var(--r-md) 0',
+                    }} />
+                  )}
+                  {/* หัวแท่ง — จุดกลมย้ำตำแหน่งเฉลี่ย */}
+                  {d != null && (
+                    <span aria-hidden style={{
+                      position: 'absolute', top: '50%', width: 12, height: 12, marginTop: -6, marginLeft: -6,
+                      left: `${x(d)}%`, borderRadius: 'var(--r-full)', background: color,
+                      boxShadow: '0 0 0 2.5px var(--bg)',
+                    }} />
+                  )}
+                </div>
+              </div>
+              {/* ขวา: ป้ายสรุปสีเดียวกับแท่ง */}
+              <div style={{ width: 168, flex: 'none' }}>
+                <span style={{
+                  ...TEXT.sm, fontWeight: 600, color,
+                  background: `color-mix(in srgb, ${color} 12%, transparent)`,
+                  padding: '4px 12px', borderRadius: 'var(--r-full)', whiteSpace: 'nowrap', display: 'inline-block',
+                }}>{chip}</span>
+                {r.outTxt && <div style={{ ...TEXT.caption, color: 'var(--text-dim)', marginTop: 4, paddingLeft: 2 }}>ออกงานเฉลี่ย {r.outTxt}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* แกนกำกับสเกล */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', ...TEXT.caption, color: 'var(--text-dim)', marginTop: 'var(--sp-2)', padding: '0 168px 0 148px', marginLeft: 'var(--sp-3)', marginRight: 'var(--sp-3)' }}>
+        <span>{nf(lim)} นาที</span><span>0</span><span>{nf(lim)} นาที</span>
+      </div>
+    </div>
+  )
 }
 
 /** ช่วงวันของเดือนที่เลือก (ไม่เลยวันนี้) */
@@ -80,10 +181,16 @@ export function ReportShift() {
       thStyle: { textAlign: 'center' }, tdStyle: { padding: 'var(--sp-3) var(--sp-6)' },
       cell: (s) => <ShiftBadge shift={kindOf(s)} label={shortName(s.name)} />,
     },
-    { key: 'persons', header: 'ลงเวลา', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.persons) },
-    { key: 'late', header: 'มาสาย', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.late) },
-    { key: 'early', header: 'ออกก่อน', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.early) },
+    /* หน่วยกำกับที่หัวคอลัมน์ — ลงเวลานับคนไม่ซ้ำ ส่วนมาสาย/ออกก่อนสะสมเป็นครั้งตลอดเดือน (คนเดียวนับหลายครั้งได้) */
+    { key: 'persons', header: 'ลงเวลา (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.persons) },
+    { key: 'late', header: 'มาสาย (ครั้ง)', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.late) },
+    { key: 'early', header: 'ออกก่อน (ครั้ง)', tdStyle: { color: 'var(--table-row-text)' }, cell: (s) => nf(s.early) },
     { key: 'avg', header: 'เวลาเข้าเฉลี่ย', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.avg_in) },
+    { key: 'min_in', header: 'เข้าเร็วสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.min_in) },
+    { key: 'max_in', header: 'เข้าช้าสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.max_in) },
+    { key: 'avg_out', header: 'เวลาออกเฉลี่ย', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.avg_out) },
+    { key: 'min_out', header: 'ออกเร็วสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.min_out) },
+    { key: 'max_out', header: 'ออกช้าสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.max_out) },
     {
       key: 'share', header: 'สัดส่วนของทั้งหมด',
       cell: (s) => <span style={{ ...TEXT.bodyMed, color: colorOf(kindOf(s)) }}>{total > 0 ? `${pct(s.persons).toFixed(2)}%` : '—'}</span>,
@@ -157,10 +264,20 @@ export function ReportShift() {
           {!ana && !anaF.err
             ? <Loading />
             : (
-              <div style={{ padding: 'var(--sp-2) 0' }}>
-                <DayTimeBars rows={shifts.map((s) => ({
-                  label: shortName(s.name), minutes: toMinutes(s.avg_in), value: clock(s.avg_in), color: colorOf(kindOf(s)),
-                }))} />
+              // เต็มความสูงการ์ด (แผงคู่กันสูงตามโดนัท) — กราฟกับสรุปกระจายเต็มพื้นที่
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', gap: 'var(--sp-5)', padding: 'var(--sp-2) 0' }}>
+                {/* คำอธิบายฝังในกราฟ — เร็วสุด/ช้าสุดดูได้ในตารางล่าง ไม่ยัดใส่กราฟให้สเกลบาน */}
+                <DeviationChart rows={shifts.map((s) => {
+                  const st = startOfShift(s.name)
+                  return {
+                    label: shortName(s.name),
+                    avg: devFromStart(s.avg_in, st),
+                    avgTxt: clock(s.avg_in),
+                    startTxt: st == null ? undefined
+                      : clock(`${String(Math.floor(st / 60)).padStart(2, '0')}:${String(st % 60).padStart(2, '0')}`),
+                    outTxt: s.avg_out ? clock(s.avg_out) : undefined,
+                  }
+                })} />
               </div>
             )}
         </SectionPanel>

@@ -9,15 +9,18 @@ import { ContactPill, Field } from '../components/data-display/Field'
 import { SectionPanel } from '../components/layout/SectionPanel'
 import { Skel } from '../components/Skeleton'
 import { SearchSelect } from '../components/SearchSelect'
-import { NewUserModal } from '../components/NewUserModal'
+import { CredentialsModal, NewUserModal, genPassword } from '../components/NewUserModal'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Button } from '../components/inputs/Button'
 import { Icon } from '../icons'
 import { Toggle } from '../components/inputs/Toggle'
 import { TEXT } from '../typography'
 import { dialog, toast } from '../components/dialog'
+import { isoAddDays } from '../components/AttFilters'
 import { api } from '../api'
 import { HEALTH_TH, type Tenant } from './tenantsCommon'
+import { PermissionsModal, type UsersRes } from './Users'
+import { useApp } from '../state'
 
 // รายละเอียดโรงพยาบาล — หน้าเต็ม (เดิมเป็น modal) เลย์เอาต์ชุดเดียวกับหน้ารายละเอียดพนักงาน:
 //   การ์ดหัวเรื่องไล่สี = ปุ่มย้อนกลับ + การ์ดข้อมูลโรง + การ์ดตัวเลขการใช้งาน
@@ -119,6 +122,58 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
     return () => { alive = false }
   }, [hcode])
 
+  // ── แก้สิทธิ์ผู้ใช้จากแท็บนี้ได้เลย — popup ตัวเดียวกับหน้า "ผู้ใช้และสิทธิ์" ──
+  const { session } = useApp()
+  const [uData, setUData] = useState<UsersRes | null>(null)   // โหลดครั้งแรกที่กดแถว (มี hcodes/tabs ครบ ซึ่ง detail ไม่มี)
+  const [uEdit, setUEdit] = useState<string | null>(null)
+  const [uBusy, setUBusy] = useState(false)
+  const [uCred, setUCred] = useState<{ username: string; password: string; reset?: boolean } | null>(null)
+
+  const openUser = (username: string) => {
+    setUEdit(username)
+    if (!uData) {
+      api.get<UsersRes>('/admin/users').then(setUData)
+        .catch((e) => { setUEdit(null); setErr(e?.message || 'โหลดข้อมูลผู้ใช้ไม่สำเร็จ') })
+    }
+  }
+  const uRun = async (fn: () => Promise<UsersRes>) => {
+    if (uBusy) return
+    setUBusy(true); setErr(null)
+    try {
+      setUData(await fn()); toast.success('บันทึกแล้ว')
+      // ตารางผู้ใช้ของแท็บนี้มาจาก detail endpoint — โหลดซ้ำให้เลขตรงกัน
+      api.get<Detail>(`/admin/tenants/${hcode}/detail`).then(setD).catch(() => {})
+    } catch (e: any) { setErr(e?.message || 'ทำรายการไม่สำเร็จ') } finally { setUBusy(false) }
+  }
+  const uPatch = (username: string, body: Record<string, unknown>) =>
+    uRun(() => api.patch<UsersRes>(`/admin/users/${encodeURIComponent(username)}`, body))
+  const uReset = async (username: string) => {
+    const pw = await dialog.prompt({
+      title: `ตั้งรหัสผ่านใหม่ให้ ${username}`, label: 'รหัสผ่านใหม่ (สุ่มให้แล้ว แก้ได้)', initial: genPassword(), mono: true, confirmText: 'รีเซ็ตรหัส',
+      validate: (v) => (v.trim().length >= 6 ? null : 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัว'),
+    })
+    if (pw === null) return
+    uRun(async () => {
+      const r = await api.patch<UsersRes>(`/admin/users/${encodeURIComponent(username)}`, { password: pw.trim() })
+      setUCred({ username, password: pw.trim(), reset: true })   // รหัสอ่านได้ครั้งเดียว — เด้งให้ copy
+      return r
+    })
+  }
+  const uRemove = async (username: string) => {
+    const typed = await dialog.prompt({
+      title: `ลบบัญชี ${username}`,
+      label: `พิมพ์ "${username}" เพื่อยืนยันการลบถาวร (กู้คืนไม่ได้)`,
+      initial: '', mono: true, confirmText: 'ลบบัญชี', danger: true,
+      validate: (v) => (v.trim().toLowerCase() === username.toLowerCase() ? null : 'ชื่อบัญชีไม่ตรง'),
+    })
+    if (typed === null) return
+    uRun(() => api.del<UsersRes>(`/admin/users/${encodeURIComponent(username)}`))
+  }
+  const hospOpts = (session?.hospitals ?? []).filter((h) => h.value !== '*').map((h) => ({ value: h.value, label: h.label, sub: h.value }))
+  const searchHospitals = (q: string) =>
+    api.get<{ hospitals: { hcode: string; name: string }[] }>(`/admin/hospitals/search?q=${encodeURIComponent(q)}&limit=30`)
+      .then((r) => (r.hospitals ?? []).map((h) => ({ value: h.hcode, label: h.name || '(ไม่มีชื่อ)', sub: h.hcode })))
+
   const saveMeta = async (body: { note?: string; health?: string }) => {
     if (busy) return
     setBusy(true); setErr(null)
@@ -161,17 +216,31 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
   }
 
   // ต่ออายุทดลองใช้ — ทำทันที (ไม่ผ่านฉบับร่าง เพราะเป็นการกระทำที่ผู้ใช้ยืนยันเองแล้ว)
+  // เลือกได้ 2 แบบ: นับจำนวนวันจากวันหมดอายุเดิม หรือกำหนดวันหมดอายุใหม่ตรงๆ
   const extendDemo = async () => {
     if (!d || busy) return
-    const raw = await dialog.prompt({
+    const todayIso = new Date().toISOString().slice(0, 10)
+    const r0 = await dialog.promptModes({
       title: `ต่ออายุทดลองใช้ ${d.tenant.name}`,
-      label: 'จำนวนวัน (1-365)', initial: '60', mono: true, confirmText: 'ต่ออายุ',
-      validate: (v) => { const n = Number(v.trim()); return Number.isInteger(n) && n >= 1 && n <= 365 ? null : 'ใส่จำนวนวัน 1-365' },
+      confirmText: 'ต่ออายุ',
+      modes: [
+        {
+          // กำหนดวันหมดอายุใหม่ตรงๆ — วันอนาคตวันไหนก็ได้ ไม่จำกัดเพดาน
+          key: 'date', label: 'กำหนดวันที่', inputLabel: 'วันหมดอายุใหม่',
+          type: 'date', initial: isoAddDays(todayIso, 60), min: isoAddDays(todayIso, 1),
+          validate: (v) => !v ? 'เลือกวันที่' : v <= todayIso ? 'ต้องเป็นวันในอนาคต' : null,
+        },
+        {
+          key: 'days', label: 'จำนวนวัน', inputLabel: 'จำนวนวัน (1-365)', initial: '60', mono: true,
+          validate: (v) => { const n = Number(v.trim()); return Number.isInteger(n) && n >= 1 && n <= 365 ? null : 'ใส่จำนวนวัน 1-365' },
+        },
+      ],
     })
-    if (raw === null) return
+    if (r0 === null) return
     setBusy(true); setErr(null)
     try {
-      const r = await api.post<{ tenants: Tenant[] }>(`/admin/tenants/${hcode}/extend-demo`, { days: Number(raw.trim()) })
+      const body = r0.mode === 'date' ? { expires_at: r0.value } : { days: Number(r0.value.trim()) }
+      const r = await api.post<{ tenants: Tenant[] }>(`/admin/tenants/${hcode}/extend-demo`, body)
       const me = r.tenants.find((x) => x.hcode === hcode)
       if (me) { setD({ ...d, tenant: me }); setDraft(draftOf(me)) }
       onChanged()
@@ -419,7 +488,8 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
           </div>
         ) : (
           <DataTable<User>
-            rows={d.users} rowKey={(u) => u.username} hover={false} minWidth={720}
+            rows={d.users} rowKey={(u) => u.username} minWidth={720}
+            onRowClick={(u) => openUser(u.username)}
             columns={[
               { key: 'no', header: 'ลำดับ', align: 'right', width: 64, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)' }, cell: (_u, i) => i + 1 },
               {
@@ -513,6 +583,23 @@ export function HospitalDetail({ hcode, onClose, onChanged }: { hcode: string; o
 
       {/* เว้นที่ให้แถบลอยล่างจอ ไม่ให้ทับเนื้อหาท้ายหน้า */}
       <div aria-hidden style={{ height: COMPACT_H + 40, flex: 'none' }} />
+
+      {/* popup แก้สิทธิ์ — โหลดข้อมูลเต็มของผู้ใช้ก่อนถึงเปิด */}
+      {uEdit && uData && (() => {
+        const u = uData.users.find((x) => x.username === uEdit)
+        return u ? (
+          <PermissionsModal u={u} data={uData} busy={uBusy} isMe={u.username === session?.username}
+            patch={uPatch}
+            onResetPassword={() => uReset(u.username)}
+            onRemove={() => { setUEdit(null); uRemove(u.username) }}
+            hospOpts={hospOpts} searchHospitals={searchHospitals}
+            onClose={() => setUEdit(null)} />
+        ) : null
+      })()}
+      {uCred && (
+        <CredentialsModal username={uCred.username} password={uCred.password} reset={uCred.reset}
+          onClose={() => setUCred(null)} />
+      )}
 
       {addUser && (
         <NewUserModal hcodes={[hcode]} hospitalNames={{ [hcode]: t?.name || hcode }} onClose={() => setAddUser(false)}

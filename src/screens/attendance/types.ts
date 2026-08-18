@@ -6,6 +6,8 @@ export type DailyRow = {
   emp: string; name: string; dept?: string; date: string; in: string; out: string; shift: string
   seq?: number // ลำดับรอบเวรในวันนั้น (ควบเวร = หลายรอบ)
   gps: boolean; coords: ScanPoint[]
+  /** ชื่อสถานที่จาก reverse geocode พิกัดที่สแกน (สไตล์ Google Maps — backend เก่ายังไม่ส่ง = undefined) */
+  gps_place?: string
   late: boolean; early: boolean; no_out: boolean; out_area: boolean | null
   late_min: number; early_min: number
   dist_m: number | null

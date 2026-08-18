@@ -657,11 +657,20 @@ input, button, select { font-family: var(--sans); }
 }
 
 .dp-popover {
-  width: 284px; z-index: 300;
+  width: 284px; z-index: 450; /* เหนือ dialog (400) — ปฏิทินต้องเปิดในกล่อง dialog ได้ */
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow-lg);
 }
 .dp-dialog { padding: 12px; outline: none; }
+/* dropdown เดือน + พ.ศ. กลางหัวปฏิทิน */
+.dp-my { display: flex; gap: 6px; }
+.dp-sel {
+  appearance: none; -webkit-appearance: none;
+  padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-card); color: var(--text);
+  font-family: var(--sans); font-size: 12.5px; font-weight: 500; cursor: pointer; outline: none;
+}
+.dp-sel:hover { border-color: var(--text-faint); }
 .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .dp-title { margin: 0; font-size: 13.5px; font-weight: 500; }
 .dp-nav {

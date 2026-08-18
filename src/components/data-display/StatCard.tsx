@@ -76,7 +76,9 @@ export function StatCard({ value, label, unit, icon, tone = 'accent', color: col
         <div style={{
           ...TEXT.bodyMed, ...(sm ? { fontSize: 13 } : null),
           color: 'color-mix(in srgb, var(--text-faint) 60%, transparent)',
-          whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
+          // ชื่อยาวให้พับได้ 2 บรรทัดก่อนค่อยตัด — การ์ดแคบแล้วชื่อหายเป็น "พนักงานทั้ง…" อ่านไม่รู้เรื่อง
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{label}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: start ? 'flex-start' : 'center', gap: 'var(--sp-1)', marginTop: 'var(--sp-1)' }}>
           <span style={{ ...TEXT.h1, ...(lg ? { fontSize: 40, lineHeight: 1.15 } : sm ? { fontSize: 22, lineHeight: 1.2 } : null), color }}>{value}</span>

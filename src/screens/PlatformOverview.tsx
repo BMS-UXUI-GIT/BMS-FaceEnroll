@@ -173,7 +173,7 @@ export function PlatformStats({ d, loading, conn }: {
   const down = conn?.down ?? 0
   const checked = ok + down
   const pct = (v: number) => (checked > 0 ? `${Math.round((v / checked) * 100)}%` : '—')
-  // สถานะส่วนใหญ่ = ฝั่งที่มีจำนวนมากกว่า (พาดหัวของแผงซ้าย)
+  // พาดหัวแผงซ้ายโชว์ฝั่งที่มีจำนวนมากกว่า (เช่น "เชื่อมต่อได้ 8 แห่ง")
   const majorOk = ok >= down
 
   return (
@@ -205,7 +205,7 @@ export function PlatformStats({ d, loading, conn }: {
           >
             {conn?.onOpen && <TileCta>ตรวจสอบการเชื่อมต่อ</TileCta>}
             <div style={{ paddingRight: 190 }}>
-              <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 80%, transparent)' }}>สถานะส่วนใหญ่</div>
+              <div style={{ ...TEXT.sm, color: 'color-mix(in srgb, var(--text-faint) 80%, transparent)' }}>สถานะการเชื่อมต่อ</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-1)', marginTop: 'var(--sp-2)' }}>
                 <span style={{ ...TEXT.h3, color: majorOk ? 'var(--ok)' : 'var(--danger)' }}>
                   {majorOk ? 'เชื่อมต่อได้' : 'เชื่อมต่อไม่ได้'}

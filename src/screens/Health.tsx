@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { PageHeader } from '../components/layout/PageHeader'
+import { FilterBar } from '../components/inputs/FilterBar'
+import { FilterChip } from '../components/inputs/FilterChip'
+import { SearchInput } from '../components/inputs/SearchInput'
 import { ErrorBox } from '../components/feedback/Message'
 import { nf, useFetch } from '../hooks'
 import { PAGE_SIZE, usePaged } from '../components/Pager'
@@ -38,13 +41,13 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
   )
 }
 
-/** การ์ดบริการ 1 ตัว: ชื่อ + สถานะ + รายการค่าที่ตรวจได้ */
-function ServiceCard({ icon, title, ok, status, rows }: {
-  icon: string; title: string; ok: boolean; status: string; rows: [string, any][]
+/** การ์ดบริการ 1 ตัว: ชื่อ + สถานะ + คำอธิบายว่าการ์ดนี้ตรวจอะไร + รายการค่าที่ตรวจได้ */
+function ServiceCard({ icon, title, ok, status, desc, rows }: {
+  icon: string; title: string; ok: boolean; status: string; desc?: string; rows: [string, any][]
 }) {
   return (
     <div className="rounded-xl" style={{ background: 'var(--surface-alt)', padding: 'var(--sp-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: desc ? 'var(--sp-2)' : 'var(--sp-4)', flexWrap: 'wrap' }}>
         <span aria-hidden style={{
           width: 36, height: 36, flex: 'none', borderRadius: 'var(--r-md)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -55,6 +58,9 @@ function ServiceCard({ icon, title, ok, status, rows }: {
         <span style={{ ...TEXT.bodyMed, color: 'var(--text)', flex: 1, minWidth: 120 }}>{title}</span>
         <StatusPill ok={ok} label={status} />
       </div>
+      {desc && (
+        <div style={{ ...TEXT.sm, color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 'var(--sp-3)' }}>{desc}</div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
         {rows.map(([k, v], i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-3)', ...TEXT.sm }}>
@@ -86,12 +92,15 @@ export function ServiceGrid({ d }: { d?: Health | null }) {
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(270px,100%), 1fr))' }}>
       <ServiceCard icon="face" title="ตัวประมวลผลใบหน้า (Luxand)" ok={engOk} status={engOk ? 'ปกติ' : 'ต่อไม่ได้'}
-        rows={[['ที่อยู่', eng.url || '—'], ...(eng.error ? [['ข้อผิดพลาด', eng.error]] as [string, any][] : [])]} />
+        desc="เซิร์ฟเวอร์ AI จดจำใบหน้า — ใช้ตอนลงทะเบียนใบหน้าและตรวจเทียบตอนสแกน"
+        rows={[['Domain', eng.url || '—'], ...(eng.error ? [['ข้อผิดพลาด', eng.error]] as [string, any][] : [])]} />
       <ServiceCard icon="scan" title="บริการสแกนหน้า" ok={faceStatus === 'ok'}
         status={faceStatus === 'ok' ? 'ปกติ' : faceStatus === 'degraded' ? 'ทำงานได้บางส่วน' : f.error || '—'}
+        desc="ตัวกลางที่แอปสแกนหน้าประจำจุดเรียกใช้ พร้อมฐานข้อมูลใบหน้าที่ลงทะเบียนไว้"
         rows={[['เวอร์ชัน', f.version || '—'], ['ฐานข้อมูลใบหน้า', dbOk ? 'ปกติ' : 'มีปัญหา']]} />
       <ServiceCard icon="clock" title="ระบบลงเวลา" ok={d.attendance.facescan_configured && d.dashboard_db === 'ok'}
         status={d.dashboard_db === 'ok' ? 'ปกติ' : 'ฐานข้อมูลมีปัญหา'}
+        desc="ส่วนบันทึกเวลาเข้า–ออกงาน — ฐานข้อมูลต้องปกติและเชื่อมกับระบบสแกนหน้า การสแกนจึงถูกบันทึกจริง"
         rows={[
           ['ฐานข้อมูลระบบลงเวลา', d.dashboard_db === 'ok' ? 'ปกติ' : 'ล่ม'],
           ['เชื่อมระบบสแกนหน้า', d.attendance.facescan_configured ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า'],
@@ -168,8 +177,18 @@ export function Health() {
   const [reload, setReload] = useState(0)
   const { data: d, err, loading } = useHealth(reload)
 
+  // ตัวกรองตารางรายโรง — ค้นชื่อ/รหัส + สถานะ ปกติ/ไม่ปกติ (กดชิปซ้ำ = เลิกกรอง)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'ok' | 'down'>('all')
+
   const hospitals = d?.hospitals ?? []
-  const paged = usePaged(hospitals)
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return hospitals.filter((h) =>
+      (filter === 'all' || (filter === 'ok') === h.ok)
+      && (!q || h.name.toLowerCase().includes(q) || h.hcode.includes(q)))
+  }, [hospitals, search, filter])
+  const paged = usePaged(shown)
 
   const cols: Column<HospCheck>[] = [
     { key: 'no', header: 'ลำดับ', align: 'right', width: 64, tdStyle: { fontFamily: 'var(--mono)', color: 'var(--text-faint)' }, cell: (_h, i) => nf(paged.offset + i + 1) },
@@ -220,14 +239,24 @@ export function Health() {
         <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>แต่ละโรงพยาบาลอยู่คนละเซิร์ฟเวอร์ — ทดสอบดึงข้อมูลจริงทีละแห่ง</span>
       </div>
 
+      {/* ---------- แถบตัวกรอง ---------- */}
+      <FilterBar
+        search={<SearchInput grow value={search} onChange={setSearch} placeholder="ค้นหา ชื่อ / รหัสโรงพยาบาล" />}>
+        <FilterChip variant="choice" active={filter === 'ok'} onClick={() => setFilter((f) => f === 'ok' ? 'all' : 'ok')}
+          icon={<Icon name="health" size={14} width={2} />} label="สถานะปกติ" />
+        <FilterChip variant="choice" active={filter === 'down'} onClick={() => setFilter((f) => f === 'down' ? 'all' : 'down')}
+          icon={<Icon name="alert" size={14} width={2} />} label="ไม่ปกติ" />
+      </FilterBar>
+
       {/* ตารางกรอบบาง ไม่ห่อการ์ด (ทรงเดียวกับหน้ารายบุคคล) */}
       <div className="bg-bg border border-control-border rounded-lg">
         {!d ? (
           <div style={{ padding: 'var(--sp-4)' }}><SkelRows rows={6} avatar={false} /></div>
         ) : (
           <>
-            <DataTable columns={cols} rows={paged.pageRows} rowKey={(h) => h.hcode} minWidth={900}
-              empty="ยังไม่มีโรงพยาบาลเปิดใช้งาน"
+            {/* layout fixed — ความกว้างคอลัมน์คงที่ ไม่ขยับตามเนื้อหาตอนกรอง/เปลี่ยนหน้า */}
+            <DataTable columns={cols} rows={paged.pageRows} rowKey={(h) => h.hcode} minWidth={900} layout="fixed"
+              empty={hospitals.length > 0 ? 'ไม่พบโรงพยาบาลที่ตรงกับตัวกรอง' : 'ยังไม่มีโรงพยาบาลเปิดใช้งาน'}
               emptyStyle={{ ...TEXT.body, padding: '28px 20px', color: 'var(--text-dim)', textAlign: 'center' }} />
             <Pagination page={paged.page} pageSize={PAGE_SIZE} total={paged.total} shown={paged.pageRows.length} onPage={paged.setPage} />
           </>

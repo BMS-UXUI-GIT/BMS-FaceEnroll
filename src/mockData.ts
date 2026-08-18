@@ -81,6 +81,15 @@ const FENCES = [
   { name: 'อาคารผู้ป่วยนอก', lat: 13.7563, lng: 100.5018, radius_m: 120 },
   { name: 'อาคารอุบัติเหตุ-ฉุกเฉิน', lat: 13.7571, lng: 100.5032, radius_m: 80 },
 ]
+// จุดที่พนักงานคนนี้สแกนประจำ — ผูกกับรหัสพนักงานให้คงที่ทุกครั้งที่ดู
+const fenceOf = (p: { emp: { emp: string } }) => FENCES[Number(p.emp.emp) % FENCES.length]
+
+// ชื่อสถานที่จาก reverse geocode พิกัดสแกน (ตัวอย่างสไตล์ Google Maps)
+// ในพื้นที่ = จุดต่าง ๆ ในโรงพยาบาล · นอกพื้นที่ = สถานที่จริงรอบโรงพยาบาล (เห็นเลยว่าสแกนจากไหน)
+const PLACE_IN = ['โรงพยาบาลสาธิต', 'โรงพยาบาลสาธิต อาคาร 2', 'ศูนย์อาหาร โรงพยาบาลสาธิต', 'อาคารจอดรถ โรงพยาบาลสาธิต']
+const PLACE_OUT = ['Cafe Amazon ปตท. ถ.พระราม 4', '7-Eleven สาขาตลาดคลองเตย', 'ตลาดคลองเตย ประตู 3']
+const placeOf = (p: Punch) =>
+  p.out_area ? PLACE_OUT[Number(p.emp.emp) % PLACE_OUT.length] : PLACE_IN[Number(p.emp.emp) % PLACE_IN.length]
 
 // ── การลงเวลา 1 คน 1 วัน ───────────────────────────────────────────────────
 type Punch = {
@@ -118,7 +127,7 @@ function punches(dates: string[]): Punch[] {
 const statusOf = (p: Punch) => (p.no_out ? 'ยังไม่ออก' : p.late ? 'มาสาย' : p.early ? 'ออกก่อน' : 'ปกติ')
 const coordsOf = (p: Punch) => {
   const r = rand(Number(p.emp.emp) + p.date.length)
-  const f = FENCES[0]
+  const f = fenceOf(p)
   const jitter = p.out_area ? 0.006 : 0.0006
   return [
     { lat: f.lat + (r() - 0.5) * jitter, lng: f.lng + (r() - 0.5) * jitter, time: hhmm(p.inMin) },
@@ -157,12 +166,20 @@ function analytics(from: string, to: string) {
   const shifts = SHIFTS.map((s) => {
     const sp = ps.filter((p) => p.emp.shift.id === s.id)
     const avgIn = sp.length ? Math.round(sp.reduce((a, p) => a + p.inMin, 0) / sp.length) : s.start
+    // สถิติเวลาออกคิดเฉพาะคนที่สแกนออกแล้ว — no_out คือลืมสแกน ไม่ใช่เวลาออกจริง
+    const outs = sp.filter((p) => !p.no_out).map((p) => p.outMin)
+    const ins = sp.map((p) => p.inMin)
     return {
       name: s.name,
       persons: new Set(sp.map((p) => p.emp.emp)).size,
       late: sp.filter((p) => p.late).length,
       early: sp.filter((p) => p.early).length,
       avg_in: hhmm(avgIn),
+      min_in: ins.length ? hhmm(Math.min(...ins)) : '',
+      max_in: ins.length ? hhmm(Math.max(...ins)) : '',
+      avg_out: outs.length ? hhmm(Math.round(outs.reduce((a, v) => a + v, 0) / outs.length)) : '',
+      min_out: outs.length ? hhmm(Math.min(...outs)) : '',
+      max_out: outs.length ? hhmm(Math.max(...outs)) : '',
     }
   })
 
@@ -180,15 +197,15 @@ function analytics(from: string, to: string) {
   })
 
   // อันดับคนมาสายบ่อย
-  const byEmp = new Map<string, { emp: string; name: string; dept: string; count: number; total: number }>()
+  const byEmp = new Map<string, { emp: string; name: string; dept: string; count: number; total: number; max: number }>()
   lateP.forEach((p) => {
     const k = p.emp.emp
-    const cur = byEmp.get(k) ?? { emp: k, name: p.emp.name, dept: deptOf(p.emp), count: 0, total: 0 }
-    cur.count++; cur.total += p.late_min
+    const cur = byEmp.get(k) ?? { emp: k, name: p.emp.name, dept: deptOf(p.emp), count: 0, total: 0, max: 0 }
+    cur.count++; cur.total += p.late_min; cur.max = Math.max(cur.max, p.late_min)
     byEmp.set(k, cur)
   })
   const top_late = [...byEmp.values()]
-    .map((x) => ({ emp: x.emp, name: x.name, dept: x.dept, count: x.count, avg_min: +(x.total / x.count).toFixed(1) }))
+    .map((x) => ({ emp: x.emp, name: x.name, dept: x.dept, count: x.count, avg_min: +(x.total / x.count).toFixed(1), max_min: x.max }))
     .sort((a, b) => b.count - a.count).slice(0, 10)
 
   const rowOf = (p: Punch) => ({
@@ -209,8 +226,13 @@ function analytics(from: string, to: string) {
     avg_late_min: lateP.length ? +(lateP.reduce((s, p) => s + p.late_min, 0) / lateP.length).toFixed(1) : 0,
     late_total: lateP.length,
     early_total: earlyP.length,
-    late_rows: lateP.slice(0, 300).map((p) => ({ ...rowOf(p), min: p.late_min })),
-    early_rows: earlyP.slice(0, 300).map((p) => ({ ...rowOf(p), out: hhmm(p.outMin), min: p.early_min })),
+    // ทั้งสองฝั่งส่งครบทั้งเข้า-ออก + นาทีสาย/ออกก่อน — หน้ารายงานโชว์ 4 ช่องเท่ากันทุกมุมมอง
+    late_rows: lateP.slice(0, 300).map((p) => ({
+      ...rowOf(p), min: p.late_min, late_min: p.late_min, early_min: p.early ? p.early_min : 0,
+    })),
+    early_rows: earlyP.slice(0, 300).map((p) => ({
+      ...rowOf(p), out: hhmm(p.outMin), min: p.early_min, early_min: p.early_min, late_min: p.late ? p.late_min : 0,
+    })),
   }
 }
 
@@ -238,7 +260,8 @@ const mkTenant = (o: Partial<any> & { hcode: string; name: string }) => ({
 })
 let TENANTS: any[] = [
   mkTenant({ hcode: '10670', name: 'โรงพยาบาลสาธิต (Mock)' }),
-  mkTenant({ hcode: '10671', name: 'โรงพยาบาลทดสอบ 2 (Mock)', health: 'watch', province: 'เชียงใหม่' }),
+  // health:'risk' ทั้งที่ยังเปิดใช้งาน — ไว้เป็นตัวอย่าง "เชื่อมต่อไม่ได้" ในหน้าสถานะระบบ/หน้าหลักส่วนกลาง
+  mkTenant({ hcode: '10671', name: 'โรงพยาบาลทดสอบ 2 (Mock)', health: 'risk', province: 'เชียงใหม่' }),
   mkTenant({ hcode: '10672', name: 'โรงพยาบาลทดสอบ 3 (Mock)', request_type: 'demo', demo_expires_at: '2026-09-15', province: 'ขอนแก่น' }),
   mkTenant({ hcode: '10673', name: 'โรงพยาบาลใกล้หมดอายุ (Mock)', request_type: 'demo', demo_expires_at: '2026-08-08', health: 'watch', province: 'ภูเก็ต' }),
   mkTenant({ hcode: '10674', name: 'โรงพยาบาลหมดอายุทดลอง (Mock)', request_type: 'demo', demo_expires_at: '2026-06-30', demo_expired: true, health: 'risk', active: false, province: 'สงขลา' }),
@@ -332,7 +355,9 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
       face: { status: 'ok', version: '2.4.1-mock', engine: { ok: true, url: 'http://luxand.mock:8080' }, db: { ok: true, name: 'facedb-mock' } },
       attendance: { dry_run_global: false, facescan_configured: true },
       dashboard_db: 'postgres://mock/dashboard (ตัวอย่าง)',
-      hospitals: TENANTS.map((t, i) => ({
+      // ตรวจเฉพาะโรงที่เปิดใช้งานอยู่ — รออนุมัติ/ถูกปฏิเสธ/พักใช้ ไม่มีการเชื่อมต่อให้ตรวจ
+      // (นับรวมแล้วเลข "เชื่อมต่อไม่ได้" โป่งเกินจริง)
+      hospitals: TENANTS.filter((t) => t.status === 'approved' && t.active).map((t, i) => ({
         hcode: t.hcode, name: t.name,
         ok: t.health !== 'risk',
         latency_ms: int(rand(700 + i)(), 18, 480),
@@ -355,7 +380,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
   if (p === '/admin/tenants' && m === 'GET') return { tenants: TENANTS }
 
   // /admin/tenants/{hcode}/detail | /meta | /flag | /approve | /reject | ...
-  const tm = /^\/admin\/tenants\/([^/]+)(?:\/(\w+))?$/.exec(p)
+  const tm = /^\/admin\/tenants\/([^/]+)(?:\/([\w-]+))?$/.exec(p)
   if (tm) {
     const [, hcode, sub] = tm
     const t = TENANTS.find((x) => x.hcode === hcode)
@@ -375,6 +400,16 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
       else if (sub === 'suspend') Object.assign(t, { status: 'suspended', active: false })
       else if (sub === 'activate' || sub === 'resume') Object.assign(t, { status: 'approved', active: true })
       else if (sub === 'extend') Object.assign(t, { demo_expires_at: body?.demo_expires_at ?? t.demo_expires_at, demo_expired: false })
+      else if (sub === 'extend-demo') {
+        // days = นับต่อจากวันหมดอายุเดิม (ถ้ายังไม่หมด) หรือจากวันนี้ (ถ้าหมดแล้ว/ไม่มี) ; expires_at = กำหนดวันตรงๆ
+        let next = body?.expires_at as string | undefined
+        if (!next && body?.days) {
+          const base = t.demo_expires_at && t.demo_expires_at > today() ? t.demo_expires_at : today()
+          const d = new Date(base); d.setDate(d.getDate() + Number(body.days))
+          next = iso(d)
+        }
+        if (next) Object.assign(t, { demo_expires_at: next, demo_expired: false })
+      }
       return { tenants: TENANTS }
     }
     if (m === 'POST' || m === 'PATCH' || m === 'DELETE') return { tenants: TENANTS }
@@ -451,7 +486,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
       rows: page(all, qs).map((x) => ({
         emp: x.emp.emp, name: x.emp.name, dept: deptOf(x.emp), date: x.date, seq: 1,
         in: hhmm(x.inMin), out: x.no_out ? '' : hhmm(x.outMin), shift: x.emp.shift.name,
-        gps: true, coords: coordsOf(x),
+        gps: true, gps_place: placeOf(x), coords: coordsOf(x),
         late: x.late, early: x.early, no_out: x.no_out, out_area: x.out_area,
         late_min: x.late_min, early_min: x.early_min, dist_m: x.dist_m,
         status: statusOf(x), status_in: x.late ? 'สาย' : 'ปกติ', status_out: x.no_out ? '' : x.early ? 'ออกก่อน' : 'ปกติ',
