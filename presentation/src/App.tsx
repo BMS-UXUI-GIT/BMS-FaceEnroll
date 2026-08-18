@@ -44,6 +44,55 @@ const TTS_FIX: [RegExp, string][] = [
 ]
 const ttsText = (t: string) => TTS_FIX.reduce((s, [re, to]) => s.replace(re, to), t)
 
+/** โหลดเสียงของประโยค (มี retry — เซิร์ฟเวอร์ gen เสียงช้า/คิวแน่นแล้วพลาดครั้งเดียวไม่ควรหลุดไปเสียงเครื่อง) */
+async function fetchTtsUrl(text: string): Promise<string> {
+  const hit = ttsCache.get(text)
+  if (hit) return hit
+  let lastErr: unknown
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetch(TTS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: text, voice: TTS_VOICE, response_format: 'mp3', speed: 1.0 }),
+      })
+      if (!res.ok) throw new Error(`TTS ${res.status}`)
+      const url = URL.createObjectURL(await res.blob())
+      ttsCache.set(text, url)
+      return url
+    } catch (e) {
+      lastErr = e
+      await new Promise((r) => setTimeout(r, 700 * (i + 1)))
+    }
+  }
+  throw lastErr
+}
+
+const WELCOME = 'สวัสดีครับ ขอนำเสนอระบบ BMS FaceEnroll ระบบลงทะเบียนใบหน้าและการลงเวลาปฏิบัติงานของบุคลากรโรงพยาบาล'
+const countLine = (n: number) => `ในหน้านี้มีจุดที่ปรับแก้ล่าสุดทั้งหมด ${n} จุด ลองเลื่อนเทียบภาพก่อนและหลังการแก้ไขกันก่อนครับ`
+
+// อุ่นเครื่อง: ไล่โหลดเสียงทุกประโยคตามลำดับเล่นล่วงหน้า (ทีละประโยค ไม่แย่งคิวกับประโยคที่กำลังพูด)
+// เริ่มตอนกดเล่นออโต้ครั้งแรก — เล่นถึงสไลด์ไหนเสียงก็พร้อมแล้ว ไม่มีจังหวะหลุดไปเสียงเครื่อง
+let prefetching = false
+function prefetchVoices() {
+  if (prefetching) return
+  prefetching = true
+  void (async () => {
+    const texts: string[] = [WELCOME]
+    for (const sl of SLIDES) {
+      if (sl.type) continue
+      if (sl.notes?.length) {
+        texts.push(sl.say ?? sl.desc)
+        if (sl.diff) texts.push(countLine(sl.notes.length))
+        for (const n of sl.notes) texts.push(n.say ?? n.text)
+      } else {
+        texts.push(sl.say ?? `${sl.title}. ${sl.desc}`)
+      }
+    }
+    for (const t of texts) await fetchTtsUrl(ttsText(t)).catch(() => {})
+  })()
+}
+
 /** อ่านออกเสียง — คืน Promise ที่จบเมื่อเสียงเล่นจบ (หรือถูกสั่งหยุด) ให้โหมดออโต้รอได้ */
 async function speak(raw: string): Promise<void> {
   const text = ttsText(raw)
@@ -51,17 +100,7 @@ async function speak(raw: string): Promise<void> {
   const seq = reqSeq
   subCb?.(raw)   // ขึ้น subtitle ทันที (ระหว่างรอโหลดเสียงก็อ่านตามได้เลย)
   try {
-    let url = ttsCache.get(text)
-    if (!url) {
-      const res = await fetch(TTS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: text, voice: TTS_VOICE, response_format: 'mp3', speed: 1.0 }),
-      })
-      if (!res.ok) throw new Error(`TTS ${res.status}`)
-      url = URL.createObjectURL(await res.blob())
-      ttsCache.set(text, url)
-    }
+    const url = await fetchTtsUrl(text)
     if (seq !== reqSeq) return   // ผู้ใช้เปลี่ยนจุดไปแล้วระหว่างรอ
     const a = new Audio(url)
     player = a
@@ -486,13 +525,14 @@ export function App() {
   useEffect(() => {
     if (!auto) return
     setVoice(true)
+    prefetchVoices()   // โหลดเสียงทั้งชุดล่วงหน้าเบื้องหลัง — สไลด์ถัดๆ ไปเสียงพร้อมทันที
     let dead = false
     void (async () => {
       const sl = SLIDES[cur]
       if (!sl) return
       if (sl.type === 'end') { setAuto(false); return }
       if (sl.type === 'cover') {
-        await speak('สวัสดีครับ ขอนำเสนอระบบ BMS FaceEnroll ระบบลงทะเบียนใบหน้าและการลงเวลาปฏิบัติงานของบุคลากรโรงพยาบาล')
+        await speak(WELCOME)
         if (dead) return
         await sleep(600); if (dead) return
         go(1); return
@@ -505,7 +545,7 @@ export function App() {
         if (dead) return
         // 2) บอกจำนวนจุดแก้ + กวาด slider เทียบก่อน/หลังให้ดู จบที่ภาพ "หลัง"
         if (sl.diff) {
-          const talk = speak(`ในหน้านี้มีจุดที่ปรับแก้ล่าสุดทั้งหมด ${sl.notes.length} จุด ลองเลื่อนเทียบภาพก่อนและหลังการแก้ไขกันก่อนครับ`)
+          const talk = speak(countLine(sl.notes.length))
           diffApi.current?.set(0, 2400); await sleep(2700); if (dead) return
           diffApi.current?.set(100, 1700); await sleep(1900); if (dead) return
           diffApi.current?.set(0, 1700)
