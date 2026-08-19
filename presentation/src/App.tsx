@@ -22,6 +22,8 @@ function focusTransform(n?: Note) {
 // เสียงอ่านบทอธิบาย — ใช้ VoxCPM TTS ของ BMS (เสียงไทยธรรมชาติ) · ล่มเมื่อไรถอยไปใช้เสียงเครื่อง
 const TTS_URL = 'https://vox-cpm.bmscloud.in.th/v1/audio/speech'
 const TTS_VOICE = 'male_takis'
+const TTS_SPEED = 0.92          // ช้าลงนิด — โทน calm ไม่รีบ
+const BREATH_MS = 380           // ช่วงหายใจระหว่างวรรค
 const ttsCache = new Map<string, string>()   // text -> object URL (ประโยคเดิมไม่ต้องยิงซ้ำ)
 let player: HTMLAudioElement | null = null
 let reqSeq = 0                               // กันเสียงเก่าที่โหลดช้ามาทับเสียงจุดล่าสุด
@@ -54,7 +56,7 @@ async function fetchTtsUrl(text: string): Promise<string> {
       const res = await fetch(TTS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: text, voice: TTS_VOICE, response_format: 'mp3', speed: 1.0 }),
+        body: JSON.stringify({ input: text, voice: TTS_VOICE, response_format: 'mp3', speed: TTS_SPEED }),
       })
       if (!res.ok) throw new Error(`TTS ${res.status}`)
       const url = URL.createObjectURL(await res.blob())
@@ -89,42 +91,62 @@ function prefetchVoices() {
         texts.push(sl.say ?? `${sl.title}. ${sl.desc}`)
       }
     }
-    for (const t of texts) await fetchTtsUrl(ttsText(t)).catch(() => {})
+    for (const t of texts) for (const ph of phrasesOf(ttsText(t))) await fetchTtsUrl(ph).catch(() => {})
   })()
 }
 
-/** อ่านออกเสียง — คืน Promise ที่จบเมื่อเสียงเล่นจบ (หรือถูกสั่งหยุด) ให้โหมดออโต้รอได้ */
+/** แบ่งบทพูดเป็นวรรค ~90 ตัวอักษร (บทพูดเว้นวรรคเป็น clause อยู่แล้ว) — เว้นหายใจระหว่างวรรค */
+function phrasesOf(text: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  for (const p of text.split(' ').filter(Boolean)) {
+    const next = cur ? `${cur} ${p}` : p
+    if (next.length > 90 && cur) { out.push(cur); cur = p } else cur = next
+  }
+  if (cur) out.push(cur)
+  return out
+}
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** อ่านออกเสียง — เล่นทีละวรรค เว้นช่วงหายใจระหว่างวรรค · คืน Promise ที่จบเมื่อพูดจบ (หรือถูกสั่งหยุด) */
 async function speak(raw: string): Promise<void> {
   const text = ttsText(raw)
   stopSpeak()
   const seq = reqSeq
   subCb?.(raw)   // ขึ้น subtitle ทันที (ระหว่างรอโหลดเสียงก็อ่านตามได้เลย)
-  try {
-    const url = await fetchTtsUrl(text)
-    if (seq !== reqSeq) return   // ผู้ใช้เปลี่ยนจุดไปแล้วระหว่างรอ
-    const a = new Audio(url)
-    player = a
-    await new Promise<void>((done) => {
-      a.onended = () => done()
-      a.onerror = () => done()
-      a.onpause = () => done()   // stopSpeak() ใช้ pause — นับเป็นจบเหมือนกัน
-      a.play().catch(() => done())
-    })
-  } catch {
-    // เครือข่าย/เซิร์ฟเวอร์มีปัญหา — ใช้เสียงสังเคราะห์ของเครื่องแทน
+  const phrases = phrasesOf(text)
+  for (let i = 0; i < phrases.length; i++) {
+    if (seq !== reqSeq) return   // ถูกแทรกระหว่างพูด
+    try {
+      const url = await fetchTtsUrl(phrases[i])
+      if (seq !== reqSeq) return
+      const a = new Audio(url)
+      player = a
+      await new Promise<void>((done) => {
+        a.onended = () => done()
+        a.onerror = () => done()
+        a.onpause = () => done()   // stopSpeak() ใช้ pause — นับเป็นจบเหมือนกัน
+        a.play().catch(() => done())
+      })
+    } catch {
+      // เครือข่าย/เซิร์ฟเวอร์มีปัญหา — ใช้เสียงสังเคราะห์ของเครื่องแทนเฉพาะวรรคนี้
+      if (seq !== reqSeq) return
+      const synth = window.speechSynthesis
+      if (!synth) continue
+      const u = new SpeechSynthesisUtterance(phrases[i])
+      u.lang = 'th-TH'
+      const th = synth.getVoices().find((v) => v.lang.replace('_', '-').startsWith('th'))
+      if (th) u.voice = th
+      u.rate = 1.0
+      await new Promise<void>((done) => {
+        u.onend = () => done()
+        u.onerror = () => done()
+        synth.speak(u)
+      })
+    }
     if (seq !== reqSeq) return
-    const synth = window.speechSynthesis
-    if (!synth) return
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'th-TH'
-    const th = synth.getVoices().find((v) => v.lang.replace('_', '-').startsWith('th'))
-    if (th) u.voice = th
-    u.rate = 1.05
-    await new Promise<void>((done) => {
-      u.onend = () => done()
-      u.onerror = () => done()
-      synth.speak(u)
-    })
+    if (i < phrases.length - 1) await pause(BREATH_MS)   // ช่วงหายใจ
   }
   if (seq === reqSeq) subCb?.(null)   // พูดจบเอง (ไม่ได้ถูกแทรก) — เก็บ subtitle
 }
