@@ -220,7 +220,7 @@ function analytics(from: string, to: string) {
     recent: ps.slice(-25).reverse().map((p) => ({
       emp: p.emp.emp, seq: 1, name: p.emp.name, date: p.date, in: hhmm(p.inMin),
       out: p.no_out ? '' : hhmm(p.outMin), shift: p.emp.shift.name, dept: deptOf(p.emp),
-      late: p.late, status: statusOf(p),
+      late: p.late, early: !p.no_out && p.early, status: statusOf(p),
     })),
     days, shifts, depts, top_late,
     avg_late_min: lateP.length ? +(lateP.reduce((s, p) => s + p.late_min, 0) / lateP.length).toFixed(1) : 0,

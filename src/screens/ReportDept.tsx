@@ -104,17 +104,21 @@ export function ReportDept() {
   // Figma: header สูง 40 · แถวสูง 53 · ชิดซ้ายทุกคอลัมน์ · แผนกตัวหนา · อัตราเข้าทำงานมีสีตามเกณฑ์
   // หน่วยกำกับหัวคอลัมน์ — พนักงานนับเป็น "คน" แต่ มาสาย/ออกก่อน สะสมเป็น "ครั้ง" ตลอดช่วง
   // (คนเดียวสายได้หลายวัน เลขจึงเกินจำนวนคนได้ — ต้องบอกหน่วยไม่งั้นอ่านแล้วขัดกัน)
+  // มาสาย/ออกก่อน แสดงเป็น % ของจำนวนครั้งที่ลงเวลาในแผนกนั้น — เทียบข้ามแผนกได้ทันทีไม่ต้องหารเอง
+  const pctOf = (n: number, base: number) => (base > 0 ? `${((n / base) * 100).toFixed(2)}%` : '—')
   const cols: Column<DeptRow>[] = [
     { key: 'dept', header: 'แผนก', tdStyle: { ...TEXT.bodyMed, color: 'var(--text)' }, cell: (d) => deptName(d.dept) },
     { key: 'staff', header: 'พนักงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.staff) },
     { key: 'present', header: 'มาทำงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.present) },
-    { key: 'absent', header: 'ขาดงาน (คน)', tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(absentOf(d)) },
-    { key: 'late', header: `รวมการมาสาย (${times})`, tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.late) },
-    { key: 'early', header: `รวมการออกก่อน (${times})`, tdStyle: { color: 'var(--table-row-text)' }, cell: (d) => nf(d.early) },
     {
-      key: 'rate',
-      header: <>อัตราเข้าทำงาน<Info text={`จำนวนครั้งที่มาลงเวลา ÷ (พนักงานในแผนก × ${nf(ana?.summary.days ?? 1)} วัน) × 100`} /></>,
-      cell: (d) => <span style={{ ...TEXT.bodyMed, color: rateColor(d.rate) }}>{fmtRate(d.rate)}</span>,
+      key: 'late',
+      header: <>การมาสาย (%)<Info text="จำนวนครั้งที่มาสาย ÷ จำนวนครั้งที่ลงเวลาของแผนกนั้น × 100" /></>,
+      cell: (d) => <span style={{ ...TEXT.bodyMed, color: d.late > 0 ? 'var(--warn)' : 'var(--table-row-text)' }}>{pctOf(d.late, d.person_days)}</span>,
+    },
+    {
+      key: 'early',
+      header: <>การออกก่อน (%)<Info text="จำนวนครั้งที่ออกก่อนเวลา ÷ จำนวนครั้งที่ลงเวลาของแผนกนั้น × 100" /></>,
+      cell: (d) => <span style={{ ...TEXT.bodyMed, color: d.early > 0 ? 'var(--info)' : 'var(--table-row-text)' }}>{pctOf(d.early, d.person_days)}</span>,
     },
   ]
 
@@ -163,7 +167,8 @@ export function ReportDept() {
       {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
       {/* ---------- 2 แผงกราฟ (Figma Frame 117) ---------- */}
-      <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px,100%), 1fr))' }}>
+      {/* กราฟแท่งกินที่ 3:2 กับโดนัท (แท่ง 9 แผนกต้องการความกว้างมากกว่า) · จอแคบเด้งเป็นแถวเดียวเหมือนเดิม */}
+      <div className="grid gap-4 items-stretch max-lg:grid-cols-1!" style={{ gridTemplateColumns: 'minmax(0, 3fr) minmax(0, 2fr)' }}>
         <SectionPanel title="เปรียบเทียบการมาทำงานของแต่ละแผนก" meta={filterMeta}>
           {!ana && !anaF.err
             ? <Loading />
@@ -202,9 +207,8 @@ export function ReportDept() {
           )}
         </div>
         <p className="text-sm-fig mt-3 mb-0 text-text-dim">
-          {multiDay && <>มาสาย/ออกก่อน นับสะสมเป็น "ครั้ง" ตลอดช่วงที่เลือก (คนเดียวสายได้หลายวัน เลขจึงมากกว่าจำนวนคนได้) · </>}
-          อัตราเข้าทำงาน = จำนวนครั้งที่มาลงเวลา ÷ (พนักงาน × {nf(ana?.summary.days ?? 1)} วัน) ·
-          ขาดงาน = พนักงานในแผนก − คนที่มาอย่างน้อย 1 วัน · โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก"
+          การมาสาย/การออกก่อน คิดเป็น % ของจำนวนครั้งที่ลงเวลาในแผนกนั้นตลอดช่วงที่เลือก ·
+          โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก"
         </p>
       </SectionPanel>
     </div>

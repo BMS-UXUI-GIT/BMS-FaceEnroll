@@ -16,6 +16,7 @@ import { FilterBar } from '../components/inputs/FilterBar'
 import { Avatar } from '../components/data-display/Avatar'
 import { StatCard } from '../components/data-display/StatCard'
 import { StatusBadge } from '../components/data-display/StatusBadge'
+import { DataTable } from '../components/data-display/DataTable'
 import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
 import { PlatformPanels, PlatformStats, usePlatformOverview } from './PlatformOverview'
 import { HealthSummary, useHealth } from './Health'
@@ -32,7 +33,7 @@ import { asset } from '../assets'
 //        สถิติแบ่งตามเวร · มาสาย/ออกก่อนเวลาแยกตามเวร
 //        สรุปการมาสาย 5 อันดับ (จำนวน/เฉลี่ย/สูงสุด) · สรุปสถานะการมาทำงาน
 
-type Row = { emp: string; seq?: number; name: string; date: string; in: string; out: string; shift: string; dept: string; late: boolean; status: string }
+type Row = { emp: string; seq?: number; name: string; date: string; in: string; out: string; shift: string; dept: string; late: boolean; early?: boolean; status: string }
 type Analytics = {
   summary: { date: string; date_from: string; date_to: string; days: number; punched: number; done: number; open: number; late: number; early: number; out_area: number }
   recent: Row[]
@@ -428,33 +429,62 @@ export function Overview() {
             </span>
           }
           meta={filterMeta}>
-          {!ana ? <SkelRows rows={6} /> : (ana.recent.length === 0 ? (
-            <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--text-dim)', textAlign: 'center' }}>
-              {isToday ? 'ยังไม่มีคนเข้าเวรวันนี้' : `ไม่มีข้อมูลเข้าเวรช่วง ${dayLabel}`}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-              {ana.recent.map((r) => (
-                <div key={`${r.emp}:${r.date}:${r.seq ?? 0}`} className="row-hover" style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
-                  padding: 'var(--sp-2) var(--sp-3)',
-                  border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)',
-                }}>
-                  <Avatar name={r.name} seed={r.emp} size={40} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ ...TEXT.bodyMed, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                    <div style={{ ...TEXT.sm, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {deptName(r.dept)}{r.shift !== '—' ? ` · ${shortShift(r.shift)}` : ''}{multiDay ? ` · ${thShort(r.date)}` : ''}
-                    </div>
-                  </div>
-                  <div style={{ ...TEXT.sm, fontFamily: 'var(--mono)', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                    เข้า {clock(r.in)}{r.out !== '—' ? ` · ออก ${clock(r.out)}` : ' · ยังไม่ออกเวร'}
-                  </div>
-                  <StatusBadge status={r.late ? 'late' : 'ontime'} />
-                </div>
-              ))}
-            </div>
-          ))}
+          {!ana ? <SkelRows rows={6} /> : (
+            /* ตารางแยกคอลัมน์ เข้า / ออก / สถานะ — สถานะติดได้หลายป้ายพร้อมกัน (สาย + ออกก่อน) */
+            <DataTable
+              rows={ana.recent}
+              rowKey={(r) => `${r.emp}:${r.date}:${r.seq ?? 0}`}
+              hover={false}
+              empty={isToday ? 'ยังไม่มีคนเข้าเวรวันนี้' : `ไม่มีข้อมูลเข้าเวรช่วง ${dayLabel}`}
+              columns={[
+                {
+                  key: 'name', header: 'พนักงาน',
+                  cell: (r) => (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', minWidth: 0 }}>
+                      <Avatar name={r.name} seed={r.emp} size={40} />
+                      <span style={{ ...TEXT.bodyMed, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                    </span>
+                  ),
+                },
+                {
+                  key: 'dept', header: 'แผนก', width: 150,
+                  cell: (r) => <span style={{ color: 'var(--text-dim)' }}>{deptName(r.dept)}</span>,
+                },
+                {
+                  key: 'shift', header: 'เวร', width: 120,
+                  cell: (r) => <span style={{ color: 'var(--text-dim)' }}>{r.shift !== '—' ? shortShift(r.shift) : '—'}</span>,
+                },
+                {
+                  key: 'date', header: 'วันที่', width: 110,
+                  cell: (r) => <span style={{ color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{thShort(r.date)}</span>,
+                },
+                {
+                  key: 'in', header: 'เข้า', width: 110,
+                  cell: (r) => <span style={{ fontFamily: 'var(--mono)' }}>{clock(r.in)}</span>,
+                },
+                {
+                  key: 'out', header: 'ออก', width: 110,
+                  cell: (r) => r.out && r.out !== '—'
+                    ? <span style={{ fontFamily: 'var(--mono)' }}>{clock(r.out)}</span>
+                    : <span style={{ color: 'var(--text-faint)' }}>—</span>,
+                },
+                {
+                  key: 'status', header: 'สถานะ', width: 250,
+                  cell: (r) => {
+                    const done = !!r.out && r.out !== '—'
+                    return (
+                      <span style={{ display: 'inline-flex', gap: 'var(--sp-1)', flexWrap: 'wrap' }}>
+                        {r.late && <StatusBadge status="late" />}
+                        {done && r.early && <StatusBadge status="early" />}
+                        {!done && <StatusBadge status="leave" label="ยังไม่ออกเวร" />}
+                        {done && !r.late && !r.early && <StatusBadge status="ontime" />}
+                      </span>
+                    )
+                  },
+                },
+              ]}
+            />
+          )}
         </SectionPanel>
       ) : (
         <>

@@ -191,10 +191,6 @@ export function ReportShift() {
     { key: 'avg_out', header: 'เวลาออกเฉลี่ย', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.avg_out) },
     { key: 'min_out', header: 'ออกเร็วสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.min_out) },
     { key: 'max_out', header: 'ออกช้าสุด', tdStyle: { fontFamily: 'var(--mono)', color: 'var(--table-row-text)' }, cell: (s) => clock(s.max_out) },
-    {
-      key: 'share', header: 'สัดส่วนของทั้งหมด',
-      cell: (s) => <span style={{ ...TEXT.bodyMed, color: colorOf(kindOf(s)) }}>{total > 0 ? `${pct(s.persons).toFixed(2)}%` : '—'}</span>,
-    },
   ]
 
   // ป้ายมุมขวาหัวแผง — บอกช่วงวันจริงที่ดึงมา (เดือนปัจจุบันจะจบที่วันนี้ ไม่ใช่สิ้นเดือน)
