@@ -6,6 +6,13 @@
 
 > **Note:** Repository นี้เป็น Web Application สำหรับส่วนจัดการระบบ โดยข้อมูลในโหมด Demo เป็นข้อมูลตัวอย่างและไม่ใช่ข้อมูลจริงของโรงพยาบาล
 
+## 🔗 Links
+
+| | URL |
+|---|---|
+| 🖥️ **Live Demo** (ข้อมูลตัวอย่าง) | https://bms-uxui-git.github.io/BMS-FaceEnroll/ |
+| 🎬 **Presentation** (สไลด์นำเสนอ เล่นอัตโนมัติพร้อมเสียงบรรยาย) | https://bms-uxui-git.github.io/BMS-FaceEnroll/present/ |
+
 ---
 
 ## ✨ Overview
