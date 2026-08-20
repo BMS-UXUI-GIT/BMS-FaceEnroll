@@ -19,7 +19,13 @@ async function newPage() {
   return ctx.newPage()
 }
 const wait = (page, ms) => page.waitForTimeout(ms)
-const shot = async (page, name) => { await page.screenshot({ path: OUT + name }); console.log('✓', name) }
+// เมาส์ค้างบนกราฟ/เมนู = tooltip ลอยบังภาพ — จอดไว้มุมบนซ้ายก่อนกดชัตเตอร์เสมอ
+const shot = async (page, name) => {
+  await page.mouse.move(4, 4)
+  await wait(page, 400)
+  await page.screenshot({ path: OUT + name })
+  console.log('✓', name)
+}
 // เมนู "ระบบดีไซน์" มีเฉพาะตอน dev — ไม่เอาเข้ารูปนำเสนอ
 const hideDev = (page) => page.evaluate(() => {
   document.querySelectorAll('aside button').forEach((b) => { if (b.textContent.includes('ระบบดีไซน์')) b.remove() })
