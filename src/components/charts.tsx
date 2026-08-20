@@ -21,12 +21,18 @@ export const legendHover = (set: (v: any) => void, key: string | number) => ({
   style: { cursor: 'default' as const },
 })
 
-/** legend แบบกดค้างได้ — ชี้ = เน้นชั่วคราว · กด = ล็อกโฟกัสไว้ (กดซ้ำ/กดอันอื่นเพื่อเปลี่ยน)
-    ล็อกอยู่ = กราฟคิดเพดานแกนใหม่จากชุดนั้นชุดเดียว (ชุดค่าน้อยจะได้ไม่แบนติดพื้น) */
-export function useLegendFocus<K extends string | number = string>() {
+/** legend กดปิด-เปิดได้ทีละชุด — ชี้ = เน้นชั่วคราว · กด = ปิด/เปิดชุดนั้น (ชุดอื่นไม่ยุ่ง)
+    เลือกเทียบกี่ชุดก็ได้ เช่น ปิดสองชุดเหลือสองแท่งไว้เทียบกัน
+    เหลือกี่ชุดกราฟก็คิดเพดานแกนใหม่จากเท่าที่เปิดอยู่ (ชุดค่าน้อยจะได้ไม่แบนติดพื้น) */
+export function useLegendFocus<K extends string | number = string>(keys?: readonly K[]) {
   const [hover, setHover] = useState<K | null>(null)
-  const [lock, setLock] = useState<K | null>(null)
-  const toggle = (k: K) => setLock((cur) => (cur === k ? null : k))
+  const [off, setOff] = useState<K[]>([])
+  const toggle = (k: K) => setOff((cur) => {
+    if (cur.includes(k)) return cur.filter((x) => x !== k)
+    // ปิดครบทุกชุด = กราฟว่างเปล่า ไม่มีอะไรให้ดู — กันไว้ให้เหลืออย่างน้อยหนึ่งชุด
+    if (keys && cur.length >= keys.length - 1) return cur
+    return [...cur, k]
+  })
   const bind = (key: K) => ({
     onMouseEnter: () => setHover(key),
     onMouseLeave: () => setHover(null),
@@ -38,11 +44,10 @@ export function useLegendFocus<K extends string | number = string>() {
     },
     tabIndex: 0,
     role: 'button' as const,
-    'aria-pressed': lock === key,
+    'aria-pressed': !off.includes(key),
     style: { cursor: 'pointer' as const },
   })
-  // ล็อกชนะการชี้เสมอ — กดค้างไว้แล้วเมาส์ไปไหนกราฟก็ยังโฟกัสชุดเดิม
-  return { focus: (lock ?? hover) as K | null, lock, bind, clear: () => setLock(null) }
+  return { hover, off, isOff: (k: K) => off.includes(k), bind, clear: () => setOff([]) }
 }
 
 export type Seg = { v: number; color: string; label?: string }
@@ -165,7 +170,7 @@ export function PercentBars({ rows, color = 'var(--accent)', colors, height = 32
 
 /** คอลัมน์ซ้อน (stacked) — Figma หน้าหลัก node 13:2973 "สถิติการเข้า-ออกงาน"
     1 แท่ง = 1 วัน ซ้อนตามชุดข้อมูล · legend วาดเองจากฝั่งผู้เรียก (ให้วางมุมขวาบนได้) */
-export function StackedColumns({ groups, series, height = 240, unit = 'ครั้ง', columnWidth = 56, axisLabel, active, isolate, stackLabels, showValues }: {
+export function StackedColumns({ groups, series, height = 240, unit = 'ครั้ง', columnWidth = 56, axisLabel, active, hidden, stackLabels, showValues }: {
   groups: { label: string; values: Record<string, number> }[]
   /** stack = ชื่อกองของชุดข้อมูล (ไม่ใส่ = กองเดียวกันหมด) — คนละกอง = แท่งแยกกันภายในวันเดียวกัน
       dir = 'down' ทำกราฟกระจกเงา: ชุดนั้นห้อยลงใต้เส้นศูนย์ (เข้าขึ้น/ออกลง) — ใช้ stack เดียวกันได้
@@ -178,23 +183,24 @@ export function StackedColumns({ groups, series, height = 240, unit = 'ครั
   axisLabel?: string
   /** key ของชุดข้อมูลที่กำลังชี้อยู่ที่ legend — ชุดอื่นจางลง (legend วาดจากฝั่งผู้เรียก) */
   active?: string | null
-  /** key ที่ "กดล็อก" ไว้ — วาดเฉพาะชุดนั้น แล้วคิดเพดานแกนใหม่จากชุดนั้นชุดเดียว */
-  isolate?: string | null
+  /** key ของชุดที่ "กดปิด" ไว้ที่ legend — ไม่วาด แล้วคิดเพดานแกนใหม่จากชุดที่เหลือ */
+  hidden?: string[]
   /** ป้ายกำกับใต้แท่งของแต่ละกอง เช่น { in: 'เข้า', out: 'ออก' } — ป้ายวัน (label ของ group) เลื่อนลงไปอยู่แถวถัดไป */
   stackLabels?: Record<string, string>
   /** ปักตัวเลขลงกลางทุกชิ้นตลอดเวลา (ชิ้นเตี้ยเกินตัวเลขไม่พอดีจะเว้นให้เอง — ดูจาก tooltip แทน) */
   showValues?: boolean
 }) {
+  const off = (k: string) => !!hidden?.includes(k)
   const stackOf = (s: { stack?: string }) => s.stack ?? 'a'
   const down = (s: { dir?: 'up' | 'down' }) => s.dir === 'down'
   const mirror = series.some(down)
   // กระจกเงา = เก็บชุด 'down' เป็นเลขติดลบ + stackOffset="sign" (ค่าเริ่มต้น 'none' จะจับบวกรวมแล้ววาดขึ้นหมด)
-  // ล็อกชุดไหนอยู่ = ชุดอื่นใส่ null (ไม่ใช่ถอด <Bar> ออก) — จำนวนชุดเท่าเดิม recharts จึงไม่คิดตำแหน่ง/
-  // ความกว้างแท่งใหม่ ปลดล็อกแล้วทุกอย่างกลับที่เดิมเป๊ะ · null ยังโดน Tooltip filterNull กรองออกให้ด้วย
+  // ชุดที่ปิดอยู่ = ใส่ null (ไม่ใช่ถอด <Bar> ออก) — จำนวนชุดเท่าเดิม recharts จึงไม่คิดตำแหน่ง/
+  // ความกว้างแท่งใหม่ เปิดกลับแล้วทุกอย่างกลับที่เดิมเป๊ะ · null ยังโดน Tooltip filterNull กรองออกให้ด้วย
   const data = groups.map((g) => {
     const row: Record<string, number | string | null> = { label: g.label }
     for (const s of series) {
-      row[s.key] = isolate && s.key !== isolate
+      row[s.key] = off(s.key)
         ? null
         : (Number(g.values[s.key]) || 0) * (down(s) ? -1 : 1)
     }
@@ -220,8 +226,8 @@ export function StackedColumns({ groups, series, height = 240, unit = 'ครั
   }
   // เพดานแกน Y คิดเองแล้วส่งให้ทั้ง 2 กราฟ — กราฟแกนที่ปักไว้ซ้ายกับกราฟที่เลื่อนได้จะได้สเกลตรงกันเป๊ะ
   // เพดาน = กองที่สูงที่สุด (คนละกอง/คนละทิศไม่บวกกัน — แยกแท่ง/แยกฝั่งเส้นศูนย์)
-  // ล็อกชุดเดียวอยู่ = วาดแค่ชุดนั้น + คิดเพดานจากชุดนั้น (ชุดค่าน้อยจะได้ไม่แบนจนดูไม่ออก)
-  const shown = isolate ? series.filter((s) => s.key === isolate) : series
+  // ปิดบางชุดอยู่ = คิดเพดานจากชุดที่ยังเปิด (ชุดค่าน้อยจะได้ไม่แบนจนดูไม่ออก)
+  const shown = series.filter((s) => !off(s.key))
   const buckets = [...new Set(shown.map((s) => `${stackOf(s)}|${down(s) ? 'd' : 'u'}`))]
   const top = axis(Math.max(4, ...groups.flatMap((g) => buckets.map((b) =>
     shown.filter((s) => `${stackOf(s)}|${down(s) ? 'd' : 'u'}` === b)
@@ -405,13 +411,13 @@ export function GroupedBars({ groups, series, height = 320, unit = 'วัน', 
   // (ไม่ล็อก barWidth = คิดขั้นต่ำจาก 18px/แท่ง แต่ตอนวาดปล่อยให้ยืดเต็มช่องเหมือนกราฟหน้าหลัก)
   // +96 = เผื่อที่ให้ป้ายใต้แกนที่ยาวได้ เช่น "สัปดาห์ที่ 1 (1–7 ส.ค.)" ไม่ให้ชนกลุ่มข้าง ๆ
   const minWidth = Math.max(320, groups.length * (series.length * ((barWidth ?? 18) + 6) + 96))
-  const { focus: hi, lock, bind } = useLegendFocus()
-  // กดล็อกชุดไหน = ชุดอื่นใส่ null (คง <Bar> ไว้ครบ ช่องของแต่ละชุดจึงไม่ถูกจัดใหม่ ปลดล็อกแล้วกลับที่เดิม)
-  // แล้วคิดเพดานแกนใหม่จากชุดที่ล็อก — ชุดค่าน้อยจะได้ไม่แบนติดพื้น
-  const shown = lock ? series.filter((s) => s.key === lock) : series
+  const { hover: hi, isOff, bind } = useLegendFocus(series.map((s) => s.key))
+  // ชุดที่กดปิด = ใส่ null (คง <Bar> ไว้ครบ ช่องของแต่ละชุดจึงไม่ถูกจัดใหม่ เปิดกลับแล้วอยู่ที่เดิม)
+  // แล้วคิดเพดานแกนใหม่จากชุดที่ยังเปิด — ชุดค่าน้อยจะได้ไม่แบนติดพื้น
+  const shown = series.filter((s) => !isOff(s.key))
   const data = groups.map((g) => {
     const row: Record<string, number | string | null> = { label: g.label }
-    for (const s of series) row[s.key] = lock && s.key !== lock ? null : (Number(g.values[s.key]) || 0)
+    for (const s of series) row[s.key] = isOff(s.key) ? null : (Number(g.values[s.key]) || 0)
     return row
   })
   const top = axis(Math.max(4, ...groups.flatMap((g) => shown.map((s) => Number(g.values[s.key]) || 0)))).top
@@ -424,17 +430,20 @@ export function GroupedBars({ groups, series, height = 320, unit = 'วัน', 
         <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({unit})</span>
         <span style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 20 }}>
           {series.map((s) => (
-            <span key={s.key} {...bind(s.key)} title={lock === s.key ? 'กดอีกครั้งเพื่อเลิกโฟกัส' : 'กดเพื่อโฟกัสชุดนี้'}
+            <span key={s.key} {...bind(s.key)} title={isOff(s.key) ? 'กดเพื่อแสดงชุดนี้' : 'กดเพื่อซ่อนชุดนี้'}
               style={{
                 ...bind(s.key).style,
                 position: 'relative',
                 display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, whiteSpace: 'nowrap',
-                color: lock === s.key ? 'var(--text)' : 'var(--text-dim)',
+                color: isOff(s.key) ? 'var(--text-faint)' : 'var(--text-dim)',
+                textDecoration: isOff(s.key) ? 'line-through' : undefined,
                 opacity: hi == null || hi === s.key ? 1 : 0.5, transition: 'opacity .12s ease',
               }}>
               <span style={{
-                width: 14, height: 14, borderRadius: 4, background: s.color, flex: 'none',
-                boxShadow: lock === s.key ? '0 0 0 2px var(--bg), 0 0 0 4px currentColor' : undefined,
+                width: 14, height: 14, borderRadius: 4, flex: 'none',
+                background: isOff(s.key) ? 'transparent' : s.color,
+                boxShadow: isOff(s.key) ? `inset 0 0 0 2px ${s.color}` : undefined,
+                opacity: isOff(s.key) ? 0.55 : 1, transition: 'background .12s ease, opacity .12s ease',
               }} />
               {s.label}
             </span>

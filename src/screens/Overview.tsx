@@ -118,13 +118,14 @@ function RecentMini({ r }: { r: Row }) {
 }
 
 /** legend มุมขวาบนของกราฟ (วาดเอง จะได้ไม่เลื่อนตามกราฟที่ scroll ได้)
-    ชี้ = เน้นชุดนั้นชั่วคราว · กด (bind) = ล็อกโฟกัสไว้ แล้วกราฟคิดเพดานแกนใหม่ตามชุดที่ล็อก */
-function Legend({ items, active, onHover, bind, lock }: {
+    ชี้ = เน้นชุดนั้นชั่วคราว · กด (bind) = ปิด/เปิดชุดนั้น (ชุดอื่นคาไว้เหมือนเดิม เทียบกี่ชุดก็ได้) */
+function Legend({ items, active, onHover, bind, off }: {
   items: { key?: string; label: string; color: string }[]
   active?: string | null
   onHover?: (k: string | null) => void
   bind?: (k: string) => Record<string, unknown>
-  lock?: string | null
+  /** key ของชุดที่ถูกกดปิดอยู่ — กล่องสีกลายเป็นขอบโปร่ง ข้อความจาง */
+  off?: string[]
 }) {
   return (
     <span style={{ display: 'inline-flex', gap: 'var(--sp-4)', flexWrap: 'wrap' }}>
@@ -132,20 +133,23 @@ function Legend({ items, active, onHover, bind, lock }: {
         const k = s.key ?? s.label
         const on = bind ? bind(k) : onHover ? legendHover(onHover, k) : null
         const dim = on && active != null && active !== k
-        const locked = lock === k
+        const hidden = !!off?.includes(k)
         return (
           <span key={s.label} {...on}
-            title={bind ? (locked ? 'กดอีกครั้งเพื่อเลิกโฟกัส' : 'กดเพื่อโฟกัสชุดนี้') : undefined}
+            title={bind ? (hidden ? 'กดเพื่อแสดงชุดนี้' : 'กดเพื่อซ่อนชุดนี้') : undefined}
             style={{
               ...(on?.style as object),
               position: 'relative',
               display: 'inline-flex', alignItems: 'center', gap: 6, ...TEXT.sm, whiteSpace: 'nowrap',
-              color: locked ? 'var(--text)' : 'var(--text-dim)',
+              color: hidden ? 'var(--text-faint)' : 'var(--text-dim)',
+              textDecoration: hidden ? 'line-through' : undefined,
               opacity: dim ? 0.5 : 1, transition: 'opacity .12s ease',
             }}>
             <span style={{
-              width: 12, height: 12, borderRadius: 3, background: s.color, flex: 'none',
-              boxShadow: locked ? '0 0 0 2px var(--bg), 0 0 0 4px currentColor' : undefined,
+              width: 12, height: 12, borderRadius: 3, flex: 'none',
+              background: hidden ? 'transparent' : s.color,
+              boxShadow: hidden ? `inset 0 0 0 2px ${s.color}` : undefined,
+              opacity: hidden ? 0.55 : 1, transition: 'background .12s ease, opacity .12s ease',
             }} />
             {s.label}
           </span>
@@ -173,7 +177,7 @@ export function Overview() {
   const [fDepts, setFDepts] = useState<string[]>([])
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
   // legend ของกราฟการเข้า-ออกงาน — ชี้ = เน้นชั่วคราว · กด = ล็อกโฟกัส (แกน Y คิดใหม่ตามชุดที่ล็อก)
-  const ioFocus = useLegendFocus()
+  const ioFocus = useLegendFocus(IO_SERIES.map((s) => s.key))
 
   useEffect(() => { setFShifts([]); setFDepts([]); setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
 
@@ -516,12 +520,12 @@ export function Overview() {
           <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(460px,100%), 1fr))' }}>
             <SectionPanel title="สถิติการเข้า-ออกงาน"
               meta={<Legend items={IO_SERIES.map((s) => ({ ...s, label: `${s.dir === 'up' ? '▲' : '▼'} ${s.label}` }))}
-                active={ioFocus.focus} bind={ioFocus.bind} lock={ioFocus.lock} />}>
+                active={ioFocus.hover} bind={ioFocus.bind} off={ioFocus.off} />}>
               {!ana ? <SkelChart height={250} /> : (
                 /* กระจกเงา: วันละแท่งเดียว — ครึ่งบนคือสแกนขาเข้า ครึ่งล่างคือสแกนขาออก
                    หน่วยเป็น "ครั้ง" เสมอ เพราะ 1 คนสแกนได้หลายรอบต่อวัน */
                 <StackedColumns groups={dayGroups} series={IO_SERIES} height={250} unit="ครั้ง" columnWidth={68}
-                  active={ioFocus.focus} isolate={ioFocus.lock} showValues />
+                  active={ioFocus.hover} hidden={ioFocus.off} showValues />
               )}
             </SectionPanel>
 
