@@ -11,7 +11,7 @@ import { countChips, FilterSheetButton } from './FilterSheet'
 const COLLAPSE_FROM = 3   // ชิปตั้งแต่กี่ใบขึ้นไปถึงยุบเป็นปุ่มเดียว
 const WRAP_FROM = 2       // ชิปตั้งแต่กี่ใบขึ้นไปถึงดันช่องค้นหาให้เต็มบรรทัด (ชิปเดียว = แถวเดียวกันได้)
 
-export function FilterBar({ search, children, activeCount, className }: {
+export function FilterBar({ search, children, activeCount, className, sticky = true }: {
   /** ช่องค้นหา (ถ้ามี) — บนมือถือจะกินเต็มบรรทัดแรกเสมอ */
   search?: ReactNode
   /** ชิปตัวกรอง + ปุ่มล้างตัวกรอง */
@@ -19,6 +19,9 @@ export function FilterBar({ search, children, activeCount, className }: {
   /** จำนวนตัวกรองที่เลือกอยู่ — โชว์เป็นป้ายบนปุ่ม "ตัวกรอง" ของมือถือ */
   activeCount?: number
   className?: string
+  /** ค้างไว้ใต้แถบบนตอนเลื่อนหน้า (ค่าเริ่มต้น) — เห็นตลอดว่าข้อมูลที่ดูอยู่ถูกกรองด้วยอะไร
+      และกดเปลี่ยนตัวกรองได้ทันทีโดยไม่ต้องเลื่อนกลับขึ้นบนสุด */
+  sticky?: boolean
 }) {
   const phone = useMedia('(max-width: 620px)')
 
@@ -27,7 +30,7 @@ export function FilterBar({ search, children, activeCount, className }: {
   // .filter-bar = ช่องค้นหากินเต็มบรรทัด ชิปตกลงแถวล่าง — ใช้ตอนมีชิปตั้งแต่ 2 ใบ
   // ชิปใบเดียว (หรือยุบเป็นปุ่มตัวกรองแล้ว) อยู่แถวเดียวกับช่องค้นหาได้สบาย
   const wrap = !collapse && (!phone || chips >= WRAP_FROM)
-  const row = `flex items-center gap-2${wrap ? ' flex-wrap filter-bar' : ''}${className ? ` ${className}` : ''}`
+  const row = `flex items-center gap-2${wrap ? ' flex-wrap filter-bar' : ''}${sticky ? ' filter-sticky' : ''}${className ? ` ${className}` : ''}`
 
   if (!collapse) {
     return <div className={row}>{search}{children}</div>

@@ -111,12 +111,12 @@ export function Attendance() {
     { key: 'in', header: 'เข้าเวร', cell: (r) => <span className="text-body-bold text-ok">{hhmm(r.in)}</span> },
     { key: 'out', header: 'ออกเวร', cell: (r) => <span className="text-body text-table-row">{hhmm(r.out)}</span> },
     // Figma: เวร = คอลัมน์กว้างคงที่ 70 · ป้ายโชว์แค่ "เช้า/บ่าย/ดึก" (ช่วงเวลาอยู่ในหน้าต่างรายละเอียด)
-    //        GPS = กึ่งกลาง · สถานะ = ชิดขวา กว้าง 200
+    //        GPS = ชิดซ้าย (ชื่อสถานที่ยาวไม่เท่ากัน จัดกึ่งกลางแล้วอ่านไล่ลงมาไม่ได้) · สถานะ = ชิดขวา กว้าง 200
     { key: 'shift', header: 'เวร', width: 70, align: 'center', cell: (r) => <ShiftBadge shift={shiftKindOf(r.shift)} /> },
     {
       // โชว์ชื่อสถานที่จาก reverse geocode พิกัดสแกน (สไตล์ Google Maps) — "มีพิกัด" เฉย ๆ ไม่บอกอะไร
       // นอกพื้นที่ยิ่งสำคัญ: เห็นเลยว่าสแกนจากสถานที่ไหน (backend เก่าไม่ส่งชื่อ = fallback เดิม)
-      key: 'gps', header: 'GPS', align: 'center', cell: (r) => r.gps
+      key: 'gps', header: 'GPS', align: 'left', cell: (r) => r.gps
         ? r.out_area
           ? <span className="text-body text-danger">● นอกพื้นที่{r.gps_place ? ` · ${r.gps_place}` : ''}</span>
           : <span className="text-body text-ok">● {r.gps_place || 'มีพิกัด'}</span>

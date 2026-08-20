@@ -17,7 +17,7 @@ import { FilterBar } from '../components/inputs/FilterBar'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Avatar } from '../components/data-display/Avatar'
 import { ContactPill, Field } from '../components/data-display/Field'
-import { StatCard } from '../components/data-display/StatCard'
+import { StatCard, type StatItem } from '../components/data-display/StatCard'
 import { ShiftBadge, shiftKindOf } from '../components/data-display/ShiftBadge'
 import { StatusBadge } from '../components/data-display/StatusBadge'
 import { DataTable, type Column } from '../components/data-display/DataTable'
@@ -25,6 +25,7 @@ import { Pagination } from '../components/data-display/Pagination'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
+import { api } from '../api'
 import { asset } from '../assets'
 
 // รายบุคคล — Figma node 66:16084 (รายชื่อ) + 66:20837 (รายละเอียดรายคน)
@@ -125,12 +126,11 @@ const COMPACT_H = 60
 const CHART_SERIES = [
   { key: 'present', label: 'มาทำงาน', color: 'var(--ok)' },
   { key: 'late', label: 'มาสาย', color: 'var(--warn)' },
-  { key: 'absent', label: 'ขาดงาน', color: 'var(--danger)' },
   { key: 'early', label: 'ออกก่อน', color: 'var(--info)' },
 ]
 
 export function ReportPerson() {
-  const { currentHcode } = useApp()
+  const { currentHcode, focusEmp, setFocusEmp } = useApp()
   const hcode = currentHcode === '*' ? '' : currentHcode
   const [reload, setReload] = useState(0)
   const [search, setSearch] = useState('')
@@ -196,12 +196,12 @@ export function ReportPerson() {
 
   const chartGroups = useMemo(() => {
     // ช่วงยาว (เกิน 1 เดือน หรือเกิน 5 สัปดาห์) -> แท่งละ 1 เดือน ไม่งั้นแท่งเยอะจนอ่านไม่ออก
-    // ช่วงสั้น -> แท่งละ 7 วันนับจากวันแรกของช่วง ("1 สัปดาห์", "2 สัปดาห์", ...)
+    // ช่วงสั้น -> แท่งละ 7 วันนับจากวันแรกของช่วง ป้ายกำกับช่วงวันจริงด้วย ("สัปดาห์ที่ 1 (1–7 ส.ค.)")
+    //            เดิมเขียนแค่ "1 สัปดาห์" ซึ่งไม่บอกว่าเป็นวันไหน ต้องนับเอาเองจากตัวกรอง
     const byDate = new Map<string, HistRow>()
     for (const r of chartF.data?.rows ?? []) if (!byDate.has(r.date)) byDate.set(r.date, r)
     const start = new Date(`${cRange.from}T00:00:00`)
     const end = new Date(`${cRange.to}T00:00:00`)
-    const today = localISO()
     const byMonth = chartByMonth
 
     const groups: { label: string; values: Record<string, number> }[] = []
@@ -211,25 +211,34 @@ export function ReportPerson() {
       if (i == null) {
         i = groups.length
         keyed.set(key, i)
-        groups.push({ label, values: { present: 0, late: 0, absent: 0, early: 0 } })
+        groups.push({ label, values: { present: 0, late: 0, early: 0 } })
       }
       return groups[i].values
+    }
+    /** ป้ายสัปดาห์ + ช่วงวันในวงเล็บ — เดือนเดียวกันเขียนเดือนครั้งเดียว ข้ามเดือนเขียนทั้งคู่ */
+    const weekLabel = (wi: number) => {
+      const a = new Date(start); a.setDate(a.getDate() + wi * 7)
+      const b = new Date(start); b.setDate(b.getDate() + wi * 7 + 6)
+      if (b > end) b.setTime(end.getTime())
+      const span = a.getMonth() === b.getMonth()
+        ? `${a.getDate()}–${b.getDate()} ${TH_M[b.getMonth()]}`
+        : `${a.getDate()} ${TH_M[a.getMonth()]}–${b.getDate()} ${TH_M[b.getMonth()]}`
+      return `สัปดาห์ที่ ${wi + 1} (${span})`
     }
 
     const d = new Date(start)
     for (let i = 0; d <= end && i < 400; i++, d.setDate(d.getDate() + 1)) {
+      const wi = Math.floor(i / 7)
       const v = byMonth
         ? bucket(`${TH_M[d.getMonth()]} ${(d.getFullYear() + 543) % 100}`, `${d.getFullYear()}-${d.getMonth()}`)
-        : bucket(`${Math.floor(i / 7) + 1} สัปดาห์`, `w${Math.floor(i / 7)}`)
+        : bucket(weekLabel(wi), `w${wi}`)
       const iso = isoOf(d)
       const row = byDate.get(iso)
+      // ไม่มีชุด "ขาดงาน" — ระบบยังไม่มีตารางเวร/วันลา จึงไม่รู้ว่าวันที่ไม่มีแถวคือขาดงานหรือวันหยุดของคนนั้น
       if (row) {
         v.present++
         if (row.late) v.late++
         if (row.early) v.early++
-      } else if (d.getDay() >= 1 && d.getDay() <= 5 && iso <= today) {
-        // ขาดงาน = วันทำการที่ผ่านมาแล้วแต่ไม่มีการลงเวลา (ระบบยังไม่มีข้อมูลวันลา)
-        v.absent++
       }
     }
     return groups
@@ -247,6 +256,26 @@ export function ReportPerson() {
     io.observe(el)
     return () => io.disconnect()
   }, [sel])
+
+  // มาจากช่องค้นหาทั้งระบบ (⌘K) — ดึงข้อมูลคนนั้นแล้วเปิดหน้ารายละเอียดให้เลย
+  // (ค้นด้วยรหัสพนักงาน แล้วจับคู่แบบตรงตัวก่อน กันกรณี backend คืนหลายแถว)
+  useEffect(() => {
+    if (!focusEmp || !hcode) return
+    let alive = true
+    api.get<EmpList>(`/admin/employees?${q}&q=${encodeURIComponent(focusEmp)}&limit=20&offset=0`)
+      .then((d) => {
+        if (!alive) return
+        const p = (d.rows ?? []).find((r) => r.emp === focusEmp) ?? d.rows?.[0]
+        if (!p) return
+        setFrom(daysAgoISO(29))
+        setTo(localISO())
+        setPreset('month')
+        setSel(p)
+      })
+      .catch(() => { /* ค้นไม่เจอ = อยู่หน้ารายชื่อตามปกติ */ })
+      .finally(() => { if (alive) setFocusEmp(null) })
+    return () => { alive = false }
+  }, [focusEmp, hcode, q, setFocusEmp])
 
   if (currentHcode === '*') return <PickHospital />
 
@@ -386,10 +415,11 @@ export function ReportPerson() {
   const days = histF.data?.days
   // Figma: มาทำงาน (x จาก y วัน) · มาสาย · ขาดงาน · ออกก่อนเวลา
   const absent = days != null && s ? Math.max(0, days - s.present) : undefined
-  const SUM = [
+  const SUM: StatItem[] = [
     { label: 'มาทำงาน', v: s?.present, unit: days != null ? `จาก ${nf(days)} วัน` : 'วัน', tone: 'ok' as const, icon: 'scan' },
     { label: 'มาสาย', v: s?.late, unit: 'วัน', tone: 'warn' as const, icon: 'clock-alert' },
-    { label: 'ขาดงาน', v: absent, unit: 'วัน', tone: 'danger' as const, icon: 'clock-x' },
+    // ขาดงาน — เดาจาก "วันทำการที่ไม่มีการลงเวลา" เท่านั้น (ไม่มีข้อมูลตารางเวร/วันลา) จึงปิดไว้ก่อน
+    { label: 'ขาดงาน', v: absent, unit: 'วัน', tone: 'danger' as const, icon: 'clock-x', disabled: true },
     { label: 'ออกก่อนเวลา', v: s?.early, unit: 'วัน', tone: 'info' as const, icon: 'time-duration-off' },
   ]
 
@@ -440,9 +470,10 @@ export function ReportPerson() {
               {sel.position?.trim() ? sel.position : deptTxt(sel.dept)}
             </span>
           </span>
-          {/* สรุปตัวเลขเดียวกับการ์ดใบใหญ่ ย่อเหลือตัวเลข + ป้าย */}
+          {/* สรุปตัวเลขเดียวกับการ์ดใบใหญ่ ย่อเหลือตัวเลข + ป้าย
+              ข้ามชุดที่ยังไม่เปิดใช้งาน (ขาดงาน) — แถบย่อไม่มีที่ให้ติดริบบิ้นอธิบาย โชว์เลขเปล่าจะเข้าใจผิด */}
           <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 'var(--sp-4)' }} className="hide-sm">
-            {SUM.map((k) => (
+            {SUM.filter((k) => !k.disabled).map((k) => (
               <span key={k.label} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 'var(--sp-1)', whiteSpace: 'nowrap' }}>
                 <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>{k.v != null ? nf(k.v) : '—'}</span>
                 <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{k.label}</span>
@@ -489,7 +520,7 @@ export function ReportPerson() {
           {/* การ์ดสรุป 2x2 — Figma ใบละ 173x84 ไม่มีขอบ พื้นเดียวกับการ์ดแม่ */}
           <div className="grid gap-4 grid-cols-2 stat-grid" style={{ flex: '0 1 362px', minWidth: 'min(362px,100%)' }}>
             {SUM.map((k) => (
-              <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit} layout="row"
+              <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit} layout="row" disabled={k.disabled}
                 icon={<Icon name={k.icon} size={24} color="currentColor" />}
                 value={k.v != null ? nf(k.v) : histF.loading ? '…' : '—'} />
             ))}
@@ -555,7 +586,7 @@ export function ReportPerson() {
           ? <div className="text-body text-danger" style={{ height: CHART_H + 20, display: 'grid', placeItems: 'center' }}>ผิดพลาด: {chartF.err}</div>
           : chartF.loading
             ? <GroupedBarsSkeleton height={CHART_H} series={CHART_SERIES.length} unit="วัน" />
-            : <GroupedBars groups={chartGroups} series={CHART_SERIES} height={CHART_H} unit="วัน" />}
+            : <GroupedBars groups={chartGroups} series={CHART_SERIES} height={CHART_H} unit="วัน" showValues />}
       </SectionPanel>
 
       {/* เว้นท้ายหน้าให้สูงกว่าแคปซูลโปรไฟล์ลอย — ไม่งั้นมันบังแกน X ของกราฟใบล่างสุด */}

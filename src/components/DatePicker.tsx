@@ -30,6 +30,12 @@ export const thShort = (s?: string | null) => {
   return p ? `${p[2]} ${TH_M[p[1]]} ${(p[0] + 543) % 100}` : '—'
 }
 
+/** "2026-07-10" -> "10 ก.ค." — ป้ายแกนกราฟ (ตัดปีออกให้สั้น แต่รูปแบบเดียวกับตัวกรองช่วงวัน) */
+export const thDay = (s?: string | null) => {
+  const p = parseISO(s)
+  return p ? `${p[2]} ${TH_M[p[1]]}` : '—'
+}
+
 const calIcon = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none', opacity: 0.65 }}>
     <rect x="3" y="4.5" width="18" height="17" rx="2.5" /><path d="M8 2.5v4M16 2.5v4M3 9.5h18" />

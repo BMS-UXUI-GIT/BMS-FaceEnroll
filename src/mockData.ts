@@ -92,13 +92,18 @@ const placeOf = (p: Punch) =>
   p.out_area ? PLACE_OUT[Number(p.emp.emp) % PLACE_OUT.length] : PLACE_IN[Number(p.emp.emp) % PLACE_IN.length]
 
 // ── การลงเวลา 1 คน 1 วัน ───────────────────────────────────────────────────
+type Shift = (typeof SHIFTS)[number]
 type Punch = {
   emp: MockEmp; date: string; inMin: number; outMin: number
+  /** เวรของรอบนี้ — ปกติ = เวรประจำของคน · รอบควบ = เวรถัดไป */
+  shift: Shift
+  /** รอบที่เท่าไรของวันนั้น (1 = รอบปกติ, 2 = รอบควบ) */
+  seq: number
   late: boolean; early: boolean; late_min: number; early_min: number
   no_out: boolean; out_area: boolean; dist_m: number | null; absent: boolean
 }
-function punchOf(e: MockEmp, date: string, empIdx: number, dayIdx: number): Punch {
-  const r = rand(empIdx * 977 + dayIdx * 31 + 7)
+function punchOf(e: MockEmp, date: string, empIdx: number, dayIdx: number, seq = 1, shift: Shift = e.shift): Punch {
+  const r = rand(empIdx * 977 + dayIdx * 31 + 7 + (seq - 1) * 5003)
   const absent = r() < 0.06                       // ~6% ไม่มาสแกน
   const lateRoll = r()
   const late = lateRoll < 0.17                    // ~17% มาสาย
@@ -108,20 +113,30 @@ function punchOf(e: MockEmp, date: string, empIdx: number, dayIdx: number): Punc
   const early_min = early ? int(r(), 5, 35) : 0
   const no_out = r() < 0.07                       // ลืมสแกนออก
   const out_area = r() < 0.05                     // สแกนนอกพื้นที่
-  const inMin = e.shift.start + (late ? late_min : -int(r(), 0, 18))
-  const outMin = e.shift.start + 8 * 60 - (early ? early_min : -int(r(), 0, 25))
+  const inMin = shift.start + (late ? late_min : -int(r(), 0, 18))
+  const outMin = shift.start + 8 * 60 - (early ? early_min : -int(r(), 0, 25))
   return {
-    emp: e, date, inMin, outMin, late, early, late_min, early_min, no_out, out_area,
+    emp: e, date, shift, seq, inMin, outMin, late, early, late_min, early_min, no_out, out_area,
     dist_m: out_area ? int(r(), 130, 900) : int(r(), 5, 95), absent,
   }
+}
+
+/** การลงเวลาของ 1 คนใน 1 วัน — ปกติ 1 รอบ แต่ ~9% ควบเวรต่ออีกรอบ (เวรถัดไปติดกัน)
+    โรงพยาบาลจริงมีคนอยู่ต่ออีกเวรบ่อย ข้อมูลตัวอย่างต้องมีให้เห็น ไม่งั้นหน้าจอที่นับ "ครั้ง" ดูเหมือนนับ "คน" */
+function dayPunchesOf(e: MockEmp, date: string, empIdx: number, dayIdx: number): Punch[] {
+  const first = punchOf(e, date, empIdx, dayIdx)
+  if (first.absent) return []
+  const dbl = rand(empIdx * 613 + dayIdx * 97 + 11)() < 0.09
+  if (!dbl) return [first]
+  // เวรถัดไปในลิสต์ (เช้า -> บ่าย, บ่าย -> ดึก, ดึก -> เช้า) และไม่ให้รอบควบ "ขาด" ทิ้ง
+  const next = SHIFTS[(SHIFTS.findIndex((x) => x.id === e.shift.id) + 1) % SHIFTS.length]
+  const second = { ...punchOf(e, date, empIdx, dayIdx, 2, next), absent: false }
+  return [first, second]
 }
 // การลงเวลาทั้งโรงในช่วงวันที่ (กรองคนที่ไม่มาออก)
 function punches(dates: string[]): Punch[] {
   const out: Punch[] = []
-  dates.forEach((d, di) => EMPLOYEES.forEach((e, ei) => {
-    const p = punchOf(e, d, ei, di)
-    if (!p.absent) out.push(p)
-  }))
+  dates.forEach((d, di) => EMPLOYEES.forEach((e, ei) => out.push(...dayPunchesOf(e, d, ei, di))))
   return out
 }
 const statusOf = (p: Punch) => (p.no_out ? 'ยังไม่ออก' : p.late ? 'มาสาย' : p.early ? 'ออกก่อน' : 'ปกติ')
@@ -156,15 +171,20 @@ function analytics(from: string, to: string) {
   const days = dates.map((d) => {
     const dp = ps.filter((p) => p.date === d)
     const dl = dp.filter((p) => p.late)
+    const outs = dp.filter((p) => !p.no_out)
+    const de = outs.filter((p) => p.early)
     return {
       date: d, punched: dp.length, on_time: dp.length - dl.length, late: dl.length,
-      early: dp.filter((p) => p.early).length,
+      // จำนวน "ครั้งที่สแกน" ของวันนั้น (ของจริงคนหนึ่งสแกนได้หลายรอบต่อวัน — mock ยังรอบเดียว)
+      in_ontime: dp.length - dl.length, in_late: dl.length,
+      out_ontime: outs.length - de.length, out_early: de.length,
+      early: de.length,
       avg_late_min: dl.length ? +(dl.reduce((s, p) => s + p.late_min, 0) / dl.length).toFixed(1) : 0,
     }
   })
 
   const shifts = SHIFTS.map((s) => {
-    const sp = ps.filter((p) => p.emp.shift.id === s.id)
+    const sp = ps.filter((p) => p.shift.id === s.id)
     const avgIn = sp.length ? Math.round(sp.reduce((a, p) => a + p.inMin, 0) / sp.length) : s.start
     // สถิติเวลาออกคิดเฉพาะคนที่สแกนออกแล้ว — no_out คือลืมสแกน ไม่ใช่เวลาออกจริง
     const outs = sp.filter((p) => !p.no_out).map((p) => p.outMin)
@@ -192,7 +212,10 @@ function analytics(from: string, to: string) {
       late: dp.filter((p) => p.late).length,
       early: dp.filter((p) => p.early).length,
       no_out: dp.filter((p) => p.no_out).length,
-      rate: staff ? +((dp.length / (staff * dates.length)) * 100).toFixed(2) : null,
+      // นับเป็น "คน-วัน" ไม่ซ้ำ — คนควบกะมี 2 รอบในวันเดียว ถ้านับรอบอัตราจะทะลุ 100%
+      rate: staff
+        ? +((new Set(dp.map((p) => `${p.emp.emp}:${p.date}`)).size / (staff * dates.length)) * 100).toFixed(2)
+        : null,
     }
   })
 
@@ -209,8 +232,8 @@ function analytics(from: string, to: string) {
     .sort((a, b) => b.count - a.count).slice(0, 10)
 
   const rowOf = (p: Punch) => ({
-    emp: p.emp.emp, name: p.emp.name, dept: deptOf(p.emp), date: p.date,
-    shift: p.emp.shift.name, in: hhmm(p.inMin), out: p.no_out ? '' : hhmm(p.outMin),
+    emp: p.emp.emp, name: p.emp.name, dept: deptOf(p.emp), date: p.date, seq: p.seq,
+    shift: p.shift.name, in: hhmm(p.inMin), out: p.no_out ? '' : hhmm(p.outMin),
   })
 
   return {
@@ -218,8 +241,8 @@ function analytics(from: string, to: string) {
     total_staff: EMPLOYEES.length,
     // เข้าเวรล่าสุด (Dashboard)
     recent: ps.slice(-25).reverse().map((p) => ({
-      emp: p.emp.emp, seq: 1, name: p.emp.name, date: p.date, in: hhmm(p.inMin),
-      out: p.no_out ? '' : hhmm(p.outMin), shift: p.emp.shift.name, dept: deptOf(p.emp),
+      emp: p.emp.emp, seq: p.seq, name: p.emp.name, date: p.date, in: hhmm(p.inMin),
+      out: p.no_out ? '' : hhmm(p.outMin), shift: p.shift.name, dept: deptOf(p.emp),
       late: p.late, early: !p.no_out && p.early, status: statusOf(p),
     })),
     days, shifts, depts, top_late,
@@ -484,8 +507,8 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
       total: all.length,
       fences: FENCES,
       rows: page(all, qs).map((x) => ({
-        emp: x.emp.emp, name: x.emp.name, dept: deptOf(x.emp), date: x.date, seq: 1,
-        in: hhmm(x.inMin), out: x.no_out ? '' : hhmm(x.outMin), shift: x.emp.shift.name,
+        emp: x.emp.emp, name: x.emp.name, dept: deptOf(x.emp), date: x.date, seq: x.seq,
+        in: hhmm(x.inMin), out: x.no_out ? '' : hhmm(x.outMin), shift: x.shift.name,
         gps: true, gps_place: placeOf(x), coords: coordsOf(x),
         late: x.late, early: x.early, no_out: x.no_out, out_area: x.out_area,
         late_min: x.late_min, early_min: x.early_min, dist_m: x.dist_m,
@@ -500,7 +523,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
     return {
       from: dates[0], to: dates[dates.length - 1], total: bad.length,
       rows: page(bad, qs).map((x) => ({
-        emp: x.emp.emp, name: x.emp.name, dept: deptOf(x.emp), date: x.date, shift: x.emp.shift.name, seq: 1,
+        emp: x.emp.emp, name: x.emp.name, dept: deptOf(x.emp), date: x.date, shift: x.shift.name, seq: x.seq,
         io: x.no_out ? 'เข้า' : 'เข้า-ออก',
         issue: x.no_out ? 'ไม่สแกนออก' : x.late ? `มาสาย ${x.late_min} นาที` : x.early ? `ออกก่อน ${x.early_min} นาที` : 'สแกนนอกพื้นที่',
       })),
@@ -516,7 +539,8 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
       const mine = all.filter((x) => x.emp.emp === e.emp)
       return {
         emp: e.emp, name: e.name, dept: deptOf(e),
-        present: mine.length,
+        // "วันที่มา" = วันไม่ซ้ำ (คนควบกะมี 2 รอบในวันเดียว ไม่ใช่มา 2 วัน)
+        present: new Set(mine.map((x) => x.date)).size,
         late: mine.filter((x) => x.late).length,
         early: mine.filter((x) => x.early).length,
         no_out: mine.filter((x) => x.no_out).length,
@@ -534,7 +558,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
     const dates = days > 0
       ? dateRange(iso(new Date(Date.now() - (days - 1) * 86400000)), today())
       : dateRange(from, to)
-    const mine = dates.map((d, di) => punchOf(e, d, idx, di)).filter((x) => !x.absent)
+    const mine = dates.flatMap((d, di) => dayPunchesOf(e, d, idx, di))
     return {
       emp_id: e.emp, name: e.name, days: dates.length,
       stat: {
@@ -545,7 +569,7 @@ export function mockRoute(method: string, fullPath: string, body?: any): any {
         out_area: mine.filter((x) => x.out_area).length,
       },
       rows: mine.map((x) => ({
-        date: x.date, seq: 1, in: hhmm(x.inMin), out: x.no_out ? '' : hhmm(x.outMin), shift: e.shift.name,
+        date: x.date, seq: x.seq, in: hhmm(x.inMin), out: x.no_out ? '' : hhmm(x.outMin), shift: x.shift.name,
         late: x.late, early: x.early, late_min: x.late_min, early_min: x.early_min,
         no_out: x.no_out, out_area: x.out_area, dist_m: x.dist_m,
       })),

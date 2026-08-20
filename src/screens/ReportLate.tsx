@@ -31,6 +31,8 @@ import { asset } from '../assets'
 // late_min/early_min มาคู่กันทั้งสองฝั่ง (backend ใหม่) — เก่าส่งมาแค่ min ของฝั่งตัวเอง ก็ยังแสดงได้
 type SideRow = {
   emp: string; name: string; dept: string; date: string; shift: string
+  /** รอบที่เท่าไรของวันนั้น — คนควบกะมีหลายรอบต่อวัน (ไม่มี = ถือว่ารอบเดียว) */
+  seq?: number
   in?: string; out?: string; min: number; late_min?: number; early_min?: number
 }
 type Analytics = {
@@ -42,7 +44,7 @@ type Analytics = {
 
 /** แถวแสดงผลร่วมของ 2 มุมมอง — โชว์ครบทั้งเข้า/สาย/ออก/ออกก่อน (ตัวกรองแค่เลือกว่าเห็นใคร) */
 type IssueRow = {
-  emp: string; name: string; dept: string; date: string; shift: string
+  emp: string; name: string; dept: string; date: string; shift: string; seq: number
   in: string; out: string; late_min: number; early_min: number
 }
 
@@ -115,10 +117,121 @@ function IssueItem({ r, showDate }: { r: IssueRow; showDate: boolean }) {
   )
 }
 
+/** ป้ายตัวเลขสรุปบนหัวกลุ่ม (สาย 3 ครั้ง / ออกก่อน 1 ครั้ง) */
+function CountChip({ icon, n, label, color, bg }: { icon: string; n: number; label: string; color: string; bg: string }) {
+  if (n <= 0) return null
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-1)', whiteSpace: 'nowrap',
+      padding: '2px var(--sp-2)', borderRadius: 'var(--r-full)', background: bg, color, ...TEXT.sm,
+    }}>
+      <Icon name={icon} size={14} width={2} />{label} {nf(n)} ครั้ง
+    </span>
+  )
+}
+
+/** แถวย่อยในกลุ่ม — โหมด 'date' บอกว่า "ใคร" · โหมด 'person' บอกว่า "วันไหน"
+    (อีกฝั่งซ้ำกับหัวกลุ่มอยู่แล้ว ไม่ต้องเขียนซ้ำทุกแถว) */
+function GroupLine({ r, mode }: { r: IssueRow; mode: 'date' | 'person' }) {
+  const t = (v: string) => (v ? clock(v).replace(' น.', '') : '—')
+  return (
+    <div className="row-hover late-row" style={{
+      display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
+      padding: 'var(--sp-2) var(--sp-3)', borderTop: '1px solid var(--control-border)',
+    }}>
+      {mode === 'date' ? (
+        <>
+          <AvatarWithShift name={r.name} seed={r.emp} shift={r.shift} size={32} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...TEXT.bodyMed, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+            <div style={{ ...TEXT.sm, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deptName(r.dept)}</div>
+          </div>
+        </>
+      ) : (
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+          <Icon name="calendar" size={16} width={1.8} color="var(--text-faint)" />
+          <span style={{ ...TEXT.bodyMed, color: 'var(--text)', whiteSpace: 'nowrap' }}>{thShort(r.date)}</span>
+          <span style={{ ...TEXT.sm, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.shift || '—'}</span>
+        </div>
+      )}
+      <Cell label="เวลาเข้า" value={t(r.in)} unit="น." />
+      <Cell label="สาย" value={r.late_min > 0 ? nf(r.late_min) : '—'} unit="นาที"
+        color={r.late_min > 0 ? 'var(--warn)' : 'var(--text-dim)'} />
+      <Cell label="เวลาออก" value={t(r.out)} unit="น." />
+      <Cell label="ออกก่อน" value={r.early_min > 0 ? nf(r.early_min) : '—'} unit="นาที"
+        color={r.early_min > 0 ? 'var(--info)' : 'var(--text-dim)'} />
+    </div>
+  )
+}
+
+type IssueGroup = { key: string; rows: IssueRow[]; late: number; early: number }
+
+/** กลุ่มเดียว = การ์ด 1 ใบ (หัวกลุ่มบอกว่า วัน/คนไหน + สรุปจำนวน แล้วแถวย่อยอยู่ข้างใน) */
+function GroupCard({ g, mode }: { g: IssueGroup; mode: 'date' | 'person' }) {
+  const head = g.rows[0]
+  return (
+    <div style={{ border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flexWrap: 'wrap',
+        padding: 'var(--sp-2) var(--sp-3)', background: 'var(--surface-alt)',
+      }}>
+        {mode === 'date' ? (
+          <>
+            <Icon name="calendar" size={18} width={1.8} color="var(--text-dim)" />
+            <span style={{ ...TEXT.bodyMed, color: 'var(--text)' }}>{thShort(g.key)}</span>
+            <span style={{ ...TEXT.sm, color: 'var(--text-dim)' }}>{nf(new Set(g.rows.map((r) => r.emp)).size)} คน</span>
+          </>
+        ) : (
+          <>
+            <AvatarWithShift name={head.name} seed={head.emp} shift={head.shift} size={32} />
+            <span style={{ minWidth: 0 }}>
+              <span style={{ ...TEXT.bodyMed, color: 'var(--text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{head.name}</span>
+              <span style={{ ...TEXT.sm, color: 'var(--text-dim)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {deptName(head.dept)} · {nf(new Set(g.rows.map((r) => r.date)).size)} วัน
+              </span>
+            </span>
+          </>
+        )}
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+          <CountChip icon="clock-alert" n={g.late} label="มาสาย" color="var(--warn)" bg="var(--warn-light)" />
+          <CountChip icon="time-duration-off" n={g.early} label="ออกก่อน" color="var(--info)" bg="var(--info-light)" />
+        </span>
+      </div>
+      {g.rows.map((r, i) => <GroupLine key={`${r.emp}:${r.date}:${i}`} r={r} mode={mode} />)}
+    </div>
+  )
+}
+
+/** จัดกลุ่มแถวตามวัน (ใหม่→เก่า) หรือตามคน (คนที่มีปัญหาบ่อยสุดขึ้นก่อน) */
+function groupRows(rows: IssueRow[], mode: 'date' | 'person'): IssueGroup[] {
+  const m = new Map<string, IssueGroup>()
+  for (const r of rows) {
+    const k = mode === 'date' ? r.date : r.emp
+    let g = m.get(k)
+    if (!g) { g = { key: k, rows: [], late: 0, early: 0 }; m.set(k, g) }
+    g.rows.push(r)
+    if (r.late_min > 0) g.late++
+    if (r.early_min > 0) g.early++
+  }
+  const out = [...m.values()]
+  for (const g of out) {
+    g.rows.sort((a, b) => (mode === 'date'
+      ? a.name.localeCompare(b.name, 'th') || a.seq - b.seq
+      : b.date.localeCompare(a.date) || a.seq - b.seq))
+  }
+  return mode === 'date'
+    ? out.sort((a, b) => b.key.localeCompare(a.key))
+    : out.sort((a, b) => (b.rows.length - a.rows.length) || a.rows[0].name.localeCompare(b.rows[0].name, 'th'))
+}
+
 /** โชว์ทีละ 10 คน — backend บางตัว (และ mock) ไม่สนใจ limit/offset ที่ส่งไป
     ถ้ามาเกินหน้าละ 10 ก็ตัดเองฝั่งหน้าเว็บ ไม่งั้นรายชื่อยาวทั้งหน้า */
 const pageSlice = (rows: IssueRow[], page: number) =>
   (rows.length > PAGE_SIZE ? rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE) : rows)
+
+/** เวอร์ชันทั่วไปของ pageSlice — ใช้กับ "กลุ่ม" ตอนอยู่โหมดจัดกลุ่ม */
+const pageSliceOf = <T,>(items: T[], page: number) =>
+  (items.length > PAGE_SIZE ? items.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE) : items)
 
 /** โครงร่างระหว่างโหลด — การ์ดสูงเท่าของจริง รายการจึงไม่กระโดดตอนเปลี่ยนหน้า */
 function IssueSkeleton({ count }: { count: number }) {
@@ -147,7 +260,7 @@ function IssueSkeleton({ count }: { count: number }) {
   )
 }
 
-function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empty }: {
+function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empty, groupBy }: {
   rows: IssueRow[]
   total: number
   page: number
@@ -155,7 +268,12 @@ function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empt
   showDate: boolean
   loading: boolean
   empty: string
+  /** กรองหลายวัน = จัดกลุ่มตามวัน/ตามคน (null = รายการเรียบแบบเดิม ใช้ตอนดูวันเดียว) */
+  groupBy?: 'date' | 'person' | null
 }) {
+  // จัดกลุ่มอยู่ = แบ่งหน้าทีละ 10 "กลุ่ม" ไม่ใช่ 10 แถว (ไม่งั้นกลุ่มโดนหั่นครึ่งคาหน้า)
+  const groups = groupBy ? groupRows(allRows, groupBy) : null
+  const pageGroups = groups ? pageSliceOf(groups, page) : null
   const rows = pageSlice(allRows, page)
   const boxRef = useRef<HTMLDivElement>(null)
 
@@ -176,12 +294,20 @@ function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empt
         ? <IssueSkeleton count={Math.max(1, rows.length || Math.min(PAGE_SIZE, total || PAGE_SIZE))} />
         : allRows.length === 0
           ? <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--ok)', textAlign: 'center' }}>{empty}</div>
-          : rows.map((r, i) => (
-            <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} showDate={showDate} />
-          ))}
-      {total > PAGE_SIZE && (
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} shown={rows.length} onPage={goPage} />
-      )}
+          : pageGroups
+            ? pageGroups.map((g) => <GroupCard key={g.key} g={g} mode={groupBy!} />)
+            : rows.map((r, i) => (
+              <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} showDate={showDate} />
+            ))}
+      {/* จัดกลุ่มอยู่ = นับหน้าเป็นจำนวนกลุ่ม (วัน/คน) ไม่ใช่จำนวนแถว */}
+      {groups
+        ? groups.length > PAGE_SIZE && (
+          <Pagination page={page} pageSize={PAGE_SIZE} total={groups.length} shown={pageGroups!.length} onPage={goPage}
+            unit={groupBy === 'date' ? 'วัน' : 'คน'} />
+        )
+        : total > PAGE_SIZE && (
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} shown={rows.length} onPage={goPage} />
+        )}
     </div>
   )
 }
@@ -198,6 +324,8 @@ export function ReportLate() {
   const [fDepts, setFDepts] = useState<string[]>([])
   // ค่าเริ่มต้นเห็นรวมทุกคนที่มีปัญหา (สายหรือออกก่อน) — ชิปเป็นตัวกรอง กดเพื่อเหลือฝั่งเดียว กดซ้ำกลับมารวม
   const [view, setView] = useState<'all' | 'late' | 'early'>('all')
+  // กรองหลายวัน = จัดกลุ่มรายการ ("เรียงตามวัน" ตั้งต้น) — ก่อนหน้านี้แถวของคนเดียวกันกระจายอยู่คนละใบ ไล่ดูยาก
+  const [groupBy, setGroupBy] = useState<'date' | 'person'>('date')
   const [latePage, setLatePage] = useState(0)
   const [earlyPage, setEarlyPage] = useState(0)
   const [allPage, setAllPage] = useState(0)
@@ -209,17 +337,22 @@ export function ReportLate() {
 
   // สลับโรง = ล้างตัวกรอง + กลับมาดูวันนี้ · เปลี่ยนเงื่อนไข = กลับหน้าแรกทั้งสองแผง
   useEffect(() => { setFShifts([]); setFDepts([]); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
-  useEffect(() => { setLatePage(0); setEarlyPage(0); setAllPage(0) }, [from, to, fShifts, fDepts, dq, hcode])
+  useEffect(() => { setLatePage(0); setEarlyPage(0); setAllPage(0) }, [from, to, fShifts, fDepts, dq, hcode, groupBy])
 
   const fq = filterQS(fShifts, fDepts)
+  // ช่วงหลายวัน = ต้องจัดกลุ่มข้ามหน้า (คนคนเดียวโผล่หลายวัน) จึงดึงมาทีเดียวแล้วแบ่งหน้าเองฝั่งหน้าเว็บ
+  // วันเดียว = แบ่งหน้าที่ backend เหมือนเดิม (รายการยาวได้ ไม่ต้องขนมาทั้งก้อน)
+  const bulk = from !== to
   const anaF = useFetch<Analytics>(hcode
     ? `/admin/attendance/analytics?hcode=${encodeURIComponent(hcode)}&date_from=${from}&date_to=${to}${fq}`
-      + `&limit=${PAGE_SIZE}&late_offset=${latePage * PAGE_SIZE}&early_offset=${earlyPage * PAGE_SIZE}`
+      + (bulk
+        ? '&limit=1000&late_offset=0&early_offset=0'
+        : `&limit=${PAGE_SIZE}&late_offset=${latePage * PAGE_SIZE}&early_offset=${earlyPage * PAGE_SIZE}`)
     : null, reload)
 
   // รวมเป็นแถวหน้าตาเดียวกันทั้งสองมุมมอง — backend เก่าไม่ส่ง late_min/early_min ของอีกฝั่ง ก็ถอยไปใช้ min ของฝั่งตัวเอง
   const toRow = (r: SideRow, side: 'late' | 'early'): IssueRow => ({
-    emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift,
+    emp: r.emp, name: r.name, dept: r.dept, date: r.date, shift: r.shift, seq: r.seq ?? 1,
     in: r.in ?? '', out: r.out ?? '',
     late_min: r.late_min ?? (side === 'late' ? r.min : 0),
     early_min: r.early_min ?? (side === 'early' ? r.min : 0),
@@ -235,7 +368,7 @@ export function ReportLate() {
   const allRows = useMemo<IssueRow[]>(() => {
     const seen = new Map<string, IssueRow>()
     for (const r of [...lateRows, ...earlyRows]) {
-      const k = `${r.emp}:${r.date}`
+      const k = `${r.emp}:${r.date}:${r.seq}`
       const cur = seen.get(k)
       if (!cur) seen.set(k, { ...r })
       else {
@@ -347,25 +480,35 @@ export function ReportLate() {
           <FilterChip outlined variant="choice" tone="accent" active={view === 'early'}
             onClick={() => setView(view === 'early' ? 'all' : 'early')}
             icon={<Icon name="time-duration-off" size={16} width={2} />} label="ออกก่อนเวลา" />
+          {/* ช่วงหลายวันเท่านั้น — วันเดียวจัดกลุ่มแล้วได้กลุ่มเดียว ไม่มีประโยชน์ */}
+          {multiDay && (
+            <>
+              <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--control-border)', margin: '0 var(--sp-1)' }} />
+              <FilterChip outlined variant="choice" tone="accent" active={groupBy === 'date'} onClick={() => setGroupBy('date')}
+                icon={<Icon name="calendar" size={16} width={2} />} label="เรียงตามวัน" />
+              <FilterChip outlined variant="choice" tone="accent" active={groupBy === 'person'} onClick={() => setGroupBy('person')}
+                icon={<Icon name="person" size={16} width={2} />} label="เรียงตามคน" />
+            </>
+          )}
         </>}
       >
         {/* ตัวกรองเลือกแค่ว่า "เห็นใคร" — คอลัมน์แสดงครบทั้งเข้า/สาย/ออก/ออกก่อนเหมือนกันทุกมุมมอง */}
         {view === 'late'
           ? (
-            <IssueList rows={lateShown} total={dq ? lateShown.length : (anaF.data?.late_total ?? lateShown.length)}
-              page={latePage} onPage={setLatePage} showDate={multiDay}
+            <IssueList rows={lateShown} total={dq || multiDay ? lateShown.length : (anaF.data?.late_total ?? lateShown.length)}
+              page={latePage} onPage={setLatePage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
               loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายในช่วงที่เลือก'} />
           )
           : view === 'early'
             ? (
-              <IssueList rows={earlyShown} total={dq ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
-                page={earlyPage} onPage={setEarlyPage} showDate={multiDay}
+              <IssueList rows={earlyShown} total={dq || multiDay ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
+                page={earlyPage} onPage={setEarlyPage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
                 loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนออกก่อนเวลาในช่วงที่เลือก'} />
             )
             : (
               /* รวมสองฝั่งแล้วยุบคนซ้ำ — จำนวนหน้าคิดจากรายการที่รวมแล้ว */
               <IssueList rows={allShown} total={allShown.length}
-                page={allPage} onPage={setAllPage} showDate={multiDay}
+                page={allPage} onPage={setAllPage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
                 loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายหรือออกก่อนเวลาในช่วงที่เลือก'} />
             )}
       </SectionPanel>

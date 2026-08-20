@@ -82,6 +82,9 @@ type Ctx = {
   setNav: (n: Nav) => void
   currentHcode: string // '*' = ทุกโรง (super only)
   setHcode: (h: string) => void
+  /** รหัสพนักงานที่สั่งให้หน้ารายบุคคลเปิดรายละเอียดทันที (จากช่องค้นหาทั้งระบบ) — เปิดแล้วเคลียร์เป็น null */
+  focusEmp: string | null
+  setFocusEmp: (emp: string | null) => void
   isSuper: boolean
   isDemo: boolean      // กำลังดูโรงพยาบาลสาธิต (ข้อมูลตัวอย่าง)
 }
@@ -133,6 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
   const [nav, setNav] = useState<Nav>('overview')
   const [currentHcode, setHcode] = useState<string>('*')
+  const [focusEmp, setFocusEmp] = useState<string | null>(null)
 
   useEffect(() => {
     // หน้าก่อน login (เข้าสู่ระบบ / ฟอร์มลงทะเบียนโรง) บังคับธีมสว่างเสมอ
@@ -223,6 +227,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNav,
     currentHcode,
     setHcode,
+    focusEmp,
+    setFocusEmp,
     isSuper: !!session && isCentral(session),
     isDemo: !!session?.demo_hcode && currentHcode === session.demo_hcode,
   }

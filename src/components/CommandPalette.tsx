@@ -54,7 +54,7 @@ export function CommandPalette({ open, onClose, allowed }: {
   /** เมนูที่บัญชีนี้เปิดได้ (ส่งมาจาก App) */
   allowed: (n: Nav) => boolean
 }) {
-  const { session, isSuper, setNav, setHcode, currentHcode } = useApp()
+  const { session, isSuper, setNav, setHcode, currentHcode, setFocusEmp } = useApp()
   const [q, setQ] = useState('')
   const [hi, setHi] = useState(0)
   const [emps, setEmps] = useState<{ emp: string; name: string; dept?: string }[]>([])
@@ -125,7 +125,8 @@ export function CommandPalette({ open, onClose, allowed }: {
   const pick = (r: Row) => {
     if (r.kind === 'menu') { pushRecent(r.entry.nav); setNav(r.entry.nav) }
     else if (r.kind === 'hospital') setHcode(r.value)
-    else setNav('rp-person')   // พนักงาน -> หน้ารายบุคคล (ค้นชื่อซ้ำในหน้านั้นได้)
+    // พนักงาน -> หน้ารายบุคคล แล้วเปิดรายละเอียดของคนนั้นให้เลย (ไม่ต้องค้นชื่อซ้ำในหน้านั้นอีกรอบ)
+    else { setFocusEmp(r.emp); setNav('rp-person') }
     onClose()
   }
 

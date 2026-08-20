@@ -3,10 +3,13 @@
 // กราฟที่มีแกน (PercentBars/StackedColumns/GroupedBars/TrendLine) ใช้ recharts
 // ที่ไม่มีแกน (SegmentBar/Donut/MeterRow/DayTimeBars/StackedBars) ยังเป็น CSS/SVG มือ — recharts ไม่ได้ช่วยอะไร
 import { useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 // ชี้ที่ legend = เน้นชิ้นนั้นในกราฟ (ชิ้นอื่นจาง) — ใช้ร่วมทุกกราฟที่มี legend
 const DIM = 0.18
+// กดล็อก legend แล้วสเกลแกนเปลี่ยน -> ให้แท่งไหลไปความสูงใหม่แทนการกระตุกเปลี่ยนทันที
+// (ความจาง/เข้มตอนแค่ "ชี้" ใช้ CSS transition ที่ .bar-anim ใน theme.css แทน จะได้ไม่รีเซ็ตอนิเมชันของ recharts)
+const BAR_ANIM = { isAnimationActive: true, animationBegin: 0, animationDuration: 280, animationEasing: 'ease-out' as const, className: 'bar-anim' }
 export const focusOpacity = (hi: string | number | null, key: string | number) => (hi == null || hi === key ? 1 : DIM)
 /** props ของ legend 1 ชิ้น — ชี้แล้วเน้น, เอาเมาส์ออกแล้วคืนสภาพ (คีย์บอร์ดใช้ focus/blur) */
 export const legendHover = (set: (v: any) => void, key: string | number) => ({
@@ -17,6 +20,30 @@ export const legendHover = (set: (v: any) => void, key: string | number) => ({
   tabIndex: 0,
   style: { cursor: 'default' as const },
 })
+
+/** legend แบบกดค้างได้ — ชี้ = เน้นชั่วคราว · กด = ล็อกโฟกัสไว้ (กดซ้ำ/กดอันอื่นเพื่อเปลี่ยน)
+    ล็อกอยู่ = กราฟคิดเพดานแกนใหม่จากชุดนั้นชุดเดียว (ชุดค่าน้อยจะได้ไม่แบนติดพื้น) */
+export function useLegendFocus<K extends string | number = string>() {
+  const [hover, setHover] = useState<K | null>(null)
+  const [lock, setLock] = useState<K | null>(null)
+  const toggle = (k: K) => setLock((cur) => (cur === k ? null : k))
+  const bind = (key: K) => ({
+    onMouseEnter: () => setHover(key),
+    onMouseLeave: () => setHover(null),
+    onFocus: () => setHover(key),
+    onBlur: () => setHover(null),
+    onClick: () => toggle(key),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(key) }
+    },
+    tabIndex: 0,
+    role: 'button' as const,
+    'aria-pressed': lock === key,
+    style: { cursor: 'pointer' as const },
+  })
+  // ล็อกชนะการชี้เสมอ — กดค้างไว้แล้วเมาส์ไปไหนกราฟก็ยังโฟกัสชุดเดิม
+  return { focus: (lock ?? hover) as K | null, lock, bind, clear: () => setLock(null) }
+}
 
 export type Seg = { v: number; color: string; label?: string }
 
@@ -138,9 +165,12 @@ export function PercentBars({ rows, color = 'var(--accent)', colors, height = 32
 
 /** คอลัมน์ซ้อน (stacked) — Figma หน้าหลัก node 13:2973 "สถิติการเข้า-ออกงาน"
     1 แท่ง = 1 วัน ซ้อนตามชุดข้อมูล · legend วาดเองจากฝั่งผู้เรียก (ให้วางมุมขวาบนได้) */
-export function StackedColumns({ groups, series, height = 240, unit = 'ครั้ง', columnWidth = 56, axisLabel, active }: {
+export function StackedColumns({ groups, series, height = 240, unit = 'ครั้ง', columnWidth = 56, axisLabel, active, isolate, stackLabels, showValues }: {
   groups: { label: string; values: Record<string, number> }[]
-  series: { key: string; label: string; color: string }[]
+  /** stack = ชื่อกองของชุดข้อมูล (ไม่ใส่ = กองเดียวกันหมด) — คนละกอง = แท่งแยกกันภายในวันเดียวกัน
+      dir = 'down' ทำกราฟกระจกเงา: ชุดนั้นห้อยลงใต้เส้นศูนย์ (เข้าขึ้น/ออกลง) — ใช้ stack เดียวกันได้
+      เพราะ stackOffset="sign" แยกฝั่งบวก/ลบให้เอง */
+  series: { key: string; label: string; color: string; stack?: string; dir?: 'up' | 'down' }[]
   height?: number
   unit?: string
   columnWidth?: number
@@ -148,46 +178,126 @@ export function StackedColumns({ groups, series, height = 240, unit = 'ครั
   axisLabel?: string
   /** key ของชุดข้อมูลที่กำลังชี้อยู่ที่ legend — ชุดอื่นจางลง (legend วาดจากฝั่งผู้เรียก) */
   active?: string | null
+  /** key ที่ "กดล็อก" ไว้ — วาดเฉพาะชุดนั้น แล้วคิดเพดานแกนใหม่จากชุดนั้นชุดเดียว */
+  isolate?: string | null
+  /** ป้ายกำกับใต้แท่งของแต่ละกอง เช่น { in: 'เข้า', out: 'ออก' } — ป้ายวัน (label ของ group) เลื่อนลงไปอยู่แถวถัดไป */
+  stackLabels?: Record<string, string>
+  /** ปักตัวเลขลงกลางทุกชิ้นตลอดเวลา (ชิ้นเตี้ยเกินตัวเลขไม่พอดีจะเว้นให้เอง — ดูจาก tooltip แทน) */
+  showValues?: boolean
 }) {
-  const data = groups.map((g) => ({ label: g.label, ...g.values }))
+  const stackOf = (s: { stack?: string }) => s.stack ?? 'a'
+  const down = (s: { dir?: 'up' | 'down' }) => s.dir === 'down'
+  const mirror = series.some(down)
+  // กระจกเงา = เก็บชุด 'down' เป็นเลขติดลบ + stackOffset="sign" (ค่าเริ่มต้น 'none' จะจับบวกรวมแล้ววาดขึ้นหมด)
+  // ล็อกชุดไหนอยู่ = ชุดอื่นใส่ null (ไม่ใช่ถอด <Bar> ออก) — จำนวนชุดเท่าเดิม recharts จึงไม่คิดตำแหน่ง/
+  // ความกว้างแท่งใหม่ ปลดล็อกแล้วทุกอย่างกลับที่เดิมเป๊ะ · null ยังโดน Tooltip filterNull กรองออกให้ด้วย
+  const data = groups.map((g) => {
+    const row: Record<string, number | string | null> = { label: g.label }
+    for (const s of series) {
+      row[s.key] = isolate && s.key !== isolate
+        ? null
+        : (Number(g.values[s.key]) || 0) * (down(s) ? -1 : 1)
+    }
+    return row
+  })
   // columnWidth 0 = ให้กราฟย่อพอดีกล่อง (ไม่มีแถบเลื่อน) — ใช้ตอนวางคู่กับการ์ดในพื้นที่แคบ
   const minWidth = groups.length * columnWidth
+  // มีป้ายใต้แท่ง (เข้า/ออก) = ต้องเผื่อที่ใต้แกนอีกแถว แล้วดันป้ายวันลงไปต่อท้าย
+  const subRow = !!stackLabels
   const margin = { top: 8, right: 8, left: 0, bottom: axisLabel ? 16 : 0 }
+  const xAxisH = subRow ? 44 : 30
+  const tickMargin = subRow ? 22 : 8
+  /** ชิ้นล่างสุดของกอง — เจ้าของป้ายใต้แท่ง (baseline ของมันคือเส้นศูนย์เสมอ) */
+  const bottomOf = (s: (typeof series)[number]) => shown.find((x) => stackOf(x) === stackOf(s))?.key
+  /** ป้ายใต้แท่ง — วาดเองใต้เส้นฐาน (LabelList position สำเร็จรูปไม่มีตำแหน่ง "ใต้แกน") */
+  const subLabelContent = (label: string) => (props: any) => {
+    const { x, y, width, height: h } = props
+    if (x == null || width == null) return null
+    return (
+      <text x={Number(x) + Number(width) / 2} y={Number(y) + Number(h || 0) + 14} textAnchor="middle"
+        style={{ fill: 'var(--text-dim)', fontSize: 10.5, fontFamily: 'var(--sans)' }}>{label}</text>
+    )
+  }
   // เพดานแกน Y คิดเองแล้วส่งให้ทั้ง 2 กราฟ — กราฟแกนที่ปักไว้ซ้ายกับกราฟที่เลื่อนได้จะได้สเกลตรงกันเป๊ะ
-  const top = axis(Math.max(4, ...data.map((d) => series.reduce((a, s) => a + (Number(d[s.key as keyof typeof d]) || 0), 0)))).top
+  // เพดาน = กองที่สูงที่สุด (คนละกอง/คนละทิศไม่บวกกัน — แยกแท่ง/แยกฝั่งเส้นศูนย์)
+  // ล็อกชุดเดียวอยู่ = วาดแค่ชุดนั้น + คิดเพดานจากชุดนั้น (ชุดค่าน้อยจะได้ไม่แบนจนดูไม่ออก)
+  const shown = isolate ? series.filter((s) => s.key === isolate) : series
+  const buckets = [...new Set(shown.map((s) => `${stackOf(s)}|${down(s) ? 'd' : 'u'}`))]
+  const top = axis(Math.max(4, ...groups.flatMap((g) => buckets.map((b) =>
+    shown.filter((s) => `${stackOf(s)}|${down(s) ? 'd' : 'u'}` === b)
+      .reduce((a, s) => a + (Number(g.values[s.key]) || 0), 0),
+  )))).top
+  const domain: [number, number] = mirror ? [-top, top] : [0, top]
+  const tickFmt = (v: number) => fmtNum(Math.abs(v))
+  // ลำดับรายการใน tooltip = ลำดับที่เห็นจริงบนแท่ง (บน→ล่าง): กองขึ้นไล่จากยอดลงมา แล้วต่อด้วยกองลงไล่จากเส้นศูนย์ลงไป
+  const tipRank = new Map([...shown.filter((s) => !down(s)).reverse(), ...shown.filter(down)].map((s, i) => [s.key, i]))
+  /** ตัวเลขบนชิ้น — ชิ้นสูงพอวางกลางชิ้น (ตัวอักษรสีพื้น) · ชิ้นบางวางนอกแท่งถัดจากปลาย (สีข้อความปกติ)
+      ต้องวาดเองเพราะ LabelList position สำเร็จรูปไม่รู้ว่าชิ้นสูงเท่าไร แล้วตัวเลขทับกันมั่ว */
+  const MIN_INSIDE = 15
+  const valueContent = (isEnd: boolean) => (props: any) => {
+    const { x, y, width, height: h, value } = props
+    const v = Math.abs(Number(value) || 0)
+    if (!v || x == null) return null
+    const hh = Number(h) || 0
+    const cx = Number(x) + Number(width) / 2
+    const inside = Math.abs(hh) >= MIN_INSIDE
+    // ชิ้นบางที่อยู่กลางกอง ออกไปข้างนอกไม่ได้ (ไปทับชิ้นถัดไป) — ปล่อยให้ดูจาก tooltip แทน
+    if (!inside && !isEnd) return null
+    // recharts ปัก y ที่ปลายแท่งเสมอ · แท่งลง height ติดลบ -> "นอกแท่ง" คือทิศเดียวกับที่แท่งพุ่งไป
+    const away = hh >= 0 ? -1 : 1
+    const cy = inside ? Number(y) + hh / 2 : Number(y) + away * 7
+    return (
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central"
+        style={{
+          fill: inside ? 'var(--bg)' : 'var(--text-dim)',
+          fontSize: 10.5, fontFamily: 'var(--sans)', fontWeight: 600, pointerEvents: 'none',
+        }}>
+        {fmtNum(v)}
+      </text>
+    )
+  }
+  /** ชิ้นปลายกองฝั่งตัวเอง (ชิ้นเดียวที่ต้องมีมุมมน — กองขึ้นมนบน กองลงมนล่าง) */
+  const topOf = (s: (typeof series)[number]) =>
+    shown.filter((x) => stackOf(x) === stackOf(s) && down(x) === down(s)).slice(-1)[0]?.key
   return (
     // แกน Y ปักซ้ายไม่เลื่อนตาม: วาดกราฟใบที่ 2 ทับไว้ซ้าย (โชว์เฉพาะแกน) แล้วบังกราฟจริงที่เลื่อนลอดข้างหลัง
     <div style={{ position: 'relative' }}>
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth, height }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={margin} barCategoryGap="30%">
+            {/* ไม่กำหนด maxBarSize = แท่งกว้างเต็มช่องของวันนั้นเสมอ (วันน้อย = แท่งอ้วนเต็มกล่อง) */}
+            <BarChart data={data} margin={margin} barCategoryGap="12%" barGap={4} stackOffset={mirror ? 'sign' : 'none'}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
-              <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }} tickMargin={8}
+              <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }} tickMargin={tickMargin} height={xAxisH}
                 tick={{ fill: 'var(--text-dim)', fontSize: 12, fontFamily: 'var(--sans)' }}
                 label={axisLabel ? { value: axisLabel, position: 'insideBottom', offset: -2, fill: 'var(--text-dim)', fontSize: 11, fontFamily: 'var(--sans)' } : undefined} />
               {/* แกน Y ปกติ (เส้นกริดอิงตัวนี้) — เวลาเลื่อน ตัวเลขจะลอดไปหลังใบที่ปักซ้ายซึ่งพื้นทึบ */}
-              <YAxis domain={[0, top]} allowDecimals={false} width={32} tickLine={false}
+              <YAxis domain={domain} allowDecimals={false} width={32} tickLine={false} tickFormatter={tickFmt}
                 axisLine={{ stroke: 'var(--border)' }}
                 tick={{ fill: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--mono)' }} />
+              {mirror && <ReferenceLine y={0} stroke="var(--text-faint)" strokeWidth={1} />}
               <Tooltip cursor={{ fill: 'var(--surface-alt)' }}
-                formatter={(v, name) => [`${fmtNum(Number(v) || 0)} ${unit}`, String(name)]}
+                itemSorter={(item) => tipRank.get(String(item.dataKey)) ?? 0}
+                formatter={(v, name) => [`${fmtNum(Math.abs(Number(v) || 0))} ${unit}`, String(name)]}
                 contentStyle={{
                   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
                   boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
                 }}
                 labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
-              {series.map((s, i) => (
-                <Bar key={s.key} dataKey={s.key} name={s.label} stackId="a" fill={s.color} maxBarSize={28}
-                  fillOpacity={focusOpacity(active ?? null, s.key)} isAnimationActive={false}
-                  // มนเฉพาะชิ้นบนสุดของกอง
-                  radius={i === series.length - 1 ? [4, 4, 0, 0] : undefined}>
+              {series.map((s) => (
+                <Bar key={s.key} dataKey={s.key} name={s.label} stackId={stackOf(s)} fill={s.color}
+                  fillOpacity={focusOpacity(active ?? null, s.key)} {...BAR_ANIM}
+                  // มนเฉพาะชิ้นปลายกอง — recharts ปัก y ของ rect ที่ "ปลายแท่ง" เสมอ (แท่งลง height ติดลบ)
+                  // คู่มุม [0,1] จึงเป็นฝั่งไกลจากเส้นศูนย์ทั้งขึ้นและลง ใช้ [4,4,0,0] ได้ทั้งคู่
+                  radius={s.key === topOf(s) ? [4, 4, 0, 0] : undefined}>
                   {/* ชี้ที่ legend = ปักตัวเลขของชุดนั้นลงบนทุกแท่ง (ชุดเดียวกระจายอยู่ทุกวัน
                       ปัก tooltip จุดเดียวไม่ได้เหมือนกราฟรายแผนก) */}
-                  {active === s.key && (
-                    <LabelList dataKey={s.key} position="center"
-                      formatter={(v) => (Number(v) > 0 ? fmtNum(Number(v)) : '')}
-                      style={{ fill: 'var(--bg)', fontSize: 11, fontFamily: 'var(--sans)', fontWeight: 600 }} />
+                  {(showValues || active === s.key) && (
+                    <LabelList dataKey={s.key} content={valueContent(s.key === topOf(s))} />
+                  )}
+                  {/* ป้าย เข้า/ออก ใต้แท่ง — ผูกกับชิ้นล่างสุดของกอง (ก้นชิ้นนี้ = เส้นฐานแน่นอน) */}
+                  {subRow && s.key === bottomOf(s) && stackLabels![stackOf(s)] && (
+                    <LabelList dataKey={s.key} content={subLabelContent(stackLabels![stackOf(s)])} />
                   )}
                 </Bar>
               ))}
@@ -200,13 +310,14 @@ export function StackedColumns({ groups, series, height = 240, unit = 'ครั
       <div aria-hidden className="pointer-events-none"
         style={{ position: 'absolute', left: 0, top: 0, width: 32, height, overflow: 'hidden', background: 'var(--bg)' }}>
         {/* ขนาดตายตัว ไม่ใช้ ResponsiveContainer — พ่อกว้าง 32 แต่ลูกต้อง 120 มันวัดได้ 0 */}
-        <BarChart width={120} height={height} data={data} margin={margin} barCategoryGap="30%">
-          <XAxis dataKey="label" tick={false} tickLine={false} axisLine={false} tickMargin={8} />
-          <YAxis domain={[0, top]} allowDecimals={false} width={32} tickLine={false}
+        <BarChart width={120} height={height} data={data} margin={margin} barCategoryGap="12%" barGap={4} stackOffset={mirror ? 'sign' : 'none'}>
+          {/* height ต้องเท่ากราฟหลัก ไม่งั้นสเกลแกน Y สองใบเหลื่อมกัน */}
+          <XAxis dataKey="label" tick={false} tickLine={false} axisLine={false} tickMargin={tickMargin} height={xAxisH} />
+          <YAxis domain={domain} allowDecimals={false} width={32} tickLine={false} tickFormatter={tickFmt}
             axisLine={{ stroke: 'var(--border)' }}
             tick={{ fill: 'var(--text-faint)', fontSize: 11, fontFamily: 'var(--mono)' }} />
           {/* ต้องมีชุดข้อมูลอย่างน้อย 1 ชิ้น recharts ถึงจะออก tick ให้ — วาดโปร่งใสไว้ */}
-          <Bar dataKey={series[0].key} stackId="a" fill="none" isAnimationActive={false} />
+          <Bar dataKey={series[0].key} stackId={stackOf(series[0])} fill="none" isAnimationActive={false} />
         </BarChart>
       </div>
     </div>
@@ -280,17 +391,30 @@ export function GroupedBarsSkeleton({ groups = 5, series = 4, height = 320, unit
 /** กราฟแท่งกลุ่ม — Figma หน้ารายละเอียดพนักงาน node 95:25768 (สถิติแยกตามสัปดาห์)
     ใช้ recharts (ตัวเดียวในไฟล์นี้ที่ใช้ lib — กราฟอื่นเป็น CSS/SVG มือ ยังไม่ย้าย)
     legend มุมขวาบน (วาดเอง ไม่ใช่ของ recharts) · เส้นกริดประแนวนอน · แท่งมนหัว · กลุ่มเยอะเกินกล่อง -> เลื่อนแนวนอน */
-export function GroupedBars({ groups, series, height = 320, unit = 'วัน', barWidth = 18 }: {
+export function GroupedBars({ groups, series, height = 320, unit = 'วัน', barWidth, showValues }: {
   groups: { label: string; values: Record<string, number> }[]
   series: { key: string; label: string; color: string }[]
   height?: number
   unit?: string
+  /** ล็อกความกว้างแท่ง — ไม่ใส่ = ยืดเต็มช่องของกลุ่มนั้น (กลุ่มน้อย = แท่งอ้วน) */
   barWidth?: number
+  /** ปักตัวเลขบนหัวแท่งตลอดเวลา (ไม่ต้องรอชี้ legend) — ค่า 0 เว้นไว้ */
+  showValues?: boolean
 }) {
-  const data = groups.map((g) => ({ label: g.label, ...g.values }))
   // recharts ยืดเต็มกล่องเสมอ -> ตั้งความกว้างขั้นต่ำต่อกลุ่มเอง แล้วให้กล่องนอกเลื่อนแทน
-  const minWidth = Math.max(320, groups.length * (series.length * (barWidth + 6) + 56))
-  const [hi, setHi] = useState<string | null>(null)
+  // (ไม่ล็อก barWidth = คิดขั้นต่ำจาก 18px/แท่ง แต่ตอนวาดปล่อยให้ยืดเต็มช่องเหมือนกราฟหน้าหลัก)
+  // +96 = เผื่อที่ให้ป้ายใต้แกนที่ยาวได้ เช่น "สัปดาห์ที่ 1 (1–7 ส.ค.)" ไม่ให้ชนกลุ่มข้าง ๆ
+  const minWidth = Math.max(320, groups.length * (series.length * ((barWidth ?? 18) + 6) + 96))
+  const { focus: hi, lock, bind } = useLegendFocus()
+  // กดล็อกชุดไหน = ชุดอื่นใส่ null (คง <Bar> ไว้ครบ ช่องของแต่ละชุดจึงไม่ถูกจัดใหม่ ปลดล็อกแล้วกลับที่เดิม)
+  // แล้วคิดเพดานแกนใหม่จากชุดที่ล็อก — ชุดค่าน้อยจะได้ไม่แบนติดพื้น
+  const shown = lock ? series.filter((s) => s.key === lock) : series
+  const data = groups.map((g) => {
+    const row: Record<string, number | string | null> = { label: g.label }
+    for (const s of series) row[s.key] = lock && s.key !== lock ? null : (Number(g.values[s.key]) || 0)
+    return row
+  })
+  const top = axis(Math.max(4, ...groups.flatMap((g) => shown.map((s) => Number(g.values[s.key]) || 0)))).top
 
   return (
     <div>
@@ -300,13 +424,18 @@ export function GroupedBars({ groups, series, height = 320, unit = 'วัน', 
         <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({unit})</span>
         <span style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 20 }}>
           {series.map((s) => (
-            <span key={s.key} {...legendHover(setHi, s.key)}
+            <span key={s.key} {...bind(s.key)} title={lock === s.key ? 'กดอีกครั้งเพื่อเลิกโฟกัส' : 'กดเพื่อโฟกัสชุดนี้'}
               style={{
+                ...bind(s.key).style,
                 position: 'relative',
-                display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-dim)', whiteSpace: 'nowrap',
+                display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, whiteSpace: 'nowrap',
+                color: lock === s.key ? 'var(--text)' : 'var(--text-dim)',
                 opacity: hi == null || hi === s.key ? 1 : 0.5, transition: 'opacity .12s ease',
               }}>
-              <span style={{ width: 14, height: 14, borderRadius: 4, background: s.color, flex: 'none' }} />
+              <span style={{
+                width: 14, height: 14, borderRadius: 4, background: s.color, flex: 'none',
+                boxShadow: lock === s.key ? '0 0 0 2px var(--bg), 0 0 0 4px currentColor' : undefined,
+              }} />
               {s.label}
             </span>
           ))}
@@ -315,15 +444,15 @@ export function GroupedBars({ groups, series, height = 320, unit = 'วัน', 
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth, height }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={6} barCategoryGap="25%">
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={4} barCategoryGap="12%">
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
               <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: 'var(--border)' }}
-                tick={{ fill: 'var(--text-dim)', fontSize: 14, fontFamily: 'var(--sans)' }} tickMargin={10} />
-              <YAxis allowDecimals={false} width={36} tickLine={false} axisLine={{ stroke: 'var(--border)' }}
+                tick={{ fill: 'var(--text-dim)', fontSize: 12.5, fontFamily: 'var(--sans)' }} tickMargin={10} />
+              <YAxis domain={[0, top]} allowDecimals={false} width={36} tickLine={false} axisLine={{ stroke: 'var(--border)' }}
                 tick={{ fill: 'var(--text-faint)', fontSize: 12, fontFamily: 'var(--mono)' }} />
               <Tooltip
                 cursor={{ fill: 'var(--surface-alt)' }}
-                formatter={(v, name) => [`${fmtNum(Number(v) || 0)} ${unit}`, String(name)]}
+                formatter={(v, name) => [`${fmtNum(Math.abs(Number(v) || 0))} ${unit}`, String(name)]}
                 contentStyle={{
                   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
                   boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
@@ -331,12 +460,16 @@ export function GroupedBars({ groups, series, height = 320, unit = 'วัน', 
                 labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
               {series.map((s) => (
                 <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} maxBarSize={barWidth} radius={[4, 4, 0, 0]}
-                  fillOpacity={focusOpacity(hi, s.key)} isAnimationActive={false}>
-                  {/* ชี้ที่ legend = ปักตัวเลขของชุดนั้นไว้บนหัวแท่งทุกกลุ่ม */}
-                  {hi === s.key && (
+                  fillOpacity={focusOpacity(hi, s.key)} {...BAR_ANIM}>
+                  {/* ปักตัวเลขบนหัวแท่ง — เปิดค้างด้วย showValues หรือโผล่เฉพาะชุดที่ชี้/ล็อกที่ legend */}
+                  {(showValues || hi === s.key) && (
                     <LabelList dataKey={s.key} position="top"
-                      formatter={(v) => (Number(v) > 0 ? fmtNum(Number(v)) : '')}
-                      style={{ fill: 'var(--text)', fontSize: 11, fontFamily: 'var(--sans)', fontWeight: 600 }} />
+                      formatter={(v) => (Math.abs(Number(v)) > 0 ? fmtNum(Math.abs(Number(v))) : '')}
+                      style={{
+                        fill: 'var(--text)', fontSize: 11, fontFamily: 'var(--sans)', fontWeight: 600,
+                        // เปิดค้าง = ตัวเลขของชุดที่ไม่ได้โฟกัสจางลงตามแท่ง (ไม่งั้นตัวเลขเด่นกว่ากราฟ)
+                        opacity: showValues ? focusOpacity(hi, s.key) : 1,
+                      }} />
                   )}
                 </Bar>
               ))}
@@ -487,13 +620,16 @@ export function DayTimeBars({ rows }: {
 
 /** กราฟเส้นแนวโน้ม (recharts) — เส้น + จุด + พื้นจาง แกน/tooltip ชุดเดียวกับกราฟอื่น
     จุดสุดท้ายทึบ ที่เหลือกลวง = ชี้ว่าค่าล่าสุดอยู่ตรงไหน */
-export function TrendLine({ points, color = 'var(--accent)', height = 210, unit = 'นาที' }: {
+export function TrendLine({ points, color = 'var(--accent)', height = 210, unit = 'นาที', avgLine }: {
   points: { label: string; v: number }[]
   color?: string
   height?: number
   unit?: string
+  /** เส้นประค่าเฉลี่ยของทั้งช่วง — พาดขวางพร้อมป้ายตัวเลขมุมขวา */
+  avgLine?: boolean
 }) {
   const last = points.length - 1
+  const avg = points.length ? points.reduce((s, p) => s + p.v, 0) / points.length : 0
   return (
     <div style={{ width: '100%', height }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -511,6 +647,13 @@ export function TrendLine({ points, color = 'var(--accent)', height = 210, unit 
               boxShadow: 'var(--shadow-lg)', fontFamily: 'var(--sans)', fontSize: 13,
             }}
             labelStyle={{ color: 'var(--text)', fontWeight: 500, marginBottom: 4 }} />
+          {avgLine && points.length > 1 && (
+            <ReferenceLine y={avg} stroke={color} strokeDasharray="6 4" strokeOpacity={0.55}
+              label={{
+                value: `เฉลี่ย ${fmtNum(+avg.toFixed(1))} ${unit}`, position: 'insideTopRight',
+                fill: 'var(--text-dim)', fontSize: 10.5, fontFamily: 'var(--sans)',
+              }} />
+          )}
           <Area type="linear" dataKey="v" stroke={color} strokeWidth={2.5} fill={color} fillOpacity={0.1}
             activeDot={{ r: 5, fill: color, stroke: 'var(--surface)', strokeWidth: 2 }}
             dot={(p: { cx?: number; cy?: number; index?: number }) => (

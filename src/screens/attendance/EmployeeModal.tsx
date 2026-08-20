@@ -9,6 +9,7 @@ import { Pagination } from '../../components/data-display/Pagination'
 import { ShiftBadge, shiftKindOf, type ShiftKind } from '../../components/data-display/ShiftBadge'
 import { StatusBadge, type StatusKind } from '../../components/data-display/StatusBadge'
 import { ScanMap, type Fence } from '../../components/ScanMap'
+import { Tip } from '../../components/Info'
 import { Button } from '../../components/inputs/Button'
 import { Icon } from '../../icons'
 import { TEXT } from '../../typography'
@@ -280,10 +281,11 @@ function MonthlyView({ hcode, empId, canUnlock }: { hcode: string; empId: string
   ]
 
   const days = hist.data?.days ?? 0
-  const STATS = s ? [
+  const STATS: { l: string; v: number; c: string; icon: string; suffix: string; off?: boolean }[] = s ? [
     { l: 'มาทำงาน', v: s.present, c: 'var(--ok)', icon: 'scan', suffix: `จาก ${days} วัน` },
     { l: 'มาสาย', v: s.late, c: 'var(--warn)', icon: 'clock-alert', suffix: 'วัน' },
-    { l: 'ขาดงาน', v: s.no_out, c: 'var(--danger)', icon: 'clock-play', suffix: 'วัน' },
+    // ขาดงาน — ระบบยังไม่มีตารางเวร/วันลา ตัวเลขที่มีคือ "ลืมลงเวลาออก" คนละความหมาย จึงปิดไว้ก่อน
+    { l: 'ขาดงาน', v: s.no_out, c: 'var(--danger)', icon: 'clock-play', suffix: 'วัน', off: true },
     { l: 'ออกก่อนเวลา', v: s.early, c: 'var(--badge-early-icon)', icon: 'time-duration-off', suffix: 'วัน' },
     { l: 'นอกพื้นที่', v: s.out_area, c: 'var(--text-dim)', icon: 'map-question', suffix: 'วัน' },
   ] : []
@@ -317,14 +319,20 @@ function MonthlyView({ hcode, empId, canUnlock }: { hcode: string; empId: string
           {/* stats — การ์ดแนวตั้ง จัดกึ่งกลาง (Figma node 286:6684) เต็มขอบ ไม่มี side margin */}
           <div style={{ display: 'flex', gap: 'var(--sp-3)', margin: 'var(--sp-4) 0', padding: 'var(--sp-4) var(--sp-6)', background: 'var(--surface)' }}>
             {STATS.map((it) => (
-              <div key={it.l} style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)', background: 'var(--bg)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-4) var(--sp-2)' }}>
-                <span aria-hidden style={{ width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: it.c, color: 'var(--bg)' }}>
+              <div key={it.l} aria-disabled={it.off || undefined} style={{ position: 'relative', overflow: 'hidden', flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)', background: 'var(--bg)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-4) var(--sp-2)' }}>
+                {/* ยังไม่มีข้อมูลจริง — แถบเฉียงมุมขวาบนแบบเดียวกับ StatCard */}
+                {it.off && (
+                  <Tip text="อยู่ระหว่างพัฒนา — กำลังพัฒนาการเชื่อมต่อกับระบบ HR เพื่อดึงตารางเวรและวันลามาคำนวณ" style={{ position: 'absolute', zIndex: 1, top: 8, right: -32, width: 100, transform: 'rotate(45deg)', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3px 0', background: 'var(--surface-alt)', color: 'var(--text-faint)', boxShadow: '0 1px 2px color-mix(in srgb, var(--text) 12%, transparent)' }}>
+                    <Icon name="flask" size={13} width={1.8} />
+                  </Tip>
+                )}
+                <span aria-hidden style={{ width: 40, height: 40, flex: 'none', borderRadius: 'var(--r-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: it.off ? 'var(--surface-alt)' : it.c, color: it.off ? 'var(--text-faint)' : 'var(--bg)', opacity: it.off ? 0.5 : undefined }}>
                   <Icon name={it.icon} size={22} width={1.8} />
                 </span>
-                <div style={{ ...TEXT.body, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{it.l}</div>
-                <div style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  <span style={{ ...TEXT.h2, ...mono, color: it.c }}>{it.v}</span>
-                  <span style={{ ...TEXT.sm, color: 'var(--text-dim)', marginLeft: 4 }}>{it.suffix}</span>
+                <div style={{ ...TEXT.body, color: 'var(--text-dim)', whiteSpace: 'nowrap', opacity: it.off ? 0.45 : undefined }}>{it.l}</div>
+                <div style={{ textAlign: 'center', whiteSpace: 'nowrap', opacity: it.off ? 0.45 : undefined }}>
+                  <span style={{ ...TEXT.h2, ...mono, color: it.off ? 'var(--text-faint)' : it.c }}>{it.off ? '—' : it.v}</span>
+                  {!it.off && <span style={{ ...TEXT.sm, color: 'var(--text-dim)', marginLeft: 4 }}>{it.suffix}</span>}
                 </div>
               </div>
             ))}

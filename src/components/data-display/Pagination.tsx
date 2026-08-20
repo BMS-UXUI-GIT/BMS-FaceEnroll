@@ -27,12 +27,14 @@ function pageList(page: number, total: number): (number | '…')[] {
   return out
 }
 
-export function Pagination({ page, pageSize, total, shown, onPage }: {
+export function Pagination({ page, pageSize, total, shown, onPage, unit = 'รายการ' }: {
   page: number          // 0-indexed
   pageSize: number
   total: number
   shown?: number        // จำนวนแถวที่แสดงจริงบนหน้านี้ (ไม่ส่ง = คำนวณจาก pageSize)
   onPage: (p: number) => void
+  /** หน่วยที่นับ — เปลี่ยนได้ตอนแบ่งหน้าเป็นกลุ่ม เช่น "วัน" / "คน" */
+  unit?: string
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const count = shown ?? Math.min(pageSize, Math.max(0, total - page * pageSize))
@@ -43,7 +45,7 @@ export function Pagination({ page, pageSize, total, shown, onPage }: {
       minHeight: 68, padding: 'var(--sp-4) var(--sp-6)', flexWrap: 'wrap',
     }}>
       <span style={{ ...TEXT.body, color: 'var(--text-dim)' }}>
-        แสดง {count} จาก {total} รายการ
+        แสดง {count} จาก {total} {unit}
       </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>

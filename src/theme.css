@@ -719,6 +719,26 @@ input, button, select { font-family: var(--sans); }
   font-family: var(--sans); font-size: 12px; font-weight: 500; cursor: pointer;
 }
 
+/* กราฟแท่ง: ความจางตอนชี้/ล็อก legend ค่อย ๆ ไล่ · ป้ายตัวเลข/ป้ายใต้แท่งเฟดตาม
+   (ความสูงของแท่งเป็นหน้าที่ของอนิเมชัน recharts — BAR_ANIM ใน charts.tsx) */
+.bar-anim path,
+.bar-anim rect { transition: fill-opacity .18s ease, fill .18s ease; }
+.recharts-label-list text { transition: opacity .18s ease; }
+
+/* แถบตัวกรองค้างใต้ Topbar ตอนเลื่อนหน้า — เห็นตลอดว่ากราฟ/ตารางที่ดูอยู่ถูกกรองด้วยอะไร
+   Topbar เป็นแถบลอย absolute (App.tsx) สูง --topbar-h · main เป็นตัวเลื่อน sticky จึงวัด top จากขอบบน main
+   margin ติดลบ = ดันแถบออกไปชนขอบ padding ของ main พื้นหลังจะได้บังเนื้อหาที่ลอดข้างหลังจนสุดขอบ */
+.filter-sticky {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--sp-1));
+  z-index: 20;
+  margin-inline: calc(var(--sp-6) * -1);
+  padding: var(--sp-2) var(--sp-6);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 /* ตารางที่อยู่ในกรอบมน — โค้งมุมล่างของแถวสุดท้ายให้พอดีขอบกรอบ
    (ใช้แทน overflow:hidden ที่กรอบ เพราะ overflow ทำให้ sticky header ตาย) */
 .table-rounded tbody tr:last-child td { border-bottom: none; }
@@ -1013,6 +1033,8 @@ body.no-page-scroll main { overflow: hidden !important; }
 @media (max-width: 1024px) {
   .hide-sm { display: none !important; }
   .only-sm { display: block !important; }
+  /* padding ของ main เหลือ sp-4 ตั้งแต่จอนี้ลงไป — ระยะเยื้องของแถบตัวกรองที่ค้างไว้ต้องหดตาม */
+  .filter-sticky { margin-inline: calc(var(--sp-4) * -1); padding-inline: var(--sp-4); }
   .topbar { padding: var(--sp-3) var(--sp-3) !important; gap: var(--sp-2) !important; }
   .topbar h1 { font-size: 16px !important; }
   .float-bottom { left: 50%; bottom: var(--sp-4); max-width: calc(var(--app-w) - var(--sp-6)); }

@@ -3,9 +3,9 @@ import { HeroCard } from '../components/layout/PageHeader'
 import { ErrorBox } from '../components/feedback/Message'
 import { clock, nf, useFetch, useMedia } from '../hooks'
 import { daysAgoISO, filterQS, isoAddDays, localISO, selLabel, toggle, useAttFilterOptions } from '../components/AttFilters'
-import { thShort } from '../components/DatePicker'
+import { thDay, thShort } from '../components/DatePicker'
 import { DateRangePicker } from '../components/inputs/DateRangePicker'
-import { SegmentBar, StackedColumns, TrendLine, legendHover } from '../components/charts'
+import { SegmentBar, StackedColumns, TrendLine, legendHover, useLegendFocus } from '../components/charts'
 import { PickHospital } from '../components/PickHospital'
 import { Skel, SkelChart, SkelRows, SkelSummary } from '../components/Skeleton'
 import { SectionPanel } from '../components/layout/SectionPanel'
@@ -14,7 +14,7 @@ import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { FilterBar } from '../components/inputs/FilterBar'
 import { Avatar } from '../components/data-display/Avatar'
-import { StatCard } from '../components/data-display/StatCard'
+import { StatCard, type StatItem } from '../components/data-display/StatCard'
 import { StatusBadge } from '../components/data-display/StatusBadge'
 import { DataTable } from '../components/data-display/DataTable'
 import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
@@ -38,7 +38,12 @@ type Analytics = {
   summary: { date: string; date_from: string; date_to: string; days: number; punched: number; done: number; open: number; late: number; early: number; out_area: number }
   recent: Row[]
   total_staff: number
-  days: { date: string; punched: number; on_time: number; late: number; early: number; avg_late_min: number }[]
+  // in_*/out_* = จำนวน "ครั้งที่สแกน" ของวันนั้น (นับทุกรอบ — คนหนึ่งสแกนเข้า-ออกได้หลายรอบต่อวัน)
+  // backend รุ่นเก่ายังไม่ส่ง 4 ตัวนี้ -> UI ประมาณจาก on_time/late/early ซึ่งนับแค่รอบแรกของแต่ละคน
+  days: {
+    date: string; punched: number; on_time: number; late: number; early: number; avg_late_min: number
+    in_ontime?: number; in_late?: number; out_ontime?: number; out_early?: number
+  }[]
   shifts: { name: string; persons: number; late: number; early: number; avg_in: string }[]
   top_late: { emp: string; name: string; dept: string; count: number; avg_min: number; max_min?: number }[]
   avg_late_min: number
@@ -46,20 +51,19 @@ type Analytics = {
 }
 type TenantStatus = { registered: boolean; request_type?: string; demo_expires_at?: string | null; demo_days_left?: number | null; expired?: boolean }
 
-/** ป้ายวัน dd/mm สำหรับแกนกราฟ */
-const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 const deptName = (d?: string) => (d && d.trim() !== '' ? d : 'ไม่ระบุแผนก')
 
 const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
 const shiftColor = (k: ShiftKind) => `var(--shift-${k}-icon)`
 const shortShift = (s: string) => s.replace(/\s*\(.*\)\s*$/, '')
 
-// ชุดสีของกราฟการเข้า-ออกงาน (ตรงกับการ์ดสรุปด้านบน)
+// กราฟการเข้า-ออกงาน แบบกระจกเงา — เหนือเส้นศูนย์ = การสแกนขาเข้า (เข้าตรง+เข้าสาย)
+// ใต้เส้น = การสแกนขาออก (ออกปกติ+ออกก่อน) · นับเป็น "ครั้ง" เสมอ — คนหนึ่งสแกนได้หลายรอบต่อวัน
 const IO_SERIES = [
-  { key: 'on_time', label: 'ตรงเวลา', color: 'var(--ok)' },
-  { key: 'late', label: 'มาสาย', color: 'var(--warn)' },
-  { key: 'absent', label: 'ขาดงาน', color: 'var(--danger)' },
-  { key: 'early', label: 'ออกก่อนเวลา', color: 'var(--info)' },
+  { key: 'in_ontime', label: 'เข้าตรงเวลา', color: 'var(--ok)', dir: 'up' as const },
+  { key: 'in_late', label: 'เข้าสาย', color: 'var(--warn)', dir: 'up' as const },
+  { key: 'out_ontime', label: 'ออกปกติ', color: 'var(--accent)', dir: 'down' as const },
+  { key: 'out_early', label: 'ออกก่อนเวลา', color: 'var(--info)', dir: 'down' as const },
 ]
 
 /** หัวแผงย่อย: ป้ายเล็ก + ค่าตัวใหญ่ (Figma: "มากที่สุด / รวมทั้งหมด") */
@@ -114,25 +118,35 @@ function RecentMini({ r }: { r: Row }) {
 }
 
 /** legend มุมขวาบนของกราฟ (วาดเอง จะได้ไม่เลื่อนตามกราฟที่ scroll ได้)
-    ชี้ที่รายการไหน = ส่งคีย์นั้นกลับให้กราฟไปเน้นแท่งของชุดนั้น */
-function Legend({ items, active, onHover }: {
+    ชี้ = เน้นชุดนั้นชั่วคราว · กด (bind) = ล็อกโฟกัสไว้ แล้วกราฟคิดเพดานแกนใหม่ตามชุดที่ล็อก */
+function Legend({ items, active, onHover, bind, lock }: {
   items: { key?: string; label: string; color: string }[]
   active?: string | null
   onHover?: (k: string | null) => void
+  bind?: (k: string) => Record<string, unknown>
+  lock?: string | null
 }) {
   return (
     <span style={{ display: 'inline-flex', gap: 'var(--sp-4)', flexWrap: 'wrap' }}>
       {items.map((s) => {
         const k = s.key ?? s.label
-        const dim = onHover && active != null && active !== k
+        const on = bind ? bind(k) : onHover ? legendHover(onHover, k) : null
+        const dim = on && active != null && active !== k
+        const locked = lock === k
         return (
-          <span key={s.label} {...(onHover ? legendHover(onHover, k) : null)}
+          <span key={s.label} {...on}
+            title={bind ? (locked ? 'กดอีกครั้งเพื่อเลิกโฟกัส' : 'กดเพื่อโฟกัสชุดนี้') : undefined}
             style={{
+              ...(on?.style as object),
               position: 'relative',
-              display: 'inline-flex', alignItems: 'center', gap: 6, ...TEXT.sm, color: 'var(--text-dim)', whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', gap: 6, ...TEXT.sm, whiteSpace: 'nowrap',
+              color: locked ? 'var(--text)' : 'var(--text-dim)',
               opacity: dim ? 0.5 : 1, transition: 'opacity .12s ease',
             }}>
-            <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flex: 'none' }} />
+            <span style={{
+              width: 12, height: 12, borderRadius: 3, background: s.color, flex: 'none',
+              boxShadow: locked ? '0 0 0 2px var(--bg), 0 0 0 4px currentColor' : undefined,
+            }} />
             {s.label}
           </span>
         )
@@ -158,8 +172,8 @@ export function Overview() {
   const [fShifts, setFShifts] = useState<string[]>([])
   const [fDepts, setFDepts] = useState<string[]>([])
   const { shiftOpts, deptOpts } = useAttFilterOptions(hcode)
-  // ชุดข้อมูลที่กำลังชี้อยู่ที่ legend ของกราฟการเข้า-ออกงาน (null = ไม่ได้ชี้)
-  const [hiSeries, setHiSeries] = useState<string | null>(null)
+  // legend ของกราฟการเข้า-ออกงาน — ชี้ = เน้นชั่วคราว · กด = ล็อกโฟกัส (แกน Y คิดใหม่ตามชุดที่ล็อก)
+  const ioFocus = useLegendFocus()
 
   useEffect(() => { setFShifts([]); setFDepts([]); setFrom(daysAgoISO(6)); setTo(localISO()) }, [hcode])
 
@@ -179,16 +193,25 @@ export function Overview() {
   const isToday = !multiDay && to === localISO()
   const dayLabel = isToday ? 'วันนี้' : multiDay ? `${thShort(from)} – ${thShort(to)}` : thShort(to)
 
-  // สถิติรายวัน — ขาดงานของแต่ละวัน = พนักงานทั้งหมด − คนที่ลงเวลาวันนั้น
+  // สถิติรายวัน — แท่งซ้าย = การสแกนขาเข้า · แท่งขวา = การสแกนขาออก
+  // ไม่มีชุด "ขาดงาน" เพราะระบบยังไม่มีตารางเวร/วันลา (เดาจากคนที่ไม่ลงเวลาไม่ได้)
   const dayGroups = useMemo(() => (ana?.days ?? []).map((d) => ({
-    label: dm(d.date),
+    label: thDay(d.date),
     values: {
-      on_time: d.on_time,
-      late: d.late,
-      absent: Math.max(0, (ana?.total_staff ?? 0) - d.punched),
-      early: d.early,
+      in_ontime: d.in_ontime ?? d.on_time,
+      in_late: d.in_late ?? d.late,
+      // ไม่มีตัวเลขรายครั้งจาก backend -> ประมาณว่าคนที่เข้าแล้วสแกนออกครบรอบเดียว
+      out_ontime: d.out_ontime ?? Math.max(0, d.punched - d.early),
+      out_early: d.out_early ?? d.early,
     },
   })), [ana])
+
+  // ยอดรวมทั้งช่วงของแต่ละชุด — ใช้ในแผงสรุป (ตัวเลขชุดเดียวกับกราฟ ไม่ให้เลขสองที่ขัดกัน)
+  const io = useMemo(() => {
+    const sum = (k: string) => dayGroups.reduce((a, g) => a + (g.values[k as keyof typeof g.values] || 0), 0)
+    const v = { in_ontime: sum('in_ontime'), in_late: sum('in_late'), out_ontime: sum('out_ontime'), out_early: sum('out_early') }
+    return { ...v, inTotal: v.in_ontime + v.in_late, outTotal: v.out_ontime + v.out_early }
+  }, [dayGroups])
 
   // ไม่ใช่ super แล้วเลือก "ทุกโรงพยาบาล" = ยังไม่รู้ว่าจะดูโรงไหน
   if (currentHcode === '*' && !isSuper) return <PickHospital />
@@ -200,11 +223,12 @@ export function Overview() {
   const absent = s ? Math.max(0, staff * days - s.punched) : undefined
   const u = multiDay ? 'ครั้ง' : 'คน'
 
-  const HERO = [
+  const HERO: StatItem[] = [
     { label: 'พนักงาน', v: ana ? staff : undefined, unit: 'คน', tone: 'accent' as const, icon: 'person' },
     { label: 'ตรงเวลา', v: onTime, unit: u, tone: 'ok' as const, icon: 'scan' },
     { label: 'มาสาย', v: s?.late, unit: u, tone: 'warn' as const, icon: 'clock-alert' },
-    { label: 'ขาดงาน', v: absent, unit: u, tone: 'danger' as const, icon: 'clock-x' },
+    // ขาดงาน — ระบบยังไม่มีตารางเวรล่วงหน้า/วันลา คำนวณจริงไม่ได้ จึงปิดการ์ดไว้ก่อน
+    { label: 'ขาดงาน', v: absent, unit: u, tone: 'danger' as const, icon: 'clock-x', disabled: true },
     { label: 'ออกก่อนเวลา', v: s?.early, unit: u, tone: 'info' as const, icon: 'time-duration-off' },
   ]
 
@@ -221,7 +245,7 @@ export function Overview() {
   ]
 
   const top5 = (ana?.top_late ?? []).slice(0, 5)
-  const trend = (ana?.days ?? []).map((d) => ({ label: dm(d.date), v: d.avg_late_min }))
+  const trend = (ana?.days ?? []).map((d) => ({ label: thDay(d.date), v: d.avg_late_min }))
   // แท็บ — super มี "ภาพรวมระบบ" เป็นอันแรก
   const TABS: [typeof tab, string, string][] = [
     ...(isSuper ? [['system', 'ภาพรวมระบบ', 'hospital'] as [typeof tab, string, string]] : []),
@@ -350,7 +374,7 @@ export function Overview() {
         ) : (
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {HERO.map((k) => (
-            <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit}
+            <StatCard key={k.label} tone={k.tone} label={k.label} unit={k.unit} disabled={k.disabled}
               icon={<Icon name={k.icon} size={24} color="currentColor" />}
               value={k.v != null ? nf(k.v) : anaF.loading ? '…' : '—'} />
           ))}
@@ -491,11 +515,13 @@ export function Overview() {
           {/* ---------- แถว 1: สถิติการเข้า-ออกงาน + แนวโน้มการมาสาย ---------- */}
           <div className="grid gap-4 items-stretch" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(460px,100%), 1fr))' }}>
             <SectionPanel title="สถิติการเข้า-ออกงาน"
-              meta={<Legend items={IO_SERIES} active={hiSeries} onHover={setHiSeries} />}>
-              {!ana ? <SkelChart /> : (
-                /* columnWidth 56 = แท่งกว้างคงที่ วันเยอะเกินกล่องแล้วเลื่อนแนวนอนเอา */
-                <StackedColumns groups={dayGroups} series={IO_SERIES} height={185} unit={u} axisLabel="วันที่" columnWidth={56}
-                  active={hiSeries} />
+              meta={<Legend items={IO_SERIES.map((s) => ({ ...s, label: `${s.dir === 'up' ? '▲' : '▼'} ${s.label}` }))}
+                active={ioFocus.focus} bind={ioFocus.bind} lock={ioFocus.lock} />}>
+              {!ana ? <SkelChart height={250} /> : (
+                /* กระจกเงา: วันละแท่งเดียว — ครึ่งบนคือสแกนขาเข้า ครึ่งล่างคือสแกนขาออก
+                   หน่วยเป็น "ครั้ง" เสมอ เพราะ 1 คนสแกนได้หลายรอบต่อวัน */
+                <StackedColumns groups={dayGroups} series={IO_SERIES} height={250} unit="ครั้ง" columnWidth={68}
+                  active={ioFocus.focus} isolate={ioFocus.lock} showValues />
               )}
             </SectionPanel>
 
@@ -519,7 +545,7 @@ export function Overview() {
               ) : undefined}>
               {!ana ? <SkelChart /> : (
                 <div>
-                  <TrendLine points={trend} height={185} />
+                  <TrendLine points={trend} height={185} avgLine />
                   <div style={{ ...TEXT.sm, color: 'var(--text-dim)', lineHeight: 1.7, marginTop: 'var(--sp-2)' }}>
                     แกนตั้ง = นาทีที่มาสายเฉลี่ยของวันนั้น (คิดเฉพาะคนที่มาสาย) — เส้นชันขึ้น = ช่วงนั้นคนสายหนักขึ้น
                   </div>
@@ -682,30 +708,24 @@ export function Overview() {
               )}
             </SectionPanel>
 
-            <SectionPanel title="สรุปสถานะการมาทำงาน" meta={filterMeta}>
+            {/* แยกขาเข้า/ขาออก ให้ตรงกับกราฟสถิติการเข้า-ออกงาน — ไม่มี "ยังไม่มาทำงาน" แล้ว
+                (ต้องรู้ตารางเวรก่อนถึงจะบอกได้ว่าใครควรมาแต่ไม่มา ซึ่งระบบยังไม่มี) */}
+            <SectionPanel title="สรุปการสแกนเข้า-ออก" meta={filterMeta}>
               {!ana || !s ? <SkelSummary cards={4} /> : (
                 <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--sp-4)' }}>
-                    <Headline label="มากที่สุด" value="มาทำงานแล้ว" unit={`${nf(s.punched)} ${u}`} />
-                    <Headline label="รวมทั้งหมด" value={nf(staff * days)} unit={u} align="right" />
+                    <Headline label="การสแกนขาเข้า" value={nf(io.inTotal)} unit="ครั้ง" />
+                    <Headline label="การสแกนขาออก" value={nf(io.outTotal)} unit="ครั้ง" align="right" />
                   </div>
-                  <div style={{ margin: 'var(--sp-4) 0' }}>
-                    <SegmentBar segs={[
-                      { v: onTime ?? 0, color: 'var(--ok)', label: 'ตรงเวลา' },
-                      { v: s.late, color: 'var(--warn)', label: 'มาสาย' },
-                      { v: absent ?? 0, color: 'var(--danger)', label: 'ขาดงาน' },
-                      { v: s.early, color: 'var(--info)', label: 'ออกก่อนเวลา' },
-                    ]} />
-                  </div>
-                  <div className="grid gap-2 stat-grid" style={{ flex: 1, gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gridAutoRows: 'minmax(0, 1fr)' }}>
-                    <StatCard align="start" bg="var(--surface-alt)" tone="ok" label="มาทำงานแล้ว" unit={u}
-                      icon={<Icon name="scan" size={24} color="currentColor" />} value={nf(s.punched)} />
-                    <StatCard align="start" bg="var(--surface-alt)" tone="danger" label="ยังไม่มาทำงาน" unit={u}
-                      icon={<Icon name="clock-alert" size={24} color="currentColor" />} value={nf(absent)} />
-                    <StatCard align="start" bg="var(--surface-alt)" tone="warn" label="มาสาย" unit={u}
-                      icon={<Icon name="clock-x" size={24} color="currentColor" />} value={nf(s.late)} />
-                    <StatCard align="start" bg="var(--surface-alt)" tone="info" label="ออกก่อนเวลา" unit={u}
-                      icon={<Icon name="time-duration-off" size={24} color="currentColor" />} value={nf(s.early)} />
+                  <div className="grid gap-2 stat-grid" style={{ flex: 1, marginTop: 'var(--sp-4)', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gridAutoRows: 'minmax(0, 1fr)' }}>
+                    <StatCard align="start" bg="var(--surface-alt)" tone="ok" label="เข้าตรงเวลา" unit="ครั้ง"
+                      icon={<Icon name="scan" size={24} color="currentColor" />} value={nf(io.in_ontime)} />
+                    <StatCard align="start" bg="var(--surface-alt)" tone="warn" label="เข้าสาย" unit="ครั้ง"
+                      icon={<Icon name="clock-alert" size={24} color="currentColor" />} value={nf(io.in_late)} />
+                    <StatCard align="start" bg="var(--surface-alt)" tone="accent" label="ออกปกติ" unit="ครั้ง"
+                      icon={<Icon name="clock" size={24} color="currentColor" />} value={nf(io.out_ontime)} />
+                    <StatCard align="start" bg="var(--surface-alt)" tone="info" label="ออกก่อนเวลา" unit="ครั้ง"
+                      icon={<Icon name="time-duration-off" size={24} color="currentColor" />} value={nf(io.out_early)} />
                   </div>
                 </div>
               )}
