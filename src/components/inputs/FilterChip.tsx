@@ -15,7 +15,7 @@ import { TEXT } from '../../typography'
 // .chip กับ .chip-choice ใน theme.css — ที่นี่คุมแค่โครงกับสีของไอคอน
 
 export function FilterChip({
-  icon, label, value, variant = 'select', active = false, tone = 'warn', outlined, disabled, onClick, children, iconOnly,
+  icon, label, value, variant = 'select', active = false, tone = 'warn', outlined, disabled, onClick, children,
 }: {
   icon?: ReactNode
   label: ReactNode
@@ -29,8 +29,6 @@ export function FilterChip({
   /** มีเส้นขอบ — ใช้ตอนวางบนพื้นเทา (Figma หน้ารายละเอียดพนักงาน) ไม่งั้นชิปจมไปกับพื้น */
   outlined?: boolean
   disabled?: boolean
-  /** โชว์แค่ไอคอน — label ไปอยู่ใน title/aria-label แทน (ปุ่มสลับที่ความหมายชัดจากไอคอนอยู่แล้ว) */
-  iconOnly?: boolean
   onClick?: () => void
   /** ตัวควบคุมจริง (SearchSelect / DateRangePicker) วางแทนส่วน value */
   children?: ReactNode
@@ -59,15 +57,13 @@ export function FilterChip({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
       } : undefined}
       role={choice && onClick ? 'button' : undefined}
-      title={iconOnly && typeof label === 'string' ? label : undefined}
-      aria-label={iconOnly && typeof label === 'string' ? label : undefined}
       tabIndex={choice && onClick && !disabled ? 0 : undefined}
       aria-pressed={choice && onClick ? active : undefined}
       aria-disabled={disabled || undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)',
         minHeight: 48,
-        padding: iconOnly ? 'var(--sp-2)' : 'var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2)',
+        padding: 'var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2)',
         cursor: disabled ? 'not-allowed' : interactive ? 'pointer' : 'default',
         opacity: disabled ? 0.5 : 1,
         whiteSpace: 'nowrap',
@@ -86,7 +82,6 @@ export function FilterChip({
         }}>{icon}</span>
       )}
 
-      {!iconOnly && (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
         <span style={{
           ...(choice ? { ...TEXT.sm, fontWeight: 500 } : TEXT.sm),
@@ -96,7 +91,6 @@ export function FilterChip({
           <span style={{ ...TEXT.bodyMed, color: 'var(--text-faint)' }}>{value}</span>
         ))}
       </span>
-      )}
     </div>
   )
 }

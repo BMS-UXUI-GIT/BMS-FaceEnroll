@@ -495,9 +495,9 @@ export function ReportLate() {
               <FilterChip outlined variant="choice" tone="accent" active={groupBy === 'person'} onClick={() => setGroupBy('person')}
                 icon={<Icon name="person" size={16} width={2} />} label="เรียงตามคน" />
               {/* สลับลำดับวัน — ตามคน = ลำดับแถวในกลุ่ม · ตามวัน = ลำดับหัวกลุ่ม */}
-              <FilterChip outlined variant="action" tone="accent" iconOnly onClick={() => setDateAsc((v) => !v)}
+              <FilterChip outlined variant="action" tone="accent" onClick={() => setDateAsc((v) => !v)}
                 icon={<Icon name={dateAsc ? 'sort-asc' : 'sort-desc'} size={16} width={2} />}
-                label={dateAsc ? 'ลำดับวัน: เก่า → ใหม่ (กดเพื่อสลับ)' : 'ลำดับวัน: ใหม่ → เก่า (กดเพื่อสลับ)'} />
+                label="ลำดับวัน" value={dateAsc ? 'อดีต → ปัจจุบัน' : 'ปัจจุบัน → อดีต'} />
             </>
           )}
         </>}
