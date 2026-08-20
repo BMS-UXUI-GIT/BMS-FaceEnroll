@@ -203,9 +203,7 @@ function GroupCard({ g, mode }: { g: IssueGroup; mode: 'date' | 'person' }) {
 }
 
 /** จัดกลุ่มแถวตามวัน (ใหม่→เก่า) หรือตามคน (คนที่มีปัญหาบ่อยสุดขึ้นก่อน) */
-/** dateAsc = ไล่วันเก่า -> ใหม่
-    โหมดตามคน = ลำดับแถวข้างในกลุ่ม · โหมดตามวัน = ลำดับของหัวกลุ่มเอง */
-function groupRows(rows: IssueRow[], mode: 'date' | 'person', dateAsc: boolean): IssueGroup[] {
+function groupRows(rows: IssueRow[], mode: 'date' | 'person'): IssueGroup[] {
   const m = new Map<string, IssueGroup>()
   for (const r of rows) {
     const k = mode === 'date' ? r.date : r.emp
@@ -219,11 +217,11 @@ function groupRows(rows: IssueRow[], mode: 'date' | 'person', dateAsc: boolean):
   for (const g of out) {
     g.rows.sort((a, b) => (mode === 'date'
       ? a.name.localeCompare(b.name, 'th') || a.seq - b.seq
-      // เรียงตามคน = ไล่วันตามที่เลือก อ่านเป็นไทม์ไลน์ของคนนั้นได้
-      : (dateAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)) || a.seq - b.seq))
+      // เรียงตามคน = ไล่วันเก่า -> ใหม่ อ่านเป็นไทม์ไลน์ของคนนั้นได้
+      : a.date.localeCompare(b.date) || a.seq - b.seq))
   }
   return mode === 'date'
-    ? out.sort((a, b) => (dateAsc ? a.key.localeCompare(b.key) : b.key.localeCompare(a.key)))
+    ? out.sort((a, b) => b.key.localeCompare(a.key))
     : out.sort((a, b) => (b.rows.length - a.rows.length) || a.rows[0].name.localeCompare(b.rows[0].name, 'th'))
 }
 
@@ -263,7 +261,7 @@ function IssueSkeleton({ count }: { count: number }) {
   )
 }
 
-function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empty, groupBy, dateAsc = true }: {
+function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empty, groupBy }: {
   rows: IssueRow[]
   total: number
   page: number
@@ -273,11 +271,9 @@ function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empt
   empty: string
   /** กรองหลายวัน = จัดกลุ่มตามวัน/ตามคน (null = รายการเรียบแบบเดิม ใช้ตอนดูวันเดียว) */
   groupBy?: 'date' | 'person' | null
-  /** ลำดับวัน — true = เก่า -> ใหม่ (ค่าเริ่มต้น) */
-  dateAsc?: boolean
 }) {
   // จัดกลุ่มอยู่ = แบ่งหน้าทีละ 10 "กลุ่ม" ไม่ใช่ 10 แถว (ไม่งั้นกลุ่มโดนหั่นครึ่งคาหน้า)
-  const groups = groupBy ? groupRows(allRows, groupBy, dateAsc) : null
+  const groups = groupBy ? groupRows(allRows, groupBy) : null
   const pageGroups = groups ? pageSliceOf(groups, page) : null
   const rows = pageSlice(allRows, page)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -331,8 +327,6 @@ export function ReportLate() {
   const [view, setView] = useState<'all' | 'late' | 'early'>('all')
   // กรองหลายวัน = จัดกลุ่มรายการ ("เรียงตามวัน" ตั้งต้น) — ก่อนหน้านี้แถวของคนเดียวกันกระจายอยู่คนละใบ ไล่ดูยาก
   const [groupBy, setGroupBy] = useState<'date' | 'person'>('date')
-  // ลำดับวัน — เริ่มที่เก่า -> ใหม่ (อ่านเป็นไทม์ไลน์) กดชิปสลับได้
-  const [dateAsc, setDateAsc] = useState(true)
   const [latePage, setLatePage] = useState(0)
   const [earlyPage, setEarlyPage] = useState(0)
   const [allPage, setAllPage] = useState(0)
@@ -344,7 +338,7 @@ export function ReportLate() {
 
   // สลับโรง = ล้างตัวกรอง + กลับมาดูวันนี้ · เปลี่ยนเงื่อนไข = กลับหน้าแรกทั้งสองแผง
   useEffect(() => { setFShifts([]); setFDepts([]); setSearch(''); setFrom(localISO()); setTo(localISO()) }, [hcode])
-  useEffect(() => { setLatePage(0); setEarlyPage(0); setAllPage(0) }, [from, to, fShifts, fDepts, dq, hcode, groupBy, dateAsc])
+  useEffect(() => { setLatePage(0); setEarlyPage(0); setAllPage(0) }, [from, to, fShifts, fDepts, dq, hcode, groupBy])
 
   const fq = filterQS(fShifts, fDepts)
   // ช่วงหลายวัน = ต้องจัดกลุ่มข้ามหน้า (คนคนเดียวโผล่หลายวัน) จึงดึงมาทีเดียวแล้วแบ่งหน้าเองฝั่งหน้าเว็บ
@@ -495,10 +489,6 @@ export function ReportLate() {
                 icon={<Icon name="calendar" size={16} width={2} />} label="เรียงตามวัน" />
               <FilterChip outlined variant="choice" tone="accent" active={groupBy === 'person'} onClick={() => setGroupBy('person')}
                 icon={<Icon name="person" size={16} width={2} />} label="เรียงตามคน" />
-              {/* สลับลำดับวัน — ตามคน = ลำดับแถวในกลุ่ม · ตามวัน = ลำดับหัวกลุ่ม */}
-              <FilterChip outlined variant="action" tone="accent" onClick={() => setDateAsc((v) => !v)}
-                icon={<Icon name={dateAsc ? 'sort-asc' : 'sort-desc'} size={16} width={2} />}
-                label={dateAsc ? 'วันเก่า → ใหม่' : 'วันใหม่ → เก่า'} />
             </>
           )}
         </>}
@@ -507,19 +497,19 @@ export function ReportLate() {
         {view === 'late'
           ? (
             <IssueList rows={lateShown} total={dq || multiDay ? lateShown.length : (anaF.data?.late_total ?? lateShown.length)}
-              page={latePage} onPage={setLatePage} showDate={multiDay} groupBy={multiDay ? groupBy : null} dateAsc={dateAsc}
+              page={latePage} onPage={setLatePage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
               loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายในช่วงที่เลือก'} />
           )
           : view === 'early'
             ? (
               <IssueList rows={earlyShown} total={dq || multiDay ? earlyShown.length : (anaF.data?.early_total ?? earlyShown.length)}
-                page={earlyPage} onPage={setEarlyPage} showDate={multiDay} groupBy={multiDay ? groupBy : null} dateAsc={dateAsc}
+                page={earlyPage} onPage={setEarlyPage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
                 loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนออกก่อนเวลาในช่วงที่เลือก'} />
             )
             : (
               /* รวมสองฝั่งแล้วยุบคนซ้ำ — จำนวนหน้าคิดจากรายการที่รวมแล้ว */
               <IssueList rows={allShown} total={allShown.length}
-                page={allPage} onPage={setAllPage} showDate={multiDay} groupBy={multiDay ? groupBy : null} dateAsc={dateAsc}
+                page={allPage} onPage={setAllPage} showDate={multiDay} groupBy={multiDay ? groupBy : null}
                 loading={anaF.loading} empty={dq ? 'ไม่พบพนักงานที่ตรงกับที่ค้นหา' : 'ไม่มีคนมาสายหรือออกก่อนเวลาในช่วงที่เลือก'} />
             )}
       </SectionPanel>
