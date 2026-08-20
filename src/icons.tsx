@@ -16,6 +16,8 @@ const P: Record<string, string> = {
   'chevron-down': "<path d=\"M6 9l6 6l6 -6\" />", // tabler: chevron-down
   'chevron-left': "<path d=\"M15 6l-6 6l6 6\" />", // tabler: chevron-left
   'chevron-right': "<path d=\"M9 6l6 6l-6 6\" />", // tabler: chevron-right
+  'sort-asc': "<path d=\"M4 6l7 0\" /><path d=\"M4 12l7 0\" /><path d=\"M4 18l9 0\" /><path d=\"M15 9l3 -3l3 3\" /><path d=\"M18 6l0 12\" />", // tabler: sort-ascending-2
+  'sort-desc': "<path d=\"M4 6l9 0\" /><path d=\"M4 12l7 0\" /><path d=\"M4 18l7 0\" /><path d=\"M15 15l3 3l3 -3\" /><path d=\"M18 6l0 12\" />", // tabler: sort-descending-2
   filter: "<path d=\"M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227z\" />", // tabler: filter
   clock: "<path d=\"M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0\" /><path d=\"M12 7v5l3 3\" />", // tabler: clock
   'clock-alert': "<path d=\"M20.986 12.502a9 9 0 1 0 -5.973 7.98\" /><path d=\"M12 7v5l3 3\" /><path d=\"M19 16v3\" /><path d=\"M19 22v.01\" />", // tabler: clock-exclamation
