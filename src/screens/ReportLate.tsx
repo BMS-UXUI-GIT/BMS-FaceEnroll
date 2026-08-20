@@ -132,10 +132,12 @@ function CountChip({ icon, n, label, color, bg }: { icon: string; n: number; lab
 
 /** แถวย่อยในกลุ่ม — โหมด 'date' บอกว่า "ใคร" · โหมด 'person' บอกว่า "วันไหน"
     (อีกฝั่งซ้ำกับหัวกลุ่มอยู่แล้ว ไม่ต้องเขียนซ้ำทุกแถว) */
-function GroupLine({ r, mode }: { r: IssueRow; mode: 'date' | 'person' }) {
+function GroupLine({ r, mode, order = 0 }: { r: IssueRow; mode: 'date' | 'person'; order?: number }) {
   const t = (v: string) => (v ? clock(v).replace(' น.', '') : '—')
   return (
-    <div className="row-hover late-row" style={{
+    // sort-in = ไล่เข้าทีละแถวตอนสลับลำดับวัน (คลาสอยู่ theme.css · หน่วงตามลำดับ แต่ไม่เกิน 8 แถว)
+    <div className="row-hover late-row sort-in" style={{
+      animationDelay: `${Math.min(order, 8) * 30}ms`,
       display: 'flex', alignItems: 'center', gap: 'var(--sp-3)',
       padding: 'var(--sp-2) var(--sp-3)', borderTop: '1px solid var(--control-border)',
     }}>
@@ -167,7 +169,7 @@ function GroupLine({ r, mode }: { r: IssueRow; mode: 'date' | 'person' }) {
 type IssueGroup = { key: string; rows: IssueRow[]; late: number; early: number }
 
 /** กลุ่มเดียว = การ์ด 1 ใบ (หัวกลุ่มบอกว่า วัน/คนไหน + สรุปจำนวน แล้วแถวย่อยอยู่ข้างใน) */
-function GroupCard({ g, mode }: { g: IssueGroup; mode: 'date' | 'person' }) {
+function GroupCard({ g, mode, sortKey }: { g: IssueGroup; mode: 'date' | 'person'; sortKey: string }) {
   const head = g.rows[0]
   return (
     <div style={{ border: '1px solid var(--control-border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
@@ -197,7 +199,8 @@ function GroupCard({ g, mode }: { g: IssueGroup; mode: 'date' | 'person' }) {
           <CountChip icon="time-duration-off" n={g.early} label="ออกก่อน" color="var(--info)" bg="var(--info-light)" />
         </span>
       </div>
-      {g.rows.map((r, i) => <GroupLine key={`${r.emp}:${r.date}:${i}`} r={r} mode={mode} />)}
+      {/* sortKey อยู่ใน key ด้วย — สลับลำดับวันแล้วแถวถูกสร้างใหม่ อนิเมชันจึงเล่นซ้ำ */}
+      {g.rows.map((r, i) => <GroupLine key={`${r.emp}:${r.date}:${i}:${sortKey}`} r={r} mode={mode} order={i} />)}
     </div>
   )
 }
@@ -277,6 +280,7 @@ function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empt
 }) {
   // จัดกลุ่มอยู่ = แบ่งหน้าทีละ 10 "กลุ่ม" ไม่ใช่ 10 แถว (ไม่งั้นกลุ่มโดนหั่นครึ่งคาหน้า)
   const groups = groupBy ? groupRows(allRows, groupBy, dateAsc) : null
+  const sortKey = dateAsc ? 'asc' : 'desc'
   const pageGroups = groups ? pageSliceOf(groups, page) : null
   const rows = pageSlice(allRows, page)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -299,7 +303,13 @@ function IssueList({ rows: allRows, total, page, onPage, showDate, loading, empt
         : allRows.length === 0
           ? <div style={{ ...TEXT.body, padding: '48px 20px', color: 'var(--ok)', textAlign: 'center' }}>{empty}</div>
           : pageGroups
-            ? pageGroups.map((g) => <GroupCard key={g.key} g={g} mode={groupBy!} />)
+            ? pageGroups.map((g, i) => (
+              // โหมดเรียงตามวัน สลับลำดับแล้วหัวกลุ่มสลับที่ด้วย -> ให้ทั้งใบไล่เข้าใหม่
+              <div key={`${g.key}:${sortKey}`} className={groupBy === 'date' ? 'sort-in' : undefined}
+                style={groupBy === 'date' ? { animationDelay: `${Math.min(i, 8) * 30}ms` } : undefined}>
+                <GroupCard g={g} mode={groupBy!} sortKey={sortKey} />
+              </div>
+            ))
             : rows.map((r, i) => (
               <IssueItem key={`${r.emp}:${r.date}:${i}`} r={r} showDate={showDate} />
             ))}
