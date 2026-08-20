@@ -719,6 +719,15 @@ input, button, select { font-family: var(--sans); }
   font-family: var(--sans); font-size: 12px; font-weight: 500; cursor: pointer;
 }
 
+/* รายการไล่เข้าทีละแถวตอนสลับลำดับวัน (รายงานสถิติเข้า-ออก)
+   หน่วงต่อแถวตั้งที่ inline style ของแต่ละแถว */
+@keyframes sort-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: none; }
+}
+.sort-in { animation: sort-in .32s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .sort-in { animation: none; } }
+
 /* กราฟแท่ง: ความจางตอนชี้/ล็อก legend ค่อย ๆ ไล่ · ป้ายตัวเลข/ป้ายใต้แท่งเฟดตาม
    (ความสูงของแท่งเป็นหน้าที่ของอนิเมชัน recharts — BAR_ANIM ใน charts.tsx) */
 .bar-anim path,
