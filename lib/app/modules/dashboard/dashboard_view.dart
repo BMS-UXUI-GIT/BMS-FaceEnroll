@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -3071,6 +3073,14 @@ String _shiftName(String hhmm) {
   return 'เวรดึก';
 }
 
+/// สีอ่อนประจำเวร — ใช้ไล่เฉดมุมขวาบนการ์ดและเป็นพื้นฉากที่วาดเอง
+Color _shiftTint(String hhmm) {
+  final h = int.tryParse(hhmm.split(':').first) ?? 8;
+  if (h < 12) return const Color(0xFFCFE3FB); // เช้า ฟ้า
+  if (h < 18) return const Color(0xFFFFE3BE); // บ่าย ครีม
+  return const Color(0xFFD6CCE6); // ดึก ม่วง
+}
+
 /// สีชิปเวร — ชุดเดียวกับ web app FaceEnroll (.chip เช้า/บ่าย/ดึก)
 /// เช้า ฟ้าอ่อน · บ่าย ครีม · ดึก เทาน้ำเงิน — พื้นอ่อน ตัวอักษรเข้ม ไม่ใช่พื้นทึบตัวขาว
 (Color, Color) _shiftChipColors(String hhmm) {
@@ -3078,14 +3088,6 @@ String _shiftName(String hhmm) {
   if (h < 12) return (const Color(0xFFD7E8F6), const Color(0xFF404D8C));
   if (h < 18) return (const Color(0xFFFFF0D9), const Color(0xFF8C591A));
   return (const Color(0xFFD4DDE9), const Color(0xFF263873));
-}
-
-/// ภาพประกอบประจำเวร (export จาก Figma) — เช้า ฟ้า/ตะวัน · บ่าย ครีม/ตะวัน · ดึก ม่วง/จันทร์
-String _shiftArt(String? hhmm) {
-  final h = int.tryParse((hhmm ?? '').split(':').first) ?? 8;
-  if (h < 12) return 'assets/images/shift_morning.png';
-  if (h < 18) return 'assets/images/shift_afternoon.png';
-  return 'assets/images/shift_night.png';
 }
 
 Widget _pill(String text, Color bg, {Color fg = Colors.white}) => Container(
@@ -3116,7 +3118,14 @@ class _TodayCard extends StatefulWidget {
   State<_TodayCard> createState() => _TodayCardState();
 }
 
-class _TodayCardState extends State<_TodayCard> {
+class _TodayCardState extends State<_TodayCard>
+    with SingleTickerProviderStateMixin {
+  /// ไล่สีมุมขวาบนค่อย ๆ ขึ้นตอนการ์ดโผล่ — ครั้งเดียว ไม่วน
+  late final AnimationController _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..forward();
+
   /// PageView ต้องการความสูงคงที่ — เว้น 8 + หัวเรื่อง ~28 + ระยะ 16 + การ์ดสแกน 84 + ภาพล้นล่าง 6
   /// (ตัวเนื้อหาห่อ scroll ไว้อีกชั้น เผื่อฟอนต์/ตัวอักษรใหญ่กว่าที่เผื่อไว้ จะได้เลื่อนแทนที่จะล้น)
   static double get _pageH => _D.box(136);
@@ -3137,6 +3146,7 @@ class _TodayCardState extends State<_TodayCard> {
 
   @override
   void dispose() {
+    _intro.dispose();
     _pc.dispose();
     super.dispose();
   }
@@ -3150,73 +3160,93 @@ class _TodayCardState extends State<_TodayCard> {
     // เวรของหน้าที่กำลังดู — คุมทั้งภาพประกอบและ badge ที่อยู่แถวบนสุดของการ์ด
     final current = pages[_page.clamp(0, pages.length - 1)];
     final currentIn = '${current?['in'] ?? ''}';
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _D.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _D.hairline),
-      ),
-      child: Stack(
-        children: [
-          // ภาพประกอบมุมขวาบน — เปลี่ยนตามเวรที่เลือก
-          // ไฟล์ทั้ง 3 อยู่บน canvas ร่วม 246×176 (ฐานโดมที่ y=149) จึงสลับกันได้โดยไม่ขยับ
-          // top 3 = ให้ฐานโดมตกที่ y76 เท่าเดิม (13 + 63 ของสเปก Figma)
-          Positioned(
-            top:
-                9, // ดันลงล่าง — ส่วนที่ทับการ์ดสแกนถูกการ์ดบังไว้อยู่แล้ว (วาดก่อน Column)
-            right: 18, // Figma: ห่างขอบขวาการ์ด 34 − padding 16
-            child: Opacity(
-              opacity: _D.dark ? 0.35 : 1,
-              child: Image.asset(
-                _shiftArt(currentIn),
-                width: _D.sp(120),
-                height: _D.sp(86),
-                fit: BoxFit.contain,
-                // ต้นฉบับ 984×704 แต่วาดจริงราว 120×86 dp — ถอดรหัสเท่าที่ใช้
-                // ไม่งั้นถือ bitmap ใหญ่กว่าที่ต้องใช้ ~30 เท่า แล้วย่อทุกครั้งที่วาด
-                // คูณด้วย dpr จริงของเครื่อง ไม่ใช่ค่าคงที่ ไม่งั้นจอ 3.5x ได้ภาพเบลอ
-                cacheWidth: (_D.sp(120) * _D.dpr).round(),
-                cacheHeight: (_D.sp(86) * _D.dpr).round(),
-              ),
+    final tint = _shiftTint(currentIn).withValues(alpha: _D.dark ? 0.22 : 0.95);
+    return AnimatedBuilder(
+      animation: _intro,
+      // ตัวการ์ดไม่ต้องสร้างใหม่ทุกเฟรม ส่งเป็น child ให้ AnimatedBuilder ถือไว้
+      child: _cardBody(currentIn, pages),
+      builder: (context, child) {
+        final v = Curves.easeOutCubic.transform(_intro.value);
+        return AnimatedContainer(
+          // เปลี่ยนเวร (ปัดหน้า) แล้วสีไล่ไปหาสีใหม่ ไม่กระโดด
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _D.card,
+            // ไล่สีของเวรจากมุมขวาบนจางลงเป็นสีการ์ด — ให้ฉากที่วาดไว้มุมนั้นมีท้องฟ้ารองรับ
+            // radial ไม่ใช่ linear เพราะต้องการให้จางหมดก่อนถึงกลางการ์ด ไม่ไปแย่งตัวหนังสือ
+            gradient: RadialGradient(
+              center: const Alignment(0.95, -1.1),
+              radius: 1.15,
+              colors: [Color.lerp(_D.card, tint, v)!, _D.card],
+              stops: const [0, 0.72],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _D.hairline),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Widget _cardBody(String currentIn, List<Map<String, dynamic>?> pages) {
+    return Stack(
+      children: [
+        // ภาพประกอบมุมขวาบน — เปลี่ยนตามเวรที่เลือก
+        // ไฟล์ทั้ง 3 อยู่บน canvas ร่วม 246×176 (ฐานโดมที่ y=149) จึงสลับกันได้โดยไม่ขยับ
+        // top 3 = ให้ฐานโดมตกที่ y76 เท่าเดิม (13 + 63 ของสเปก Figma)
+        Positioned(
+          top:
+              9, // ดันลงล่าง — ส่วนที่ทับการ์ดสแกนถูกการ์ดบังไว้อยู่แล้ว (วาดก่อน Column)
+          right: 18, // Figma: ห่างขอบขวาการ์ด 34 − padding 16
+          child: Opacity(
+            opacity: _D.dark ? 0.35 : 1,
+            // วาดเองแทน PNG — ดวงอาทิตย์ต้องเคลื่อนข้ามโดม เมฆต้องค่อยประกอบร่าง
+            // ภาพ raster แยกชิ้นไม่ได้ ต้องเป็นรูปทรงที่วาดเองถึงขยับทีละชิ้นได้
+            child: _ShiftScene(
+              hhmm: currentIn,
+              width: _D.sp(120),
+              height: _D.sp(86),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // แถวบนสุด: label ซ้าย · badge เวรขวา (ชิดบนตาม Figma items-start)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'การสแกนของวันนี้',
-                      style: _D.body(size: 12, color: _D.muted),
-                    ),
-                  ),
-                  if (currentIn.isNotEmpty) _shiftPill(currentIn),
-                ],
-              ),
-              SizedBox(
-                height: _pageH,
-                child: PageView.builder(
-                  controller: _pc,
-                  itemCount: pages.length,
-                  onPageChanged: (i) => setState(() => _page = i),
-                  itemBuilder: (context, i) => SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: _shiftPage(pages[i], i),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // แถวบนสุด: label ซ้าย · badge เวรขวา (ชิดบนตาม Figma items-start)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    'การสแกนของวันนี้',
+                    style: _D.body(size: 12, color: _D.muted),
                   ),
                 ),
-              ),
-              if (pages.length > 1) ...[
-                const SizedBox(height: 12),
-                _dots(pages.length),
+                if (currentIn.isNotEmpty) _shiftPill(currentIn),
               ],
+            ),
+            SizedBox(
+              height: _pageH,
+              child: PageView.builder(
+                controller: _pc,
+                itemCount: pages.length,
+                onPageChanged: (i) => setState(() => _page = i),
+                itemBuilder: (context, i) => SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: _shiftPage(pages[i], i),
+                ),
+              ),
+            ),
+            if (pages.length > 1) ...[
+              const SizedBox(height: 12),
+              _dots(pages.length),
             ],
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -3277,7 +3307,7 @@ class _TodayCardState extends State<_TodayCard> {
 }
 
 /// การ์ดสแกนเข้า/ออก วางคู่กัน (Figma 584:14302)
-class _ScanTiles extends StatelessWidget {
+class _ScanTiles extends StatefulWidget {
   const _ScanTiles({
     required this.inTime,
     required this.outTime,
@@ -3293,15 +3323,20 @@ class _ScanTiles extends StatelessWidget {
   final Color outColor;
 
   @override
+  State<_ScanTiles> createState() => _ScanTilesState();
+}
+
+class _ScanTilesState extends State<_ScanTiles> {
+  @override
   Widget build(BuildContext context) => SizedBox(
-    height: _tileH,
+    height: _ScanTiles._tileH,
     child: Row(
       children: [
         Expanded(
           child: _tile(
             'สแกนเข้า',
-            inTime,
-            inColor,
+            widget.inTime,
+            widget.inColor,
             'assets/images/scan_in.png',
           ),
         ),
@@ -3309,8 +3344,8 @@ class _ScanTiles extends StatelessWidget {
         Expanded(
           child: _tile(
             'สแกนออก',
-            outTime,
-            outColor,
+            widget.outTime,
+            widget.outColor,
             'assets/images/scan_out.png',
           ),
         ),
@@ -3578,4 +3613,170 @@ class _SplitDot extends CustomPainter {
 
   @override
   bool shouldRepaint(_SplitDot old) => old.a != a || old.b != b;
+}
+
+/// ฉากประจำเวรบนการ์ดวันนี้ — วาดเองทั้งหมดเพื่อให้ขยับทีละชิ้นได้
+/// ดวงอาทิตย์/จันทร์ไต่ข้ามโดมช้า ๆ · เมฆค่อย ๆ ลอยมารวมกันเป็นก้อนตอนเปิดการ์ด
+class _ShiftScene extends StatefulWidget {
+  const _ShiftScene({
+    required this.hhmm,
+    required this.width,
+    required this.height,
+  });
+
+  final String hhmm;
+  final double width;
+  final double height;
+
+  @override
+  State<_ShiftScene> createState() => _ShiftSceneState();
+}
+
+class _ShiftSceneState extends State<_ShiftScene>
+    with TickerProviderStateMixin {
+  /// ดวงอาทิตย์ไต่โดม — 18 วิต่อรอบ ช้าจนไม่รบกวนตอนอ่านตัวเลข แต่เห็นว่าขยับ
+  late final AnimationController _sun = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 18),
+  )..repeat(reverse: true);
+
+  /// เมฆประกอบร่าง — เล่นครั้งเดียวตอนโผล่ และเล่นใหม่เมื่อสลับเวร
+  late final AnimationController _form = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..forward();
+
+  /// 0 = ดวงอาทิตย์เต็มดวง · 1 = พระจันทร์เสี้ยว — ค่อย ๆ แปลงร่างตอนสลับไปเวรดึก
+  late final AnimationController _night = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+    value: _isNight(widget.hhmm) ? 1 : 0,
+  );
+
+  static bool _isNight(String hhmm) =>
+      (int.tryParse(hhmm.split(':').first) ?? 8) >= 18;
+
+  @override
+  void didUpdateWidget(covariant _ShiftScene old) {
+    super.didUpdateWidget(old);
+    if (_shiftName(old.hhmm) != _shiftName(widget.hhmm)) {
+      _form.forward(from: 0);
+      _night.animateTo(_isNight(widget.hhmm) ? 1 : 0, curve: Curves.easeInOut);
+    }
+  }
+
+  @override
+  void dispose() {
+    _sun.dispose();
+    _form.dispose();
+    _night.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: CustomPaint(
+      size: Size(widget.width, widget.height),
+      painter: _ShiftPainter(
+        sun: _sun,
+        form: CurvedAnimation(parent: _form, curve: Curves.easeOutBack),
+        night: _night,
+      ),
+    ),
+  );
+}
+
+class _ShiftPainter extends CustomPainter {
+  _ShiftPainter({required this.sun, required this.form, required this.night})
+    : super(repaint: Listenable.merge([sun, form, night]));
+
+  final Animation<double> sun;
+  final Animation<double> form;
+
+  /// 0 = ดวงอาทิตย์ · 1 = พระจันทร์เสี้ยว (ค่ากลางคือกำลังแปลงร่าง)
+  final Animation<double> night;
+
+  // สีดูดมาจากไฟล์ภาพประกอบเดิม
+  static const _sunColor = Color(0xFFFDAF32);
+  static const _moonColor = Color(0xFFDCC8F5);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final baseY = h * 0.97;
+    final r = w * 0.46; // รัศมีโดม — กว้างเกือบเต็มกรอบเหมือนภาพเดิม
+    final cx = w * 0.5;
+
+    // ไม่วาดโดมแล้ว — พื้นหลังการ์ดที่ไล่สีจากมุมขวาบนทำหน้าที่เป็นท้องฟ้าแทน
+    // โดมเหลือไว้เป็นแค่ "เส้นทาง" ที่ดวงอาทิตย์ไต่ (r, cx, baseY ด้านล่าง)
+
+    // ดวงอาทิตย์/จันทร์ไต่จากซ้ายไปขวาตามขอบโดม แล้ววนใหม่
+    // ไต่แค่ช่วงกลางของโดม แล้ววิ่งกลับ — ดวงอาทิตย์อยู่ในกรอบตลอด
+    // ปล่อยให้วิ่งครบ 0→1 จะมีช่วงที่มันลับขอบฟ้าแล้วมุมนั้นว่างเปล่าเฉย ๆ
+    final t = 0.15 + sun.value * 0.7;
+    final a = math.pi * (1 - t); // pi → 0
+    final orbR = w * 0.105;
+    final orbC = Offset(cx + r * math.cos(a), baseY - r * math.sin(a));
+    canvas.save();
+    // ตัดไม่ให้โผล่ใต้เส้นฐานโดม — ขึ้น/ตกจึงดูเหมือนลับขอบฟ้า
+    canvas.clipRect(Rect.fromLTRB(0, 0, w, baseY));
+    final n = night.value;
+    final orbColor = Color.lerp(_sunColor, _moonColor, n)!;
+    canvas.drawCircle(
+      orbC,
+      orbR * 1.7,
+      Paint()..color = orbColor.withValues(alpha: 0.18),
+    );
+    // วาดตัวดวงในเลเยอร์แยกแล้ว "เจาะ" ด้วย dstOut — เสี้ยวจึงโปร่งจริง
+    // ไม่ต้องรู้ว่าพื้นหลังตรงนั้นสีอะไร (การ์ดไล่เฉดอยู่ ทาสีทับจะเห็นรอยต่อ)
+    canvas
+      ..saveLayer(Rect.fromCircle(center: orbC, radius: orbR * 1.2), Paint())
+      ..drawCircle(orbC, orbR, Paint()..color = orbColor);
+    if (n > 0.01) {
+      // วงที่มาเจาะเลื่อนเข้ามาจากนอกดวง (2.1R) จนถึงตำแหน่งเสี้ยว (0.55R)
+      canvas.drawCircle(
+        orbC.translate(orbR * (2.1 - 1.55 * n), -orbR * 0.3 * n),
+        orbR * 0.95,
+        Paint()..blendMode = BlendMode.dstOut,
+      );
+    }
+    canvas
+      ..restore()
+      ..restore();
+
+    // เมฆ 3 ก้อนลอยเข้ามารวมกัน — p=0 กระจายและจาง · p=1 ประกอบร่างเสร็จ
+    final p = form.value.clamp(0.0, 1.0);
+    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.92 * p);
+    final base = Offset(w * 0.54, baseY - h * 0.13);
+    const spread = [Offset(-1.6, 0.9), Offset(0, -1.4), Offset(1.7, 0.8)];
+    const puffs = [
+      (Offset(-0.20, 0.05), 0.135),
+      (Offset(0.0, -0.10), 0.175),
+      (Offset(0.21, 0.04), 0.145),
+    ];
+    for (var i = 0; i < puffs.length; i++) {
+      final (rel, rr) = puffs[i];
+      final off = Offset(
+        rel.dx * w + spread[i].dx * w * 0.28 * (1 - p),
+        rel.dy * h + spread[i].dy * h * 0.24 * (1 - p),
+      );
+      canvas.drawCircle(base + off, w * rr * (0.55 + 0.45 * p), cloud);
+    }
+    // ฐานเมฆแบน ๆ เชื่อมก้อนให้เป็นก้อนเดียว
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: base + Offset(0, h * 0.09),
+          width: w * 0.52 * p,
+          height: h * 0.16,
+        ),
+        Radius.circular(h * 0.08),
+      ),
+      cloud,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ShiftPainter old) => false; // repaint ผูกกับ animation แล้ว
 }
