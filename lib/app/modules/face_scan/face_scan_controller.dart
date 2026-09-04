@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'dart:ui' show Size;
 
@@ -11,7 +10,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import '../../config/demo_mode.dart';
+import '../../services/face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -163,7 +163,7 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       try {
-        if (camera?.value.isStreamingImages ?? false) camera!.stopImageStream();
+        unawaited(_stopFrames());
       } catch (_) {}
       _location.stopListening(); // พับแอป = ไม่เปลือง GPS
     } else if (state == AppLifecycleState.resumed) {
@@ -177,14 +177,14 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _restartStreamIfNeeded() async {
-    if (camera == null || !camera!.value.isInitialized || camera!.value.isStreamingImages) {
+    if (!kDemoBuild && (camera == null || !camera!.value.isInitialized || camera!.value.isStreamingImages)) {
       return;
     }
     try {
       if (_confirmActive) {
-        await camera!.startImageStream(_onConfirmFrame);
+        await _startConfirmFrames();
       } else if (phase.value == ScanPhase.scanning && !paused.value) {
-        await camera!.startImageStream(_onFrame);
+        await _startFrames();
       }
     } catch (_) {}
   }
@@ -327,6 +327,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _init() async {
+    if (kDemoBuild) {
+      await _initDemo();
+      return;
+    }
     final perm = await Permission.camera.request();
     if (!perm.isGranted) {
       resultKind.value = ScanResultKind.cameraError;
@@ -343,14 +347,14 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
       ResolutionPreset.medium,
       enableAudio: false,
       // Android: yuv420 → แปลงเป็น nv21 เอง / iOS: bgra8888 ส่งตรงให้ ML Kit
-      imageFormatGroup: Platform.isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
+      imageFormatGroup: isIOSDevice ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
     );
     await camera!.initialize();
     // ปิดแฟลช — iPhone ไม่มีแฟลชหน้า เลยทำจอขาวจ้าแทน (Retina Flash) ตอนถ่าย
     try {
       await camera!.setFlashMode(FlashMode.off);
     } catch (_) {}
-    await camera!.startImageStream(_onFrame);
+    await _startFrames();
     phase.value = ScanPhase.scanning;
     message.value = 'กรุณามองกล้อง';
 
@@ -361,12 +365,65 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// เว็บเดโม: ขอกล้องผ่าน camera_web ตรง ๆ (ไม่พึ่ง permission_handler) — ไม่ให้สิทธิ์
+  /// ก็ยังเดินต่อได้ แค่ไม่มีภาพพรีวิว เพราะใบหน้ามาจากสคริปต์จำลองอยู่แล้ว
+  Future<void> _initDemo() async {
+    try {
+      final cams = await availableCameras();
+      final front = cams.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cams.first,
+      );
+      camera = CameraController(front, ResolutionPreset.medium, enableAudio: false);
+      await camera!.initialize();
+    } catch (_) {
+      camera = null; // ไม่มีเว็บแคม/ไม่ให้สิทธิ์ — เดโมยังกดผ่านได้
+    }
+    update();
+    phase.value = ScanPhase.scanning;
+    message.value = 'กรุณามองกล้อง';
+    await _startFrames();
+  }
+
+  /// เปิด/ปิดแหล่งเฟรม — มือถือใช้ image stream จริง, เว็บเดโมใช้ตัวจับเวลาปั๊มเฟรมจำลอง
+  /// (camera_web ไม่รองรับ startImageStream)
+  Future<void> _startFrames() async {
+    if (kDemoBuild) {
+      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      return;
+    }
+    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+      await camera!.startImageStream(_onFrame);
+    }
+  }
+
+  Future<void> _stopFrames() async {
+    _demoTimer?.cancel();
+    _demoTimer = null;
+    if (kDemoBuild) return;
+    if (camera?.value.isStreamingImages ?? false) await camera!.stopImageStream();
+  }
+
+  /// เฟรมจำลองของเดโม — ส่งเข้าเส้นทางเดียวกับเฟรมจริง (สแกน หรือ ยืนยันด้วยรอยยิ้ม)
+  void _onDemoTick() {
+    if (_confirmActive) {
+      _handleConfirmFaces([demoFace(_demoFrame)]);
+      return;
+    }
+    if (!_scanGateOpen()) return;
+    _busy = true;
+    _handleScanFaces([demoFace(_demoFrame)], _demoFrame.width.toInt()).whenComplete(() => _busy = false);
+  }
+
+  Timer? _demoTimer;
+  static const Size _demoFrame = Size(480, 640);
+
   /// หยุดสแกนชั่วคราว — อยู่หน้าเดิม (หยุดตรวจจับ ไม่ออกจากหน้า)
   void pauseScan() {
     if (paused.value) return;
     paused.value = true;
     try {
-      if (camera?.value.isStreamingImages ?? false) camera!.stopImageStream();
+      unawaited(_stopFrames());
     } catch (_) {}
     _resetLiveness();
     faceDetected.value = false;
@@ -382,59 +439,32 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     phase.value = ScanPhase.scanning;
     _lastAttempt = DateTime.now();
     try {
-      if (camera != null && camera!.value.isInitialized && !(camera!.value.isStreamingImages)) {
-        await camera!.startImageStream(_onFrame);
-      }
+      await _startFrames();
     } catch (_) {}
   }
 
-  Future<void> _onFrame(CameraImage frame) async {
-    if (Get.currentRoute == Routes.enterPin) return; // หน้า PIN บังอยู่ — ห้ามสแกนต่อ
-    if (locBlocked.value || locChecking.value) return; // นอกพื้นที่/ยังตรวจตำแหน่งไม่เสร็จ — ห้ามสแกน
-    if (paused.value || _busy || phase.value != ScanPhase.scanning) return;
-    if (DateTime.now().difference(_lastAttempt) < cooldown) return;
+  /// เงื่อนไข "รับเฟรมนี้ไหม" — ใช้ร่วมกันทั้งเฟรมจริงและเฟรมจำลองของเดโม
+  /// (ผ่านแล้วถือว่าจองคิวประมวลผลรอบนี้ ผู้เรียกต้องตั้ง _busy ต่อทันที)
+  bool _scanGateOpen() {
+    if (Get.currentRoute == Routes.enterPin) return false; // หน้า PIN บังอยู่ — ห้ามสแกนต่อ
+    if (locBlocked.value || locChecking.value) return false; // นอกพื้นที่/ยังตรวจตำแหน่งไม่เสร็จ
+    if (paused.value || _busy || phase.value != ScanPhase.scanning) return false;
+    if (DateTime.now().difference(_lastAttempt) < cooldown) return false;
     if (DateTime.now().difference(_lastFrameProcess) < Duration(milliseconds: settings.throttlerMs.value)) {
-      return;
+      return false;
     }
     _lastFrameProcess = DateTime.now();
+    return true;
+  }
+
+  Future<void> _onFrame(CameraImage frame) async {
+    if (!_scanGateOpen()) return;
     _busy = true;
     try {
       final input = _toInputImage(frame);
       if (input == null) return;
       final faces = await _detector.processImage(input);
-      _frameErrors = 0; // แปลง+ตรวจสำเร็จ → reset
-      if (faces.isEmpty) {
-        faceDetected.value = false;
-        if (livenessActive.value || _livenessPassed) {
-          _resetLiveness(); // กำลังทำ liveness แล้วหน้าหลุดเฟรม → เริ่มใหม่
-        } else if (phase.value == ScanPhase.scanning) {
-          message.value = 'ไม่พบใบหน้า — จัดหน้าให้อยู่ในกรอบ และเพิ่มแสงให้สว่าง';
-        }
-        return;
-      }
-
-      final face = faces.first;
-      final widthRatio = face.boundingBox.width / frame.width;
-      if (widthRatio < settings.minFaceWidthRatio) {
-        faceDetected.value = false;
-        if (!livenessActive.value) message.value = 'ขยับเข้าใกล้อีกนิด ให้ใบหน้าเต็มกรอบ';
-        return;
-      }
-      faceDetected.value = true; // เจอหน้า + ใหญ่พอ (กรอบจะเป็นสีเขียว)
-
-      // ใกล้พอแล้ว: ถ้าเปิด liveness และยังไม่ผ่าน → ทำ liveness ก่อน (ยังไม่ถ่าย)
-      if (settings.isEnableLivenessDetection.value && !_livenessPassed) {
-        if (!livenessActive.value) {
-          _startLiveness();
-        } else {
-          _validateLivenessFrame(face);
-        }
-        return;
-      }
-
-      // liveness ปิด หรือผ่านแล้ว → ถ่าย + match
-      _lastAttempt = DateTime.now();
-      await _captureAndIdentify();
+      await _handleScanFaces(faces, frame.width);
     } catch (e) {
       log('frame error: $e');
       // แปลงภาพ/ตรวจหน้าพังติดกันหลายเฟรม → บอกผู้ใช้
@@ -446,12 +476,49 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// ตัดสินจากใบหน้าที่ตรวจได้ในเฟรมเดียว — เจอ/ใหญ่พอ → liveness → ถ่าย+match
+  Future<void> _handleScanFaces(List<Face> faces, int frameWidth) async {
+    _frameErrors = 0; // แปลง+ตรวจสำเร็จ → reset
+    if (faces.isEmpty) {
+      faceDetected.value = false;
+      if (livenessActive.value || _livenessPassed) {
+        _resetLiveness(); // กำลังทำ liveness แล้วหน้าหลุดเฟรม → เริ่มใหม่
+      } else if (phase.value == ScanPhase.scanning) {
+        message.value = 'ไม่พบใบหน้า — จัดหน้าให้อยู่ในกรอบ และเพิ่มแสงให้สว่าง';
+      }
+      return;
+    }
+
+    final face = faces.first;
+    final widthRatio = face.boundingBox.width / frameWidth;
+    if (widthRatio < settings.minFaceWidthRatio) {
+      faceDetected.value = false;
+      if (!livenessActive.value) message.value = 'ขยับเข้าใกล้อีกนิด ให้ใบหน้าเต็มกรอบ';
+      return;
+    }
+    faceDetected.value = true; // เจอหน้า + ใหญ่พอ (กรอบจะเป็นสีเขียว)
+
+    // ใกล้พอแล้ว: ถ้าเปิด liveness และยังไม่ผ่าน → ทำ liveness ก่อน (ยังไม่ถ่าย)
+    if (settings.isEnableLivenessDetection.value && !_livenessPassed) {
+      if (!livenessActive.value) {
+        _startLiveness();
+      } else {
+        _validateLivenessFrame(face);
+      }
+      return;
+    }
+
+    // liveness ปิด หรือผ่านแล้ว → ถ่าย + match
+    _lastAttempt = DateTime.now();
+    await _captureAndIdentify();
+  }
+
   InputImage? _toInputImage(CameraImage frame) {
     if (camera == null) return null;
     final rotation = InputImageRotationValue.fromRawValue(camera!.description.sensorOrientation);
     if (rotation == null) return null;
     // iOS: BGRA8888 plane เดียว ส่งตรง (NV21 มีแค่ Android)
-    if (Platform.isIOS) {
+    if (isIOSDevice) {
       final p = frame.planes.first;
       return InputImage.fromBytes(
         bytes: p.bytes,
@@ -591,42 +658,54 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     _confirmActive = true;
     _confirmBusy = false;
     try {
-      if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
-        await camera!.startImageStream(_onConfirmFrame);
-      }
+      await _startConfirmFrames();
     } catch (_) {}
+  }
+
+  Future<void> _startConfirmFrames() async {
+    if (kDemoBuild) {
+      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      return;
+    }
+    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+      await camera!.startImageStream(_onConfirmFrame);
+    }
   }
 
   Future<void> _stopConfirmDetection() async {
     _confirmActive = false;
     try {
-      if (camera != null && camera!.value.isStreamingImages) {
-        await camera!.stopImageStream();
-      }
+      await _stopFrames();
     } catch (_) {}
   }
 
   Future<void> _onConfirmFrame(CameraImage frame) async {
     if (Get.currentRoute == Routes.enterPin) return; // หน้า PIN บังอยู่
     if (!_confirmActive || _confirmBusy) return;
-    if (DateTime.now().difference(_lastConfirmCheck) < livenessThrottle) return;
-    _lastConfirmCheck = DateTime.now();
+    // การหน่วงตรวจอยู่ใน _handleConfirmFaces แล้ว (ใช้ร่วมกับเฟรมจำลอง)
     _confirmBusy = true;
     try {
       final input = _toInputImage(frame);
       if (input == null) return;
       final faces = await _detector.processImage(input);
-      if (faces.isEmpty) return;
-      final face = faces.first;
-      if ((face.smilingProbability ?? 0) >= 0.8) {
-        _resolveConfirm(true); // ยิ้ม -> ยืนยัน (ใช้เวรแรก = ใกล้เวลาสุด)
-      } else if (faceYaw(face) <= -20) {
-        _resolveConfirm(false); // หันขวา -> ยกเลิก/ลองใหม่ (yaw normalize แล้ว)
-      }
+      _handleConfirmFaces(faces);
     } catch (_) {
       // ตรวจพลาดเฟรมเดียวไม่เป็นไร
     } finally {
       _confirmBusy = false;
+    }
+  }
+
+  /// ยิ้ม = ยืนยัน · หันขวา = ลองใหม่ (ใช้ทั้งเฟรมจริงและเฟรมจำลอง)
+  void _handleConfirmFaces(List<Face> faces) {
+    if (!_confirmActive || faces.isEmpty) return;
+    if (DateTime.now().difference(_lastConfirmCheck) < livenessThrottle) return;
+    _lastConfirmCheck = DateTime.now();
+    final face = faces.first;
+    if ((face.smilingProbability ?? 0) >= 0.8) {
+      _resolveConfirm(true); // ยิ้ม -> ยืนยัน (ใช้เวรแรก = ใกล้เวลาสุด)
+    } else if (faceYaw(face) <= -20) {
+      _resolveConfirm(false); // หันขวา -> ยกเลิก/ลองใหม่ (yaw normalize แล้ว)
     }
   }
 
@@ -647,15 +726,16 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   Future<void> _captureAndIdentify() async {
     phase.value = ScanPhase.processing;
     message.value = 'กำลังตรวจสอบ...';
-    await camera!.stopImageStream();
+    await _stopFrames();
 
     try {
       final sw = Stopwatch()..start();
-      final shot = await camera!.takePicture();
+      // เดโมที่ไม่มีเว็บแคมก็ต้องเดินต่อได้ — ฝั่งเดโมไม่ได้อ่านรูปอยู่แล้ว
+      final shot = (kDemoBuild && camera == null) ? null : await camera!.takePicture();
       final tShot = sw.elapsedMilliseconds;
-      final raw = await shot.readAsBytes();
+      final raw = shot == null ? Uint8List(0) : await shot.readAsBytes();
       final tRead = sw.elapsedMilliseconds;
-      final base64Image = await _compressToBase64(raw);
+      final base64Image = raw.isEmpty ? '' : await _compressToBase64(raw);
       final tComp = sw.elapsedMilliseconds;
 
       final res = await _api.match(base64Image);
@@ -896,8 +976,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     matchedPosition.value = '';
     inOutType.value = null;
     _resetLiveness(); // คนต่อไปต้องทำ liveness ใหม่
-    if (camera != null && camera!.value.isInitialized) {
-      await camera!.startImageStream(_onFrame);
+    if (kDemoBuild || (camera != null && camera!.value.isInitialized)) {
+      await _startFrames();
       phase.value = ScanPhase.scanning;
       message.value = 'กรุณามองกล้อง';
     }
@@ -976,6 +1056,7 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     _gpsSub?.cancel();
     _location.stopListening();
     _batteryTimer?.cancel();
+    _demoTimer?.cancel();
     _resetBrightness(); // คืนความสว่างเสมอ (auto fill-light อาจเร่งไว้)
     camera?.dispose();
     _detector.close();

@@ -1,0 +1,23 @@
+# push branch นี้แล้วสั่งให้ workflow บน main deploy Pages ใหม่
+#
+# GitHub Pages มี site เดียวต่อ repo — เว็บ dashboard (main) กับแอปมือถือ (branch นี้)
+# จึงต้อง build รวมกันในรอบเดียว ตัว build จริงอยู่ที่ .github/workflows/deploy-pages.yml บน main
+# (มันเช็คเอาต์ branch mobile-app มา build Flutter web ลง /mobile/ ให้เอง)
+name: สั่ง deploy Pages ใหม่
+
+on:
+  push:
+    branches: [mobile-app]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: สั่ง deploy-pages.yml บน main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-pages.yml --repo ${{ github.repository }} --ref main

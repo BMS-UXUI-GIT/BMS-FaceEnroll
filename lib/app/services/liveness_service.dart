@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'face_detection.dart';
 
 import '../modules/face_scan/liveness/face_liveness_action.dart';
 import 'face_geometry.dart';

@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../routes/app_pages.dart';
-import 'api_service.dart';
+import 'demo_api_service.dart';
 import 'settings_service.dart';
 
 /// PIN ในเครื่อง (ไม่แตะ DB) — เก็บ hash+salt ใน SharedPreferences
@@ -88,7 +88,7 @@ class PinService extends GetxService with WidgetsBindingObserver {
   /// เช็คคำสั่ง "ปลดล็อค" จาก admin (dashboard) — ดึง policy แล้วดู pin_unlock_at
   /// timestamp ใหม่กว่าที่เครื่องนี้เคยเห็น + กำลังโดนล็อค → ปลดทันที (คืน true)
   Future<bool> tryRemoteUnlock() async {
-    final api = ApiService(_settings);
+    final api = buildApiService(_settings);
     try {
       final pol = await api.getPolicy();
       final ts = pol?['pin_unlock_at']?.toString() ?? '';

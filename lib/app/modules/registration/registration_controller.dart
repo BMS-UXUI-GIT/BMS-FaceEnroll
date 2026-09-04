@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'dart:ui' show Size;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart' show SystemSound, SystemSoundType;
 import 'package:get/get.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import '../../config/demo_mode.dart';
+import '../../services/face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -166,6 +166,10 @@ class RegistrationController extends GetxController {
   }
 
   Future<void> _initCamera() async {
+    if (kDemoBuild) {
+      await _initCameraDemo();
+      return;
+    }
     if (!(await Permission.camera.request()).isGranted) {
       message.value = 'ไม่ได้รับสิทธิ์ใช้กล้อง';
       return;
@@ -178,7 +182,7 @@ class RegistrationController extends GetxController {
         ResolutionPreset.medium,
         enableAudio: false,
         // Android: yuv420 → แปลง nv21 เอง / iOS: bgra8888 ส่งตรงให้ ML Kit
-        imageFormatGroup: Platform.isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
+        imageFormatGroup: isIOSDevice ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
       );
       await camera!.initialize();
       // ปิดแฟลช — iPhone ไม่มีแฟลชหน้า เลยทำจอขาวจ้าแทน (Retina Flash) ตอนถ่าย
@@ -189,6 +193,55 @@ class RegistrationController extends GetxController {
     update();
     await _startEnrollStream();
   }
+
+  /// เว็บเดโม: ขอกล้องผ่าน camera_web ตรง ๆ — ไม่ให้สิทธิ์ก็ยังเดินต่อได้ (ไม่มีพรีวิว)
+  Future<void> _initCameraDemo() async {
+    if (camera == null || !camera!.value.isInitialized) {
+      try {
+        final cams = await availableCameras();
+        final front = cams.firstWhere(
+          (c) => c.lensDirection == CameraLensDirection.front,
+          orElse: () => cams.first,
+        );
+        camera = CameraController(front, ResolutionPreset.medium, enableAudio: false);
+        await camera!.initialize();
+      } catch (_) {
+        camera = null;
+      }
+    }
+    update();
+    await _startEnrollStream();
+  }
+
+  /// เปิด/ปิดแหล่งเฟรม — มือถือใช้ image stream จริง, เว็บเดโมปั๊มเฟรมจำลองด้วยตัวจับเวลา
+  /// (camera_web ไม่รองรับ startImageStream)
+  Future<void> _startFrames() async {
+    if (kDemoBuild) {
+      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      return;
+    }
+    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+      await camera!.startImageStream(_onFrame);
+    }
+  }
+
+  Future<void> _stopFrames() async {
+    _demoTimer?.cancel();
+    _demoTimer = null;
+    if (kDemoBuild) return;
+    if (camera != null && camera!.value.isStreamingImages) await camera!.stopImageStream();
+  }
+
+  void _onDemoTick() {
+    if (!_enrollActive || _frameBusy) return;
+    if (DateTime.now().difference(_lastFrame) < _throttle) return;
+    _lastFrame = DateTime.now();
+    _frameBusy = true;
+    _handleEnrollFaces([demoFace(_demoFrame)]).whenComplete(() => _frameBusy = false);
+  }
+
+  Timer? _demoTimer;
+  static const Size _demoFrame = Size(480, 640);
 
   Future<void> _startEnrollStream() async {
     _enrollActive = true;
@@ -204,9 +257,7 @@ class RegistrationController extends GetxController {
       _startReminder(); // เริ่มนับใหม่ — ยังไม่ผ่านมุมนี้ก็ย้ำเสียงทุก _remindEvery
     }
     try {
-      if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
-        await camera!.startImageStream(_onFrame);
-      }
+      await _startFrames();
     } catch (_) {}
   }
 
@@ -231,37 +282,43 @@ class RegistrationController extends GetxController {
       final input = _toInputImage(frame);
       if (input == null) return;
       final faces = await _detector.processImage(input);
-      if (faces.isEmpty) {
-        _holdCount = 0;
-        faceInZone.value = false;
-        instruction.value = 'จัดหน้าให้อยู่ในกรอบวงรี';
-        return;
-      }
-      final f = faces.first;
-      final yaw = faceYaw(f); // normalize ซ้าย/ขวา ให้เท่ากันทุกเครื่อง (iOS กลับด้าน)
-      final pitch = f.headEulerAngleX ?? 0;
-      final eyesOpen = (f.leftEyeOpenProbability ?? 1) > _eyeOpen && (f.rightEyeOpenProbability ?? 1) > _eyeOpen;
-      final vel = (yaw - _lastYaw).abs() + (pitch - _lastPitch).abs();
-      _lastYaw = yaw;
-      _lastPitch = pitch;
-      final still = vel < _still;
-      final pose = _poses[poseIndex.value];
-      final inZone = pose.ok(yaw, pitch) && eyesOpen;
-      faceInZone.value = inZone && still;
-      if (inZone && still) {
-        _holdCount++;
-        instruction.value = '${pose.instruction} · นิ่งไว้…';
-      } else {
-        _holdCount = 0;
-        instruction.value = pose.instruction + (inZone && !still ? ' · หยุดนิ่ง' : (!eyesOpen ? ' · ลืมตา' : ''));
-      }
-      if (_holdCount >= _hold) {
-        await _captureCurrentAngle();
-      }
+      await _handleEnrollFaces(faces);
     } catch (_) {
       // เฟรมพลาดเฟรมเดียวไม่เป็นไร
     } finally {
       _frameBusy = false;
+    }
+  }
+
+  /// ตัดสินจากใบหน้าในเฟรมเดียว — อยู่ในมุม + นิ่ง + ตาเปิด ครบ _hold เฟรมแล้วถ่ายเอง
+  /// (ใช้ร่วมกันทั้งเฟรมจริงและเฟรมจำลองของเว็บเดโม)
+  Future<void> _handleEnrollFaces(List<Face> faces) async {
+    if (faces.isEmpty) {
+      _holdCount = 0;
+      faceInZone.value = false;
+      instruction.value = 'จัดหน้าให้อยู่ในกรอบวงรี';
+      return;
+    }
+    final f = faces.first;
+    final yaw = faceYaw(f); // normalize ซ้าย/ขวา ให้เท่ากันทุกเครื่อง (iOS กลับด้าน)
+    final pitch = f.headEulerAngleX ?? 0;
+    final eyesOpen = (f.leftEyeOpenProbability ?? 1) > _eyeOpen && (f.rightEyeOpenProbability ?? 1) > _eyeOpen;
+    final vel = (yaw - _lastYaw).abs() + (pitch - _lastPitch).abs();
+    _lastYaw = yaw;
+    _lastPitch = pitch;
+    final still = vel < _still;
+    final pose = _poses[poseIndex.value];
+    final inZone = pose.ok(yaw, pitch) && eyesOpen;
+    faceInZone.value = inZone && still;
+    if (inZone && still) {
+      _holdCount++;
+      instruction.value = '${pose.instruction} · นิ่งไว้…';
+    } else {
+      _holdCount = 0;
+      instruction.value = pose.instruction + (inZone && !still ? ' · หยุดนิ่ง' : (!eyesOpen ? ' · ลืมตา' : ''));
+    }
+    if (_holdCount >= _hold) {
+      await _captureCurrentAngle();
     }
   }
 
@@ -271,10 +328,11 @@ class RegistrationController extends GetxController {
     _holdCount = 0;
     faceInZone.value = false;
     try {
-      if (camera!.value.isStreamingImages) await camera!.stopImageStream();
-      final shot = await camera!.takePicture();
+      await _stopFrames();
+      // เดโมที่ไม่มีเว็บแคมก็ต้องเดินต่อได้ — ฝั่งเดโมไม่ได้อ่านรูปอยู่แล้ว
+      final shot = (kDemoBuild && camera == null) ? null : await camera!.takePicture();
       SystemSound.play(SystemSoundType.click); // เสียงชัตเตอร์ = เก็บมุมนี้แล้ว
-      captured.add(await _compress(await shot.readAsBytes()));
+      captured.add(shot == null ? '' : await _compress(await shot.readAsBytes()));
       poseIndex.value++;
       if (poseIndex.value >= _poses.length) {
         await finishRegister();
@@ -304,7 +362,7 @@ class RegistrationController extends GetxController {
     busy.value = true;
     message.value = 'กำลังบันทึก...';
     try {
-      if (camera != null && camera!.value.isStreamingImages) await camera!.stopImageStream();
+      await _stopFrames();
       final resp = await _api.register(
         metadata: {'emp_id': empId, 'name': staffName},
         images: List<String>.from(captured),
@@ -343,7 +401,7 @@ class RegistrationController extends GetxController {
     final rotation = InputImageRotationValue.fromRawValue(camera!.description.sensorOrientation);
     if (rotation == null) return null;
     // iOS: BGRA8888 plane เดียว ส่งตรง (NV21 มีแค่ Android)
-    if (Platform.isIOS) {
+    if (isIOSDevice) {
       final p = frame.planes.first;
       return InputImage.fromBytes(
         bytes: p.bytes,
@@ -402,6 +460,7 @@ class RegistrationController extends GetxController {
   void onClose() {
     _enrollActive = false;
     _remindTimer?.cancel();
+    _demoTimer?.cancel();
     camera?.dispose();
     _detector.close();
     super.onClose();
