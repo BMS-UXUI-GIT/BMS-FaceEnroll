@@ -4023,7 +4023,7 @@ class _FixRequestViewState extends State<FixRequestView> {
     final noOut = r['no_out'] == true;
     final done = FixRequestView.sentDates.contains('${r['date']}');
     return Tappable(
-      onTap: () => _openSheet(r),
+      onTap: () => _openForm(r),
       splash: _D.accent,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -4133,13 +4133,8 @@ class _FixRequestViewState extends State<FixRequestView> {
     ),
   );
 
-  Future<void> _openSheet(Map<String, dynamic> r) async {
-    final ok = await Get.bottomSheet<bool>(
-      _FixRequestSheet(row: r),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      ignoreSafeArea: false,
-    );
+  Future<void> _openForm(Map<String, dynamic> r) async {
+    final ok = await Get.toNamed<Object?>(Routes.fixRequestForm, arguments: r);
     if (ok != true || !mounted) return;
     setState(() => FixRequestView.sentDates.add('${r['date']}'));
   }
@@ -4171,20 +4166,18 @@ class _FixHead extends SliverPersistentHeaderDelegate {
       old.height != height || old.signature != signature;
 }
 
-/// ฟอร์มขอแก้ไขเวลาของหนึ่งวัน — เปิดจากการ์ดในหน้า "ต้องขอแก้ไข"
+/// หน้าฟอร์มขอแก้ไขเวลาของหนึ่งวัน — เปิดจากรายการในหน้า "ต้องขอแก้ไข"
 ///
 /// ⚠️ ต้นแบบ: กดส่งแล้วไม่ได้ยิงไปไหน (ยังไม่มี endpoint รับคำขอ)
-/// แค่ปิดฟอร์มแล้วยืนยันว่าบันทึกคำขอไว้แล้ว — ต่อ API ทีหลังที่ _submit()
-class _FixRequestSheet extends StatefulWidget {
-  const _FixRequestSheet({required this.row});
-
-  final Map<String, dynamic> row;
+/// ปิดหน้าแล้วคืน true ให้หน้ารายการย้ายวันนั้นไปแท็บ "ส่งแล้ว" — ต่อ API ที่ _submit()
+class FixRequestFormView extends StatefulWidget {
+  const FixRequestFormView({super.key});
 
   @override
-  State<_FixRequestSheet> createState() => _FixRequestSheetState();
+  State<FixRequestFormView> createState() => _FixRequestFormViewState();
 }
 
-class _FixRequestSheetState extends State<_FixRequestSheet> {
+class _FixRequestFormViewState extends State<FixRequestFormView> {
   static const _shifts = ['เวรเช้า', 'เวรบ่าย', 'เวรดึก'];
 
   /// สาเหตุที่เจอบ่อย — กดเลือกแทนพิมพ์ (พิมพ์เองได้ในช่องล่าง)
@@ -4196,6 +4189,9 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
     'ควบเวรต่อ',
   ];
 
+  late final Map<String, dynamic> _row =
+      (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
+
   late String _shift;
   late TimeOfDay? _in;
   late TimeOfDay? _out;
@@ -4205,12 +4201,15 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
   @override
   void initState() {
     super.initState();
-    final inT = '${widget.row['in'] ?? ''}';
+    final inT = '${_row['in'] ?? ''}';
     _shift = inT.isEmpty ? _shifts.first : _shiftName(inT);
     if (!_shifts.contains(_shift)) _shift = _shifts.first;
     _in = _parse(inT);
-    _out = _parse('${widget.row['out'] ?? ''}');
-    _reason = widget.row['no_out'] == true ? _reasons.first : '';
+    _out = _parse('${_row['out'] ?? ''}');
+    // เดาสาเหตุจากสิ่งที่ระบบจับได้ ผู้ใช้กดเปลี่ยนได้ถ้าไม่ตรง
+    _reason = _row['no_out'] == true
+        ? 'ลืมสแกนออก'
+        : (_row['out_area'] == true ? 'สแกนนอกพื้นที่' : '');
   }
 
   @override
@@ -4254,7 +4253,7 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
     Get.snackbar(
       'บันทึกคำขอแล้ว',
       // อย่าบอกว่า "ส่งให้หัวหน้าเวรแล้ว" — ยังไม่มีอะไรออกจากเครื่องจริง ๆ
-      'ต้นแบบ: ยังไม่ส่งเข้าระบบ — ${thaiShortDate('${widget.row['date']}')} · $_shift · ${_fmt(_in)}-${_fmt(_out)} · $_reason',
+      'ต้นแบบ: ยังไม่ส่งเข้าระบบ — ${thaiShortDate('${_row['date']}')} · $_shift · ${_fmt(_in)}-${_fmt(_out)} · $_reason',
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.all(16),
       borderRadius: 16,
@@ -4267,144 +4266,226 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
   @override
   Widget build(BuildContext context) {
     _D.useScale(context);
-    return Padding(
-      // ดันขึ้นเหนือคีย์บอร์ดตอนพิมพ์เหตุผล
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _D.bg,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: _D.hairline,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-              ),
-              Text(
-                'ขอแก้ไขเวลา',
-                style: _D.tech(
-                  size: 18,
-                  weight: FontWeight.w700,
-                  color: _D.ink,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                thaiShortDate('${widget.row['date']}'),
-                style: _D.body(size: 12, color: _D.muted),
-              ),
-              const SizedBox(height: 16),
-              _label('เวร'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (final s in _shifts) ...[
-                    if (s != _shifts.first) const SizedBox(width: 8),
-                    Expanded(
-                      child: _choice(
-                        s,
-                        _shift == s,
-                        () => setState(() => _shift = s),
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: _D._maxTextScale,
+      child: Scaffold(
+        backgroundColor: _D.bg,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _header(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _label('เวร'),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (final s in _shifts) ...[
+                          if (s != _shifts.first) const SizedBox(width: 8),
+                          Expanded(
+                            child: _choice(
+                              s,
+                              _shift == s,
+                              () => setState(() => _shift = s),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    _label('เวลาที่ถูกต้อง'),
+                    const SizedBox(height: 4),
+                    _timeField('เวลาเข้า', _in, () => _pick(true)),
+                    const SizedBox(height: 4),
+                    _timeField('เวลาออก', _out, () => _pick(false)),
+                    const SizedBox(height: 22),
+                    _label('สาเหตุ'),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final r in _reasons)
+                          _choice(
+                            r,
+                            _reason == r,
+                            () => setState(() => _reason = r),
+                            wrap: true,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _note,
+                      maxLines: 2,
+                      style: _D.body(size: 13.5, color: _D.ink),
+                      decoration: InputDecoration(
+                        hintText: 'รายละเอียดเพิ่มเติม (ไม่บังคับ)',
+                        hintStyle: _D.body(size: 13.5, color: _D.faint),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: _D.hairline),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: _D.accentActive),
+                        ),
                       ),
                     ),
                   ],
-                ],
-              ),
-              const SizedBox(height: 16),
-              _label('เวลาที่ถูกต้อง'),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: _timeField('เข้า', _in, () => _pick(true))),
-                  const SizedBox(width: 8),
-                  Expanded(child: _timeField('ออก', _out, () => _pick(false))),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _label('สาเหตุ'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final r in _reasons)
-                    _choice(
-                      r,
-                      _reason == r,
-                      () => setState(() => _reason = r),
-                      wrap: true,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _note,
-                maxLines: 2,
-                style: _D.body(size: 13, color: _D.ink),
-                decoration: InputDecoration(
-                  hintText: 'รายละเอียดเพิ่มเติม (ไม่บังคับ)',
-                  hintStyle: _D.body(size: 13, color: _D.faint),
-                  filled: true,
-                  fillColor: _D.card,
-                  contentPadding: const EdgeInsets.all(12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: _D.hairline),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: _D.hairline),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: _D.accent),
-                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Tappable(
-                onTap: _ready ? _submit : null,
-                borderRadius: BorderRadius.circular(100),
-                splash: _D.on,
-                child: Container(
-                  height: _D.box(48),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _ready ? _D.accentActive : _D.hairline,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    'ส่งคำขอ',
-                    style: _D.tech(
-                      size: 14.5,
-                      weight: FontWeight.w700,
-                      color: _ready ? _D.on : _D.faint,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+            _submitBar(context),
+          ],
         ),
       ),
     );
   }
 
+  // ---------- หัวเรื่อง: แถบสี + การ์ดสรุปวันที่ขอแก้ ----------
+
+  Widget _header(BuildContext context) {
+    final inT = '${_row['in'] ?? ''}';
+    final outT = '${_row['out'] ?? ''}';
+    final noOut = _row['no_out'] == true;
+    return Container(
+      color: _D.panel,
+      padding: EdgeInsets.only(top: MediaQuery.viewPaddingOf(context).top),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: _D.box(52),
+            child: Row(
+              children: [
+                Tappable(
+                  onTap: Get.back,
+                  circle: true,
+                  splash: _D.onPanel(),
+                  child: SizedBox(
+                    width: _D.box(52),
+                    height: _D.box(52),
+                    child: Icon(
+                      PhosphorIconsRegular.arrowLeft,
+                      size: _D.sp(20),
+                      color: _D.onPanel(),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'ขอแก้ไขเวลา',
+                    textAlign: TextAlign.center,
+                    style: _D.tech(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: _D.onPanel(),
+                    ),
+                  ),
+                ),
+                SizedBox(width: _D.box(52)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'วันที่ขอแก้ไข',
+                  style: _D.body(size: 12, color: _D.onPanel(0.8)),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _D.card,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              thaiShortDate('${_row['date']}'),
+                              style: _D.tech(
+                                size: 16,
+                                weight: FontWeight.w700,
+                                color: _D.ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            inT.isEmpty ? '' : _shiftName(inT),
+                            style: _D.body(size: 12, color: _D.muted),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'บันทึกไว้ ${inT.isEmpty ? '--:--' : inT} - ${outT.isEmpty ? '--:--' : outT}'
+                        ' · ${noOut ? 'ไม่มีเวลาออก' : 'สแกนนอกพื้นที่'}',
+                        style: _D.body(size: 12.5, color: _D.sub),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- ปุ่มส่ง ----------
+
+  Widget _submitBar(BuildContext context) => Container(
+    padding: EdgeInsets.fromLTRB(
+      16,
+      12,
+      16,
+      12 + MediaQuery.viewPaddingOf(context).bottom,
+    ),
+    decoration: BoxDecoration(
+      color: _D.bg,
+      border: Border(top: BorderSide(color: _D.hairline)),
+    ),
+    child: Tappable(
+      onTap: _ready ? _submit : null,
+      borderRadius: BorderRadius.circular(100),
+      splash: _D.on,
+      child: Container(
+        height: _D.box(50),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: _ready ? _D.accentActive : _D.hairline,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          'ส่งคำขอ',
+          style: _D.tech(
+            size: 15,
+            weight: FontWeight.w700,
+            color: _ready ? _D.on : _D.faint,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  // ---------- ชิ้นส่วนฟอร์ม ----------
+
   Widget _label(String t) => Text(
     t,
-    style: _D.body(size: 12, weight: FontWeight.w600, color: _D.sub),
+    style: _D.tech(size: 13.5, weight: FontWeight.w700, color: _D.ink),
   );
 
   Widget _choice(
@@ -4436,37 +4517,29 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
     ),
   );
 
+  /// ช่องเวลาแบบขีดเส้นใต้ — แตะแล้วเปิดตัวเลือกเวลา
   Widget _timeField(String label, TimeOfDay? v, VoidCallback onTap) => Tappable(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(16),
     splash: _D.accent,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: _D.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _D.hairline),
+        border: Border(bottom: BorderSide(color: _D.hairline)),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label, style: _D.body(size: 11, color: _D.muted)),
-                const SizedBox(height: 2),
-                Text(
-                  _fmt(v),
-                  style: _D.tech(
-                    size: 16,
-                    weight: FontWeight.w600,
-                    color: v == null ? _D.faint : _D.ink,
-                  ),
-                ),
-              ],
+            child: Text(label, style: _D.body(size: 13.5, color: _D.muted)),
+          ),
+          Text(
+            _fmt(v),
+            style: _D.tech(
+              size: 17,
+              weight: FontWeight.w700,
+              color: v == null ? _D.faint : _D.ink,
             ),
           ),
+          const SizedBox(width: 10),
           Icon(PhosphorIconsRegular.clock, size: 18, color: _D.muted),
         ],
       ),

@@ -22,6 +22,7 @@ abstract class Routes {
   static const setPin = '/set-pin';
   static const enterPin = '/enter-pin';
   static const fixRequest = '/fix-request';
+  static const fixRequestForm = '/fix-request/form';
 }
 
 abstract class AppPages {
@@ -66,5 +67,10 @@ abstract class AppPages {
     ),
     // รายการที่ต้องขอแก้ไข — เปิดจากการ์ดแจ้งเตือนบนแดชบอร์ด (ข้อมูลส่งมาทาง arguments)
     GetPage(name: Routes.fixRequest, page: () => const FixRequestView()),
+    // ฟอร์มขอแก้ไขของหนึ่งวัน — คืน true เมื่อกดส่ง
+    GetPage(
+      name: Routes.fixRequestForm,
+      page: () => const FixRequestFormView(),
+    ),
   ];
 }
