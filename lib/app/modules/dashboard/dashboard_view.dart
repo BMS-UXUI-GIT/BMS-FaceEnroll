@@ -3008,9 +3008,9 @@ class _TodayCardState extends State<_TodayCard>
     duration: const Duration(milliseconds: 700),
   )..forward();
 
-  /// PageView ต้องการความสูงคงที่ — เว้น 8 + หัวเรื่อง ~28 + ระยะ 16 + การ์ดสแกน 84 + ภาพล้นล่าง 6
+  /// PageView ต้องการความสูงคงที่ — หัวเรื่อง ~28 + ระยะ 16 + แผ่นขาว (16 + การ์ดสแกน 84 + 16) + เผื่อ 8
   /// (ตัวเนื้อหาห่อ scroll ไว้อีกชั้น เผื่อฟอนต์/ตัวอักษรใหญ่กว่าที่เผื่อไว้ จะได้เลื่อนแทนที่จะล้น)
-  static double get _pageH => _D.box(136);
+  static double get _pageH => _D.box(168);
 
   final _pc = PageController();
   int _page = 0;
@@ -3053,7 +3053,8 @@ class _TodayCardState extends State<_TodayCard>
           // เปลี่ยนเวร (ปัดหน้า) แล้วสีไล่ไปหาสีใหม่ ไม่กระโดด
           duration: const Duration(milliseconds: 450),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.all(16),
+          // ไม่มี padding ที่การ์ด — แผ่นขาวส่วนล่างต้องกว้างชนขอบการ์ด
+          // ส่วนบนเว้นระยะเองด้วย Padding
           decoration: BoxDecoration(
             color: _D.card,
             // ไล่สีของเวรจากมุมขวาบนจางลงเป็นสีการ์ด — ให้ฉากที่วาดไว้มุมนั้นมีท้องฟ้ารองรับ
@@ -3081,8 +3082,8 @@ class _TodayCardState extends State<_TodayCard>
         // top 3 = ให้ฐานโดมตกที่ y76 เท่าเดิม (13 + 63 ของสเปก Figma)
         Positioned(
           top:
-              9, // ดันลงล่าง — ส่วนที่ทับการ์ดสแกนถูกการ์ดบังไว้อยู่แล้ว (วาดก่อน Column)
-          right: 18, // Figma: ห่างขอบขวาการ์ด 34 − padding 16
+              25, // ดันลงล่าง — ส่วนที่ทับการ์ดสแกนถูกการ์ดบังไว้อยู่แล้ว (วาดก่อน Column)
+          right: 34, // Figma: ห่างขอบขวาการ์ด 34
           child: Opacity(
             opacity: _D.dark ? 0.35 : 1,
             // วาดเองแทน PNG — ดวงอาทิตย์ต้องเคลื่อนข้ามโดม เมฆต้องค่อยประกอบร่าง
@@ -3098,17 +3099,20 @@ class _TodayCardState extends State<_TodayCard>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // แถวบนสุด: label ซ้าย · badge เวรขวา (ชิดบนตาม Figma items-start)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    'การสแกนของวันนี้',
-                    style: _D.body(size: 12, color: _D.muted),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'การสแกนของวันนี้',
+                      style: _D.body(size: 12, color: _D.muted),
+                    ),
                   ),
-                ),
-                if (currentIn.isNotEmpty) _shiftPill(currentIn),
-              ],
+                  if (currentIn.isNotEmpty) _shiftPill(currentIn),
+                ],
+              ),
             ),
             SizedBox(
               height: _pageH,
@@ -3125,6 +3129,7 @@ class _TodayCardState extends State<_TodayCard>
             if (pages.length > 1) ...[
               const SizedBox(height: 12),
               _dots(pages.length),
+              const SizedBox(height: 16),
             ],
           ],
         ),
@@ -3151,19 +3156,37 @@ class _TodayCardState extends State<_TodayCard>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ไม่ต้องเว้นระยะเอง — สองบรรทัดนี้มีช่องว่างจาก line-height ของฟอนต์อยู่แล้ว
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            headline,
-            style: _D.tech(size: 20, weight: FontWeight.w600, color: headColor),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              headline,
+              style: _D.tech(
+                size: 20,
+                weight: FontWeight.w600,
+                color: headColor,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 16),
-        _ScanTiles(
-          inTime: inT,
-          outTime: outT,
-          inColor: hasIn ? (r?['late'] == true ? _D.warn : _D.ok) : _D.muted,
-          outColor: hasOut ? (r?['early'] == true ? _D.info : _D.ok) : _D.muted,
+        // แผ่นทึบคลุมการ์ดสแกน — แยกสถานะด้านบนออกจากเวลาด้านล่าง (Figma 606:12591)
+        // กว้างชนขอบการ์ด มุมโค้ง 24 เท่ากัน ท่อนล่างของไล่สีเวรจึงถูกบังไว้ทั้งแถบ
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _D.card,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: _ScanTiles(
+            inTime: inT,
+            outTime: outT,
+            inColor: hasIn ? (r?['late'] == true ? _D.warn : _D.ok) : _D.muted,
+            outColor: hasOut
+                ? (r?['early'] == true ? _D.info : _D.ok)
+                : _D.muted,
+          ),
         ),
       ],
     );
