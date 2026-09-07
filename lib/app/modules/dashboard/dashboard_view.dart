@@ -3090,7 +3090,7 @@ class _TodayCardState extends State<_TodayCard>
             // ภาพ raster แยกชิ้นไม่ได้ ต้องเป็นรูปทรงที่วาดเองถึงขยับทีละชิ้นได้
             child: _ShiftScene(
               hhmm: currentIn,
-              width: _D.sp(120),
+              width: _D.sp(150),
               height: _D.sp(86),
             ),
           ),
@@ -3609,8 +3609,12 @@ class _ShiftPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final baseY = h * 0.97;
-    final r = w * 0.46; // รัศมีโดม — กว้างเกือบเต็มกรอบเหมือนภาพเดิม
     final cx = w * 0.5;
+    final orbR = w * 0.085;
+    // เผื่อรัศมีดวง + แสงเรือง (1.7 เท่า) ไว้ทั้งสองข้าง ไม่งั้นตอนไต่ไปสุดขอบจะโดนตัด
+    final margin = orbR * 1.7;
+    // รัศมีโดม — กว้างที่สุดเท่าที่ดวงยังอยู่ในกรอบครบทั้งใบตลอดทาง
+    final r = math.min(w * 0.46, math.min(w * 0.5, baseY) - margin);
 
     // ไม่วาดโดมแล้ว — พื้นหลังการ์ดที่ไล่สีจากมุมขวาบนทำหน้าที่เป็นท้องฟ้าแทน
     // โดมเหลือไว้เป็นแค่ "เส้นทาง" ที่ดวงอาทิตย์ไต่ (r, cx, baseY ด้านล่าง)
@@ -3620,11 +3624,10 @@ class _ShiftPainter extends CustomPainter {
     // ปล่อยให้วิ่งครบ 0→1 จะมีช่วงที่มันลับขอบฟ้าแล้วมุมนั้นว่างเปล่าเฉย ๆ
     final t = 0.15 + sun.value * 0.7;
     final a = math.pi * (1 - t); // pi → 0
-    final orbR = w * 0.105;
     final orbC = Offset(cx + r * math.cos(a), baseY - r * math.sin(a));
     canvas.save();
-    // ตัดไม่ให้โผล่ใต้เส้นฐานโดม — ขึ้น/ตกจึงดูเหมือนลับขอบฟ้า
-    canvas.clipRect(Rect.fromLTRB(0, 0, w, baseY));
+    // ไม่ตัดที่เส้นฐานโดมแล้ว — ไม่ได้วาดพื้น/ขอบฟ้าไว้ ตัดแล้วดูเป็นดวงโดนเฉือนเฉย ๆ
+    // (รัศมีโดมคุมไว้ให้ดวงอยู่ในกรอบครบทั้งใบตลอดทางแล้ว)
     final n = night.value;
     final orbColor = Color.lerp(_sunColor, _moonColor, n)!;
     canvas.drawCircle(
