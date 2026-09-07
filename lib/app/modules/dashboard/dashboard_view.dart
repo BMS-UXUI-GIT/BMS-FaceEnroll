@@ -1947,7 +1947,10 @@ class DashboardView extends GetView<DashboardController> {
 
   /// แถบเข้มท้ายการ์ด — ชิปบอกความหมายของสีแท่ง
   /// สีต้องเท่ากับที่วาดเป๊ะ — Figma ใส่ #3382E7 แต่แท่งเป็น #5682E9 legend ที่สีไม่ตรงคือ legend ที่ผิด
-  Widget _legendBar() => Obx(() {
+  /// ห้ามครอบ Obx: ในนี้ไม่ได้อ่านค่า .obs สักตัว GetX จะมองว่าใช้ผิดแล้วโยน error
+  /// ออกมาเป็น ErrorWidget ซึ่งใน release build คือกล่องเทาที่ยืดเต็มพื้นที่ที่เหลือ
+  /// (การ์ดกราฟอยู่ใน SliverToBoxAdapter = ความสูงไม่จำกัด เลยเทาลงไปเป็นพันพิกเซล)
+  Widget _legendBar() {
     // ชิปชุดเดียวกันทุกแท็บ — ต่างแค่รายการที่กราฟโหมดนั้นวาดจริง
     // รายปีเป็นแท่งซ้อนตามชั่วโมง จึงมีแค่ 3 ชั้น ไม่มี "ออกก่อน/ไม่มีเวร" ให้บอก
     final chips = [
@@ -1957,19 +1960,27 @@ class DashboardView extends GetView<DashboardController> {
       _legendChip(_D.bad, 'ลืมออก/นอกพื้นที่'),
       _legendChip(_D.faint, 'ไม่มีเวร'),
     ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Row(
-        children: [
-          for (var i = 0; i < chips.length; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            chips[i],
-          ],
-        ],
+    // บังคับความสูงไว้ด้วย — การ์ดกราฟอยู่ใน SliverToBoxAdapter (ความสูงไม่จำกัด)
+    // แถวเลื่อนแนวนอนที่ไม่มีความสูงบังคับจะยืดไปเท่าที่พื้นที่เหลือให้
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      child: SizedBox(
+        height: _D.box(34), // ชิป: ตัวอักษร 12 + padding 8 บน-ล่าง
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              for (var i = 0; i < chips.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                chips[i],
+              ],
+            ],
+          ),
+        ),
       ),
     );
-  });
+  }
 
   /// ชิป legend แบบอ่านอย่างเดียว — วงกลมสถานะไม่มีชั้นให้กดซ่อนเหมือนแท่งซ้อนสี
   Widget _legendChip(Color c, String label) => Container(
