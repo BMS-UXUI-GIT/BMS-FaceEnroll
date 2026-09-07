@@ -1643,15 +1643,7 @@ class DashboardView extends GetView<DashboardController> {
     final contact = controller.settings.contactMsg.value.trim();
     return Tappable(
       // กดแล้วเปิดหน้ารายการที่ต้องขอแก้ไข (กด back กลับมาที่แดชบอร์ดตำแหน่งเดิม)
-      onTap: () => Get.toNamed(
-        Routes.fixRequest,
-        arguments: {
-          'rows': fixes,
-          'contact': contact.isEmpty
-              ? 'ขอแก้ไขเวลาได้ที่หัวหน้าเวรหรือฝ่ายบุคคล'
-              : 'ขอแก้ไขเวลา: $contact',
-        },
-      ),
+      onTap: () => Get.toNamed(Routes.fixRequest, arguments: {'rows': fixes}),
       borderRadius: BorderRadius.circular(16),
       splash: c,
       child: Container(
@@ -3732,7 +3724,6 @@ class _FixRequestViewState extends State<FixRequestView> {
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();
-    final contact = '${args['contact'] ?? ''}'.trim();
     final sent = FixRequestView.sentDates;
     final rows = all
         .where((r) => sent.contains('${r['date']}') == _showSent)
@@ -3759,12 +3750,7 @@ class _FixRequestViewState extends State<FixRequestView> {
                 itemCount: rows.length,
                 itemBuilder: (context, i) => _row(rows[i]),
               ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-                child: contact.isEmpty ? null : _contactNote(contact),
-              ),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
       ),
@@ -4144,31 +4130,6 @@ class _FixRequestViewState extends State<FixRequestView> {
     child: Text(
       label,
       style: _D.body(size: 11, weight: FontWeight.w600, color: c),
-    ),
-  );
-
-  Widget _contactNote(String contact) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: _D.accent.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(PhosphorIconsRegular.info, size: 18, color: _D.accentActive),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            contact,
-            style: _D.body(
-              size: 12,
-              weight: FontWeight.w600,
-              color: _D.accentActive,
-            ),
-          ),
-        ),
-      ],
     ),
   );
 
