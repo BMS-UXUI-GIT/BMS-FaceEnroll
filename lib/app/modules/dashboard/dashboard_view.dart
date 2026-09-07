@@ -3692,18 +3692,34 @@ class _ShiftPainter extends CustomPainter {
 ///
 /// อ่านอย่างเดียว: รวมวันที่ลงเวลาไม่ครบ/สแกนนอกพื้นที่ไว้ที่เดียว พร้อมบอกว่าติดต่อใคร
 /// (ตัวแอปแก้เวลาเองไม่ได้ — ต้องให้หัวหน้าเวรหรือฝ่ายบุคคลแก้ในระบบหลัง)
-class FixRequestView extends StatelessWidget {
+class FixRequestView extends StatefulWidget {
   const FixRequestView({super.key});
+
+  /// วันที่ที่ส่งคำขอไปแล้วในเซสชันนี้ — ต้นแบบยังไม่มีที่เก็บจริง
+  /// (ของจริงต้องอ่านสถานะคำขอจาก backend ไม่ใช่จำไว้ในแอป)
+  static final Set<String> sentDates = <String>{};
+
+  @override
+  State<FixRequestView> createState() => _FixRequestViewState();
+}
+
+class _FixRequestViewState extends State<FixRequestView> {
+  /// แท็บสถานะ: false = ยังไม่ส่ง (ค่าเริ่มต้น คือที่ยังต้องทำ) · true = ส่งแล้ว
+  bool _showSent = false;
 
   @override
   Widget build(BuildContext context) {
     _D.useScale(context); // ต้องมาก่อนทุก _D.* ของเฟรมนี้
     final args = (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
-    final rows = ((args['rows'] as List?) ?? const [])
+    final all = ((args['rows'] as List?) ?? const [])
         .whereType<Map>()
         .map((e) => e.cast<String, dynamic>())
         .toList();
     final contact = '${args['contact'] ?? ''}'.trim();
+    final sent = FixRequestView.sentDates;
+    final rows = all
+        .where((r) => sent.contains('${r['date']}') == _showSent)
+        .toList();
 
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: _D._maxTextScale,
@@ -3714,7 +3730,14 @@ class FixRequestView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _header(rows.length),
+              _header(all.length),
+              _statusTabs(
+                pending: all
+                    .where((r) => !sent.contains('${r['date']}'))
+                    .length,
+                sent: all.where((r) => sent.contains('${r['date']}')).length,
+              ),
+              const SizedBox(height: 4),
               Expanded(
                 child: rows.isEmpty
                     ? _empty()
@@ -3779,13 +3802,61 @@ class FixRequestView extends StatelessWidget {
     ),
   );
 
+  /// ชิปสลับดูรายการที่ยังไม่ส่ง / ส่งไปแล้ว
+  Widget _statusTabs({required int pending, required int sent}) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        _tab('ยังไม่ส่ง', pending, !_showSent, () {
+          setState(() => _showSent = false);
+        }),
+        const SizedBox(width: 8),
+        _tab('ส่งแล้ว', sent, _showSent, () {
+          setState(() => _showSent = true);
+        }),
+      ],
+    ),
+  );
+
+  Widget _tab(String label, int count, bool on, VoidCallback onTap) => Tappable(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(100),
+    splash: _D.accent,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        color: on ? _D.accentActive : _D.card,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: on ? _D.accentActive : _D.hairline),
+      ),
+      child: Text(
+        '$label $count',
+        style: _D.body(
+          size: 12.5,
+          weight: FontWeight.w600,
+          color: on ? _D.on : _D.sub,
+        ),
+      ),
+    ),
+  );
+
   Widget _empty() => Center(
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(PhosphorIconsRegular.checkCircle, size: 34, color: _D.ok),
+        Icon(
+          _showSent
+              ? PhosphorIconsRegular.paperPlaneTilt
+              : PhosphorIconsRegular.checkCircle,
+          size: 34,
+          color: _showSent ? _D.muted : _D.ok,
+        ),
         const SizedBox(height: 10),
-        Text('ไม่มีรายการค้าง', style: _D.body(size: 13, color: _D.muted)),
+        Text(
+          _showSent ? 'ยังไม่ได้ส่งคำขอไหน' : 'ไม่มีรายการค้าง',
+          style: _D.body(size: 13, color: _D.muted),
+        ),
       ],
     ),
   );
@@ -3805,12 +3876,16 @@ class FixRequestView extends StatelessWidget {
     );
   }
 
-  void _openSheet(Map<String, dynamic> r) => Get.bottomSheet(
-    _FixRequestSheet(row: r),
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    ignoreSafeArea: false,
-  );
+  Future<void> _openSheet(Map<String, dynamic> r) async {
+    final ok = await Get.bottomSheet<bool>(
+      _FixRequestSheet(row: r),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      ignoreSafeArea: false,
+    );
+    if (ok != true || !mounted) return;
+    setState(() => FixRequestView.sentDates.add('${r['date']}'));
+  }
 
   Widget _cardBox(
     Map<String, dynamic> r,
@@ -3869,7 +3944,9 @@ class FixRequestView extends StatelessWidget {
                 ),
               ),
               Text(
-                'ขอแก้ไข',
+                FixRequestView.sentDates.contains('${r['date']}')
+                    ? 'แก้ไขคำขอ'
+                    : 'ขอแก้ไข',
                 style: _D.body(
                   size: 11.5,
                   weight: FontWeight.w600,
@@ -4022,7 +4099,7 @@ class _FixRequestSheetState extends State<_FixRequestSheet> {
   void _submit() {
     if (!_ready) return;
     // ต้นแบบ: ยังไม่ส่งออกนอกเครื่อง — ต่อ API ตรงนี้เมื่อมี endpoint
-    Get.back();
+    Get.back(result: true);
     Get.snackbar(
       'บันทึกคำขอแล้ว',
       // อย่าบอกว่า "ส่งให้หัวหน้าเวรแล้ว" — ยังไม่มีอะไรออกจากเครื่องจริง ๆ
