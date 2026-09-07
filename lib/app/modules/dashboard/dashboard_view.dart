@@ -3008,9 +3008,9 @@ class _TodayCardState extends State<_TodayCard>
     duration: const Duration(milliseconds: 700),
   )..forward();
 
-  /// PageView ต้องการความสูงคงที่ — หัวเรื่อง ~28 + ระยะ 16 + แผ่นขาว (16 + การ์ดสแกน 84 + 16) + เผื่อ 8
+  /// PageView ต้องการความสูงคงที่ — หัวเรื่อง ~28 + ระยะ 16 + แผ่นขาว (12 + การ์ดสแกน 84 + 12) + เผื่อ 8
   /// (ตัวเนื้อหาห่อ scroll ไว้อีกชั้น เผื่อฟอนต์/ตัวอักษรใหญ่กว่าที่เผื่อไว้ จะได้เลื่อนแทนที่จะล้น)
-  static double get _pageH => _D.box(168);
+  static double get _pageH => _D.box(160);
 
   final _pc = PageController();
   int _page = 0;
@@ -3127,9 +3127,8 @@ class _TodayCardState extends State<_TodayCard>
               ),
             ),
             if (pages.length > 1) ...[
-              const SizedBox(height: 12),
               _dots(pages.length),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
           ],
         ),
@@ -3174,7 +3173,7 @@ class _TodayCardState extends State<_TodayCard>
         // แผ่นทึบคลุมการ์ดสแกน — แยกสถานะด้านบนออกจากเวลาด้านล่าง (Figma 606:12591)
         // กว้างชนขอบการ์ด มุมโค้ง 24 เท่ากัน ท่อนล่างของไล่สีเวรจึงถูกบังไว้ทั้งแถบ
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _D.card,
             borderRadius: BorderRadius.circular(24),
