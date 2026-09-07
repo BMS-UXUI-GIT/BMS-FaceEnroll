@@ -2189,13 +2189,11 @@ class DashboardView extends GetView<DashboardController> {
     final map = controller.dayShifts;
     final sel = controller.touchedDay.value;
     final today = DashboardController.ymd(DateTime.now());
-    final labelW = _D.box(26);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            SizedBox(width: labelW),
             for (final w in DashboardController.weekdayNames)
               Expanded(
                 child: Center(
@@ -2210,13 +2208,6 @@ class DashboardView extends GetView<DashboardController> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
-                SizedBox(
-                  width: labelW,
-                  child: Text(
-                    'ส.${r + 1}',
-                    style: _D.body(size: 9.5, color: _D.faint),
-                  ),
-                ),
                 for (var c = 0; c < 7; c++)
                   Expanded(
                     child: _heatCell(
