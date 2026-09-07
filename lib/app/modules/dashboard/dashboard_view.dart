@@ -3764,7 +3764,7 @@ class _FixRequestViewState extends State<FixRequestView> {
   /// ภาพหัวเรื่องที่ยุบเป็นแถบชื่อเมื่อเลื่อนลง
   Widget _heroBar(BuildContext context) {
     final top = MediaQuery.viewPaddingOf(context).top;
-    final maxH = _D.sp(200) + top;
+    final maxH = _D.sp(176) + top;
     final minH = _D.box(52) + top;
     return SliverAppBar(
       pinned: true,
@@ -3872,7 +3872,7 @@ class _FixRequestViewState extends State<FixRequestView> {
 
   /// ชื่อเรื่องใหญ่ + วันที่ของข้อมูล (เลื่อนหายไปกับเนื้อหา)
   Widget _titleBlock(int total) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3880,7 +3880,7 @@ class _FixRequestViewState extends State<FixRequestView> {
           'ต้องขอแก้ไข',
           style: _D.tech(size: 26, weight: FontWeight.w700, color: _D.ink),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           'ข้อมูล ณ ${thaiShortDate(DashboardController.ymd(DateTime.now()))}',
           style: _D.body(size: 12, color: _D.muted),
@@ -3898,7 +3898,7 @@ class _FixRequestViewState extends State<FixRequestView> {
     required int count,
   }) {
     final w = MediaQuery.sizeOf(context).width - 32;
-    final style = _D.body(size: 12.5, color: _D.sub);
+    final style = _D.body(size: 12.5, color: _D.sub).copyWith(height: 1.5);
     // วัดความสูงย่อหน้าเอง — หัวที่ตรึงต้องรู้ความสูงก่อนวาง
     final tp = TextPainter(
       text: TextSpan(text: _intro, style: style),
@@ -3928,6 +3928,8 @@ class _FixRequestViewState extends State<FixRequestView> {
                 child: SizedBox(
                   height: _D.box(28),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         '$count รายการ',
@@ -4022,7 +4024,7 @@ class _FixRequestViewState extends State<FixRequestView> {
       onTap: () => _openSheet(r),
       splash: _D.accent,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: _D.hairline)),
         ),
@@ -4036,12 +4038,13 @@ class _FixRequestViewState extends State<FixRequestView> {
                 noOut ? _D.warn : _D.bad,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: _D.box(38),
-                  height: _D.box(38),
+                  width: _D.box(36),
+                  height: _D.box(36),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: _D.rowBg,
@@ -4089,7 +4092,7 @@ class _FixRequestViewState extends State<FixRequestView> {
                         color: _D.sub,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     _status(done),
                   ],
                 ),
