@@ -3782,34 +3782,35 @@ class _FixRequestViewState extends State<FixRequestView> {
             fit: StackFit.expand,
             children: [
               ColoredBox(color: _D.wash),
-              Opacity(opacity: 1 - t, child: _heroArt()),
+              Padding(
+                padding: EdgeInsets.only(top: minH),
+                child: Opacity(opacity: 1 - t, child: _heroArt()),
+              ),
+              // แถบบนสุด: ปุ่มย้อนกลับมุมซ้ายเสมอ ทั้งตอนกางและตอนยุบ
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 0,
-                height: minH,
-                child: Padding(
-                  padding: EdgeInsets.only(top: top),
-                  child: Row(
-                    children: [
-                      _backBtn(),
-                      Expanded(
-                        child: Opacity(
-                          opacity: t,
-                          child: Text(
-                            'ต้องขอแก้ไข',
-                            textAlign: TextAlign.center,
-                            style: _D.tech(
-                              size: 16,
-                              weight: FontWeight.w700,
-                              color: _D.ink,
-                            ),
+                top: top,
+                height: minH - top,
+                child: Row(
+                  children: [
+                    _backBtn(),
+                    Expanded(
+                      child: Opacity(
+                        opacity: t,
+                        child: Text(
+                          'ต้องขอแก้ไข',
+                          textAlign: TextAlign.center,
+                          style: _D.tech(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            color: _D.ink,
                           ),
                         ),
                       ),
-                      SizedBox(width: _D.box(44)),
-                    ],
-                  ),
+                    ),
+                    SizedBox(width: _D.box(44)),
+                  ],
                 ),
               ),
             ],
@@ -3910,6 +3911,8 @@ class _FixRequestViewState extends State<FixRequestView> {
       pinned: true,
       delegate: _FixHead(
         height: h,
+        // ความสูงเท่าเดิมทุกแท็บ ถ้าเทียบแค่ความสูงหัวจะไม่วาดใหม่ แท็บที่เลือกเลยค้าง
+        signature: '$_showSent|$pending|$sent|$count',
         child: ColoredBox(
           color: _D.bg,
           child: Column(
@@ -4164,10 +4167,18 @@ class _FixRequestViewState extends State<FixRequestView> {
 
 /// หัวตรึงของหน้าขอแก้ไข — ความสูงคงที่ที่ผู้เรียกวัดมาให้แล้ว
 class _FixHead extends SliverPersistentHeaderDelegate {
-  _FixHead({required this.height, required this.child});
+  _FixHead({
+    required this.height,
+    required this.child,
+    required this.signature,
+  });
 
   final double height;
   final Widget child;
+
+  /// สรุปสถานะที่หัวนี้วาดอยู่ — เปลี่ยนเมื่อไหร่ถึงจะวาดใหม่
+  /// (เทียบ child ตรง ๆ ไม่ได้ เพราะสร้างใหม่ทุกเฟรมอยู่แล้ว)
+  final String signature;
 
   @override
   double get minExtent => height;
@@ -4176,7 +4187,8 @@ class _FixHead extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrink, bool overlaps) => child;
   @override
-  bool shouldRebuild(_FixHead old) => old.height != height;
+  bool shouldRebuild(_FixHead old) =>
+      old.height != height || old.signature != signature;
 }
 
 /// ฟอร์มขอแก้ไขเวลาของหนึ่งวัน — เปิดจากการ์ดในหน้า "ต้องขอแก้ไข"
