@@ -1660,7 +1660,7 @@ class DashboardView extends GetView<DashboardController> {
                 Icon(PhosphorIconsRegular.warningCircle, size: 18, color: c),
                 const SizedBox(width: 8),
                 Text(
-                  'ต้องขอแก้ไข ${fixes.length} รายการ',
+                  'แก้ไขเวลาการเข้า-ออกงาน ${fixes.length} รายการ',
                   style: _D.tech(size: 13.5, weight: FontWeight.w700, color: c),
                 ),
               ],
@@ -3711,6 +3711,27 @@ class _FixRequestViewState extends State<FixRequestView> {
   /// แท็บสถานะ: false = ยังไม่ส่ง (ค่าเริ่มต้น คือที่ยังต้องทำ) · true = ส่งแล้ว
   bool _showSent = false;
 
+  /// รายการทั้งหมด — เริ่มจาก snapshot ที่แดชบอร์ดส่งมา แล้วอัปเดตเมื่อดึงรีเฟรช
+  late List<Map<String, dynamic>> _all = _rowsFromArgs();
+
+  static List<Map<String, dynamic>> _rowsFromArgs() {
+    final args = (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
+    return ((args['rows'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+  }
+
+  /// ดึงลงเพื่อรีเฟรช: โหลดเดือนใหม่ผ่านตัวควบคุมแดชบอร์ด แล้วอ่านรายการค้างชุดล่าสุด
+  /// (ใช้ตัวควบคุมเดิม จะได้ไม่ยิงซ้ำและแดชบอร์ดข้างหลังก็อัปเดตตามไปด้วย)
+  Future<void> _refresh() async {
+    if (!Get.isRegistered<DashboardController>()) return;
+    final c = Get.find<DashboardController>();
+    await c.refreshAll();
+    if (!mounted) return;
+    setState(() => _all = c.pendingFixes);
+  }
+
   static const _intro =
       'รายการเวลาที่ระบบบันทึกไว้ไม่ครบหรือสแกนนอกพื้นที่ที่กำหนด '
       'แก้เองในแอปไม่ได้ ต้องส่งคำขอให้หัวหน้าเวรหรือฝ่ายบุคคลแก้ให้ในระบบหลัง '
@@ -3719,11 +3740,7 @@ class _FixRequestViewState extends State<FixRequestView> {
   @override
   Widget build(BuildContext context) {
     _D.useScale(context); // ต้องมาก่อนทุก _D.* ของเฟรมนี้
-    final args = (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
-    final all = ((args['rows'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
+    final all = _all;
     final sent = FixRequestView.sentDates;
     final rows = all
         .where((r) => sent.contains('${r['date']}') == _showSent)
@@ -3733,25 +3750,36 @@ class _FixRequestViewState extends State<FixRequestView> {
       maxScaleFactor: _D._maxTextScale,
       child: Scaffold(
         backgroundColor: _D.bg,
-        body: CustomScrollView(
-          slivers: [
-            _heroBar(context),
-            SliverToBoxAdapter(child: _titleBlock(all.length)),
-            _stickyHead(
-              context,
-              pending: all.where((r) => !sent.contains('${r['date']}')).length,
-              sent: all.where((r) => sent.contains('${r['date']}')).length,
-              count: rows.length,
-            ),
-            if (rows.isEmpty)
-              SliverToBoxAdapter(child: _empty())
-            else
-              SliverList.builder(
-                itemCount: rows.length,
-                itemBuilder: (context, i) => _row(rows[i]),
+        body: RefreshIndicator(
+          color: _D.accent,
+          backgroundColor: _D.card,
+          // ให้วงกลมโผล่ใต้แถบบนที่ตรึงไว้ ไม่ทับปุ่ม back
+          edgeOffset: _D.box(52) + MediaQuery.paddingOf(context).top,
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            // ให้ดึงลงได้แม้รายการสั้นกว่าจอ
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              _heroBar(context),
+              SliverToBoxAdapter(child: _titleBlock(all.length)),
+              _stickyHead(
+                context,
+                pending: all
+                    .where((r) => !sent.contains('${r['date']}'))
+                    .length,
+                sent: all.where((r) => sent.contains('${r['date']}')).length,
+                count: rows.length,
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-          ],
+              if (rows.isEmpty)
+                SliverToBoxAdapter(child: _empty())
+              else
+                SliverList.builder(
+                  itemCount: rows.length,
+                  itemBuilder: (context, i) => _row(rows[i]),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          ),
         ),
       ),
     );
@@ -3802,7 +3830,7 @@ class _FixRequestViewState extends State<FixRequestView> {
                     Expanded(
                       // จางด้วยค่าอัลฟาของสีตัวอักษร ไม่ใช่ Opacity — เลี่ยง saveLayer ทุกเฟรม
                       child: Text(
-                        'ต้องขอแก้ไข',
+                        'แก้ไขเวลาการเข้า-ออกงาน',
                         textAlign: TextAlign.center,
                         style: _D.tech(
                           size: 16,
@@ -3879,8 +3907,8 @@ class _FixRequestViewState extends State<FixRequestView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'ต้องขอแก้ไข',
-          style: _D.tech(size: 26, weight: FontWeight.w700, color: _D.ink),
+          'แก้ไขเวลาการเข้า-ออกงาน',
+          style: _D.tech(size: 24, weight: FontWeight.w700, color: _D.ink),
         ),
         const SizedBox(height: 2),
         Text(
