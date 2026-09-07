@@ -53,6 +53,31 @@ jobs:
           npm run pres:build
           cp -r presentation/dist dist/present
 
+      - name: เช็คเอาต์แอปมือถือ (branch mobile-app)
+        uses: actions/checkout@v7
+        with:
+          ref: mobile-app
+          path: mobile-src
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.5
+          channel: stable
+          cache: true
+
+      - name: Build แอปมือถือ (Flutter web โหมดเดโม) -> /mobile/
+        # kIsWeb = โหมดเดโมในตัวแอป: ข้อมูลจำลองล้วน ไม่ยิง backend และไม่ใช้ ML Kit
+        # (จึงไม่ต้องส่ง API key ใดๆ เข้ามาใน build นี้)
+        working-directory: mobile-src
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /${{ github.event.repository.name }}/mobile/
+
+      - name: วางแอปมือถือไว้ใต้ /mobile/
+        run: |
+          cp -r mobile-src/build/web dist/mobile
+          cp dist/mobile/index.html dist/mobile/404.html
+
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
