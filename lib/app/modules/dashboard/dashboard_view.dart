@@ -1039,15 +1039,17 @@ class DashboardView extends GetView<DashboardController> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(24),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: _D.dark ? 0.30 : 0.04,
-                        ),
-                        blurRadius: 12,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
+                    // โหมดสว่างเงาจางที่ 4% แทบมองไม่เห็น แต่ต้องเบลอเต็มความกว้างทุกเฟรม
+                    // ตัดทิ้งไปเลย เหลือเฉพาะโหมดมืดที่เห็นผลจริง
+                    boxShadow: _D.dark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.30),
+                              blurRadius: 12,
+                              offset: const Offset(0, -4),
+                            ),
+                          ]
+                        : null,
                   ),
                 ),
               ),
@@ -1941,15 +1943,24 @@ class DashboardView extends GetView<DashboardController> {
       (m, b) => b.minutes > m ? b.minutes : m,
     );
     final empty = c.buckets.every((b) => b.minutes == 0 && b.shifts == 0);
+    // ไล่สีเข้มทาเฉพาะแถบ legend ท้ายการ์ด — เดิมทาเต็มการ์ดแล้วโดนพื้นการ์ดทับหมด
+    // เท่ากับระบายทั้งใบทิ้งทุกเฟรม (raster เสียเปล่าเพราะมองไม่เห็นอยู่ดี)
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: _D.band,
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_chartBody(c, maxMin, empty), _legendBar()],
+        children: [
+          _chartBody(c, maxMin, empty),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: _D.band,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
+            ),
+            child: _legendBar(),
+          ),
+        ],
       ),
     );
   }
@@ -2018,7 +2029,8 @@ class DashboardView extends GetView<DashboardController> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
         color: _D.card,
-        borderRadius: BorderRadius.circular(16),
+        // มนเฉพาะบน — ล่างเป็นแถบ legend ที่มนต่อให้แล้ว
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3766,6 +3778,13 @@ class _FixRequestViewState extends State<FixRequestView> {
     final top = MediaQuery.viewPaddingOf(context).top;
     final maxH = _D.sp(176) + top;
     final minH = _D.box(52) + top;
+    // สร้างครั้งเดียวแล้วใช้ instance เดิมทุกเฟรมที่เลื่อน — วิดเจ็ตตัวเดิมเป๊ะ
+    // Flutter จะข้ามการ build ซ้ำทั้งกิ่ง (ไม่งั้นภาพประกอบถูกสร้างใหม่ทุกเฟรม)
+    final art = Padding(
+      padding: EdgeInsets.only(top: minH),
+      child: _heroArt(),
+    );
+    final back = _backBtn();
     return SliverAppBar(
       pinned: true,
       backgroundColor: _D.wash,
@@ -3782,10 +3801,9 @@ class _FixRequestViewState extends State<FixRequestView> {
             fit: StackFit.expand,
             children: [
               ColoredBox(color: _D.wash),
-              Padding(
-                padding: EdgeInsets.only(top: minH),
-                child: Opacity(opacity: 1 - t, child: _heroArt()),
-              ),
+              // ยุบสุดแล้วไม่ต้องวาดภาพเลย · กางสุดก็ไม่ต้องมี Opacity มาบังคับ saveLayer
+              if (t < 0.995)
+                if (t == 0) art else Opacity(opacity: 1 - t, child: art),
               // แถบบนสุด: ปุ่มย้อนกลับมุมซ้ายเสมอ ทั้งตอนกางและตอนยุบ
               Positioned(
                 left: 0,
@@ -3794,18 +3812,16 @@ class _FixRequestViewState extends State<FixRequestView> {
                 height: minH - top,
                 child: Row(
                   children: [
-                    _backBtn(),
+                    back,
                     Expanded(
-                      child: Opacity(
-                        opacity: t,
-                        child: Text(
-                          'ต้องขอแก้ไข',
-                          textAlign: TextAlign.center,
-                          style: _D.tech(
-                            size: 16,
-                            weight: FontWeight.w700,
-                            color: _D.ink,
-                          ),
+                      // จางด้วยค่าอัลฟาของสีตัวอักษร ไม่ใช่ Opacity — เลี่ยง saveLayer ทุกเฟรม
+                      child: Text(
+                        'ต้องขอแก้ไข',
+                        textAlign: TextAlign.center,
+                        style: _D.tech(
+                          size: 16,
+                          weight: FontWeight.w700,
+                          color: _D.ink.withValues(alpha: t),
                         ),
                       ),
                     ),
