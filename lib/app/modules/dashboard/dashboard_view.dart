@@ -45,23 +45,11 @@ class DashboardView extends GetView<DashboardController> {
               _appBar(context),
               // การ์ดวันนี้มี PageView ปัดได้ — กันการวาดซ้ำไม่ให้ลามไปทั้งหน้า
               SliverToBoxAdapter(child: RepaintBoundary(child: _hero(context))),
-              // แผ่นขาว (ต่อจากที่โผล่มาใต้การ์ด — ไร้รอยต่อ) รับแค่แถบเตือน
+              // แผ่นขาวคั่นการ์ดวันนี้กับแผงน้ำเงิน (ต่อจากที่โผล่มาใต้การ์ด — ไร้รอยต่อ)
               // ห้ามครอบแผงน้ำเงินไว้ข้างใน: พื้นขาวจะถูกระบายเต็มจอทุกเฟรมแล้วโดนน้ำเงินทับทิ้ง
               DecoratedSliver(
                 decoration: BoxDecoration(color: Dash.card),
-                sliver: SliverToBoxAdapter(
-                  child: Obx(
-                    () => controller.pendingFixes.isEmpty
-                        ? const SizedBox(height: 14)
-                        // บน-ล่างเท่ากัน ให้รอยต่อ section สม่ำเสมอไม่ว่าจะมีการ์ดหรือไม่
-                        : Padding(
-                            // การ์ดวันนี้ทิ้งช่องไฟใต้ท้ายไว้ ~5 อยู่แล้ว บวกอีก 11 ให้ครบ 16
-                            // เท่ากับระยะด้านล่างถึงแผงน้ำเงิน — สองช่องไฟเท่ากันพอดี
-                            padding: const EdgeInsets.fromLTRB(16, 11, 16, 16),
-                            child: _actionBanner(),
-                          ),
-                  ),
-                ),
+                sliver: const SliverToBoxAdapter(child: SizedBox(height: 14)),
               ),
               // แผงน้ำเงินคลุมส่วนล่างทั้งหมด: ภาพรวม + รายวัน (Figma 593:12419)
               DecoratedSliver(
@@ -82,6 +70,23 @@ class DashboardView extends GetView<DashboardController> {
                         child: RepaintBoundary(
                           child: Obx(() => _chartCard(controller.card)),
                         ),
+                      ),
+                    ),
+                    // แถบเตือนวันที่ต้องตรวจสอบ ปิดท้ายภาพรวม — อ่านกราฟจบแล้วค่อยเจอ
+                    // สิ่งที่ต้องลงมือทำต่อ (เดิมอยู่เหนือแผง แทรกก่อนได้อ่านอะไรเลย)
+                    SliverToBoxAdapter(
+                      child: Obx(
+                        () => controller.pendingFixes.isEmpty
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  2,
+                                  16,
+                                  0,
+                                ),
+                                child: _actionBanner(),
+                              ),
                       ),
                     ),
                     const SliverToBoxAdapter(
