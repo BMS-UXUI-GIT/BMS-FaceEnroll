@@ -1,6 +1,9 @@
 import 'package:get/get.dart';
 
-import '../modules/dashboard/dashboard_view.dart';
+import '../modules/dashboard/fix_request_done_view.dart';
+import '../modules/dashboard/fix_request_form_view.dart';
+import '../modules/dashboard/fix_request_review_view.dart';
+import '../modules/dashboard/fix_request_view.dart';
 import '../modules/face_scan/face_scan_binding.dart';
 import '../modules/face_scan/face_scan_view.dart';
 import '../modules/login/login_binding.dart';
@@ -23,6 +26,8 @@ abstract class Routes {
   static const enterPin = '/enter-pin';
   static const fixRequest = '/fix-request';
   static const fixRequestForm = '/fix-request/form';
+  static const fixRequestReview = '/fix-request/review';
+  static const fixRequestDone = '/fix-request/done';
 }
 
 abstract class AppPages {
@@ -71,6 +76,16 @@ abstract class AppPages {
     GetPage(
       name: Routes.fixRequestForm,
       page: () => const FixRequestFormView(),
+    ),
+    // หน้าตรวจสอบก่อนส่ง — เทียบค่าเดิม/ค่าที่ขอ คืน true เมื่อยืนยัน
+    GetPage(
+      name: Routes.fixRequestReview,
+      page: () => const FixRequestReviewView(),
+    ),
+    // หน้าสำเร็จหลังยืนยัน — เล่นภาพเคลื่อนไหวแล้วปิดกลับไปหน้ารายการ
+    GetPage(
+      name: Routes.fixRequestDone,
+      page: () => const FixRequestDoneView(),
     ),
   ];
 }

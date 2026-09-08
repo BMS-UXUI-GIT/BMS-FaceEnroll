@@ -30,6 +30,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>ใช้กล้องเพื่อสแกนและลงทะเบียนใบหน้าสำหรับลงเวลาทำงาน</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ใช้เลือกรูปประกอบเมื่อยื่นคำขอแก้ไขเวลาการทำงาน</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>ใช้ตำแหน่งเพื่อตรวจว่าลงเวลาภายในพื้นที่โรงพยาบาล</string>
 	<key>NSMicrophoneUsageDescription</key>

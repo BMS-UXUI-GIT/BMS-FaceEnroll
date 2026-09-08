@@ -1,755 +1,24 @@
-import 'dart:math' as math;
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../widgets/tappable.dart';
-
 import '../../routes/app_pages.dart';
-import '../../services/api_service.dart';
-import '../../services/demo_attendance.dart';
-import '../../services/settings_service.dart';
-import '../../theme/nexus.dart';
 import '../../utils/thai_date.dart';
-
-/// แดชบอร์ด — ภาพรวมการลงเวลาของตัวเอง (มือถือ: อ่านง่าย ไม่เน้นกราฟ)
-/// ภาพรวม 1 อัน เปลี่ยนช่วงได้: ปี→สรุปรายเดือน · เดือน→สรุปรายสัปดาห์ · สัปดาห์→รายวัน
-/// ด้านล่างเป็นรายละเอียดทุกวันของเดือนที่เลือก
-class DashboardBinding extends Bindings {
-  @override
-  void dependencies() {
-    Get.lazyPut(() => DashboardController());
-  }
-}
-
-/// ═══ DEMO DATA — ตั้ง false ก่อนขึ้นจริง (หรือลบบล็อกนี้ + _demoRows ทิ้ง) ═══
-/// true = แดชบอร์ดใช้ข้อมูลจำลอง ไม่ยิง API เลย ไว้ดูหน้าตา UI ตอนข้อมูลจริงยังน้อย
-const bool kDashboardDemo = true;
-
-enum DashRange { year, month, week }
-
-/// ชั้นสีในแท่งเดียว — legend กดปิดทีละชั้นได้
-enum Series { normal, late, incomplete }
-
-/// สถานะของหนึ่งเวรที่ใช้ระบายวงกลมในแถบสถานะรายสัปดาห์
-enum DayMark { ok, late, early, bad }
-
-/// หนึ่งแท่งในภาพรวม (เดือน / สัปดาห์ / วัน)
-class Bucket {
-  Bucket(this.label, {this.sub = ''});
-  final String label;
-  final String sub;
-
-  /// วันหนึ่งลงเวลาได้หลายเวร — จึงต้องแยก "จำนวนวัน" ออกจาก "จำนวนเวร"
-  final Set<String> _days = {};
-  final Set<String> _lateDays = {}; // วันที่มีอย่างน้อย 1 เวรเข้าสาย
-  final Set<String> _earlyDays = {};
-  final Set<String> _noOutDays = {};
-  int shifts = 0; // เวรที่ลงเวลาเข้าแล้ว
-  int minutes = 0; // เวลาทำงานรวม (นาที) — ใช้เป็นความสูงแท่งกราฟ
-  /// นาทีทำงานแยกตามสถานะของเวร — แท่งซ้อนสีใช้ชุดนี้ เพื่อให้สีตรงกับ legend ทุกแท็บ
-  int minutesOk = 0;
-  int minutesLate = 0;
-  int minutesEarly = 0;
-  int minutesBad = 0;
-  int late = 0; // ครั้งที่เข้าสาย
-  int early = 0; // ครั้งที่ออกก่อนเวลา
-  int noOut = 0; // ครั้งที่ลืมออกเวร
-  int openShifts = 0; // ยังไม่สแกนออกเพราะยังไม่เลิกงาน — ไม่ใช่ "เวลาไม่ครบ"
-
-  int get days => _days.length;
-  int get lateDays => _lateDays.length;
-  int get earlyDays => _earlyDays.length;
-  int get noOutDays => _noOutDays.length;
-  void addDay(
-    String date, {
-    bool late = false,
-    bool early = false,
-    bool noOut = false,
-  }) {
-    _days.add(date);
-    if (late) _lateDays.add(date);
-    if (early) _earlyDays.add(date);
-    if (noOut) _noOutDays.add(date);
-  }
-
-  /// วันที่มีปัญหาอย่างน้อยหนึ่งอย่าง — วันเดียวอาจทั้งสายและออกก่อน ต้อง union ไม่ใช่บวก
-  int get issueDays => {..._lateDays, ..._earlyDays, ..._noOutDays}.length;
-
-  /// จัดแต่ละวันเข้ากลุ่มเดียวตามความรุนแรง (ลืมออก > ออกก่อน > สาย)
-  /// สี่ค่านี้บวกกันได้ days พอดี — แถบสัดส่วนจึงยาวรวมกันเท่าของจริงเสมอ
-  int get noOutOnly => _noOutDays.length;
-  int get earlyOnly => _earlyDays.difference(_noOutDays).length;
-  int get lateOnly =>
-      _lateDays.difference(_noOutDays).difference(_earlyDays).length;
-  int get normalDays => days - issueDays;
-
-  /// ใช้กับกราฟ ซึ่งมีหน่วยเป็น "วัน" — ห้ามเอา late (นับเป็นครั้ง) มาลบตรงๆ
-  /// ไม่งั้นวันที่มี 2 เวรสายทั้งคู่จะได้ค่าติดลบ แท่งส้มล้นเกินความยาวจริง
-  int get present => days;
-  int get onTime => days - lateDays;
-}
-
-/// ข้อมูลกราฟของช่วงที่กำลังดู
-class ChartCard {
-  ChartCard({
-    required this.buckets,
-    required this.current,
-    required this.byDay,
-  });
-  final List<Bucket> buckets;
-
-  /// index แท่งที่เป็น "ตอนนี้" — null ถ้าการ์ดนี้ไม่ใช่ช่วงปัจจุบัน
-  final int? current;
-
-  /// แท่ง = วัน → มีเส้นประเกณฑ์ 8 ชม. ให้เทียบ (แท่ง = สัปดาห์/เดือน เทียบไม่ได้)
-  final bool byDay;
-}
-
-class DashboardController extends GetxController {
-  final settings = Get.find<SettingsService>();
-  ApiService get _api => Get.find<ApiService>();
-
-  final loading = true.obs; // บูตครั้งแรก — ทั้งหน้าเป็นโครง
-  final rangeLoading = false.obs; // เปลี่ยนเดือน/ช่วง — โครงเฉพาะส่วนภาพรวม
-  final error = ''.obs;
-  final range = DashRange.month.obs;
-
-  /// เดือนที่เลือก (วันที่ 1) — คุมทั้งภาพรวมและรายละเอียดรายวัน
-  final month = DateTime(DateTime.now().year, DateTime.now().month).obs;
-
-  /// จันทร์ของสัปดาห์ที่กำลังดู (โหมดรายสัปดาห์)
-  final weekAnchor = DateTime.now().obs;
-
-  final monthRows = <Map<String, dynamic>>[].obs; // แถวของเดือนที่เลือก
-  /// เวรของ "วันนี้" — เก็บแยกไว้ เพราะการ์ดบนหัวไม่ควรหายตอนเลื่อนไปดูเดือนอื่น
-  final todayRows = <Map<String, dynamic>>[].obs;
-
-  final scroll = ScrollController();
-
-  /// ความเข้มของ subtitle บนหัวแอป (1 = เต็ม, 0 = จางหาย)
-  /// แยกเป็น ValueNotifier ให้รีบิลด์เฉพาะข้อความบรรทัดเดียว
-  /// ไม่ใช่ทั้ง SliverAppBar ทุกเฟรมแบบตอนใช้ SliverLayoutBuilder
-  final subFade = ValueNotifier<double>(1);
-
-  void _onScroll() {
-    if (!scroll.hasClients) return;
-    // ปัดเป็นขั้นละ 0.1 — กันรีบิลด์ทุกพิกเซล และกันแคชสไตล์ฟอนต์บวมเพราะสีเปลี่ยนทุกเฟรม
-    final t = ((1 - scroll.offset / 40).clamp(0.0, 1.0) * 10).round() / 10;
-    if (t != subFade.value) subFade.value = t;
-  }
-
-  /// แผงน้ำเงินเลื่อนขึ้นมาชนหัวจอแล้วหรือยัง — หัวแอปเปลี่ยนสีตามตัวนี้
-  /// (ตั้งจากตอน layout แท็บ จึงอัปเดตหลังเฟรม ไม่ใช่ระหว่าง build)
-  final panelStuck = false.obs;
-
-  /// เวลาที่ข้อมูลชุดล่าสุดเข้ามาสำเร็จ — โหลดพลาดไม่นับ ไม่งั้นโชว์ว่าสดทั้งที่ของเก่า
-  final lastSync = Rxn<DateTime>();
-
-  final onlyIssues = false.obs; // ตัวกรองรายวัน: เฉพาะรายการที่ผิดปกติ
-
-  /// index แท่งที่แตะค้างไว้ (-1 = ไม่มี) — เปลี่ยนช่วงเมื่อไหร่ต้องล้าง ไม่งั้นค้างผิดแท่ง
-  final touchedBar = (-1).obs;
-
-  /// ชั้นข้อมูลที่ถูกปิดจาก legend — ปิดแล้วแท่งหดลงตามส่วนที่เหลือ
-  final hiddenSeries = <Series>{}.obs;
-  bool shown(Series s) => !hiddenSeries.contains(s);
-  void toggleSeries(Series s) =>
-      hiddenSeries.contains(s) ? hiddenSeries.remove(s) : hiddenSeries.add(s);
-  final yearRows =
-      <Map<String, dynamic>>[].obs; // แถวย้อนหลัง 365 วัน (โหลดเมื่อเลือกรายปี)
-
-  bool get isCurrentMonth {
-    final now = DateTime.now();
-    return month.value.year == now.year && month.value.month == now.month;
-  }
-
-  String get _monthParam =>
-      '${month.value.year}-${month.value.month.toString().padLeft(2, '0')}';
-
-  @override
-  void onInit() {
-    super.onInit();
-    scroll.addListener(_onScroll);
-    refreshAll();
-  }
-
-  @override
-  void onClose() {
-    scroll
-      ..removeListener(_onScroll)
-      ..dispose();
-    subFade.dispose();
-    super.onClose();
-  }
-
-  void setRange(DashRange r) {
-    touchedBar.value = -1;
-    touchedDay.value = '';
-    range.value = r;
-    if (r == DashRange.week) _syncWeekAnchor();
-  }
-
-  DateTime get weekMonday => _mondayOf(weekAnchor.value);
-
-  bool get isCurrentWeek {
-    final now = DateTime.now();
-    return _mondayOf(now) == weekMonday;
-  }
-
-  /// ป้ายช่วงวันที่ — รูปแบบเดียวทั้งหน้า: "1 - 6 ก.ย." · คร่อมเดือนค่อยใส่เดือนสองข้าง
-  static String rangeLabel(DateTime a, DateTime b) => a.month == b.month
-      ? '${a.day} - ${b.day} ${thaiMonthShort(a.month)}'
-      : '${a.day} ${thaiMonthShort(a.month)} - ${b.day} ${thaiMonthShort(b.month)}';
-
-  /// บรรทัดใหญ่ใต้ dropdown — ช่วงที่กำลังดู
-  String get periodTitle {
-    switch (range.value) {
-      case DashRange.week:
-        final mon = weekMonday;
-        return rangeLabel(mon, mon.add(const Duration(days: 6)));
-      case DashRange.month:
-        return thaiMonthYear(month.value.year, month.value.month);
-      case DashRange.year:
-        return 'ปี ${month.value.year + 543}';
-    }
-  }
-
-  /// หัวการ์ดกราฟ — บอกว่าการ์ดนี้คือช่วงย่อยไหน (ไม่ซ้ำกับบรรทัดบนที่บอกวันที่)
-  String get cardTitle {
-    switch (range.value) {
-      case DashRange.week:
-        final first = DateTime(month.value.year, month.value.month);
-        return 'สัปดาห์ที่ ${weekMonday.difference(_mondayOf(first)).inDays ~/ 7 + 1}';
-      case DashRange.month:
-        return 'ทั้งเดือน';
-      case DashRange.year:
-        return 'ทั้งปี';
-    }
-  }
-
-  String get cardSub {
-    switch (range.value) {
-      case DashRange.week:
-        final mon = weekMonday;
-        return rangeLabel(mon, mon.add(const Duration(days: 6)));
-      case DashRange.month:
-        final first = DateTime(month.value.year, month.value.month);
-        return rangeLabel(first, DateTime(first.year, first.month + 1, 0));
-      case DashRange.year:
-        return '${thaiMonthShort(1)} - ${thaiMonthShort(12)} ${month.value.year + 543}';
-    }
-  }
-
-  // ── ชั้นนอก: เลือกเดือน (รายปีเลือกปี) — อยู่บนหัวแผงน้ำเงิน ──
-
-  bool get scopeIsYear => range.value == DashRange.year;
-
-  String get scopeTitle => scopeIsYear
-      ? 'ปี ${month.value.year + 543}'
-      : thaiMonthYear(month.value.year, month.value.month);
-
-  /// บรรทัดใต้หัวข้อ "ภาพรวม" — บอกว่าตัวเลขที่เห็นสดแค่ไหน คู่กับปุ่มรีเฟรช
-  String get syncLabel {
-    if (loading.value || rangeLoading.value) return 'กำลังอัปเดตข้อมูล…';
-    final t = lastSync.value;
-    if (t == null) return 'ยังไม่ได้โหลดข้อมูล';
-    return 'อัปเดตล่าสุด ${_hhmm(t.hour, t.minute)} น.';
-  }
-
-  /// เลือกเดือน/ปีตรง ๆ จากตัวเลือกแบบเลื่อน — หนีบไม่ให้ทะลุเดือนปัจจุบัน
-  /// (ล้อปีจะส่งเดือนเดิมมาด้วย ปีนี้อาจยังไม่ถึงเดือนนั้น)
-  void setMonth(DateTime m) {
-    final now = DateTime.now();
-    var t = DateTime(m.year, m.month);
-    final cap = DateTime(now.year, now.month);
-    if (t.isAfter(cap)) t = cap;
-    if (t == month.value) return;
-    touchedBar.value = -1;
-    touchedDay.value = '';
-    month.value = t;
-    _syncWeekAnchor();
-    refreshAll();
-  }
-
-  // ── ชั้นใน: เลือกสัปดาห์ในเดือนนั้น — อยู่บนหัวการ์ดกราฟ ──
-
-  /// เลื่อนได้เฉพาะในเดือนที่เลือก — ข้ามเดือนใช้ตัวเลือกเดือนด้านบน
-  bool get canGoPrev => _weekTarget(-7) != null;
-  bool get canGoNext => _weekTarget(7) != null;
-
-  void goPrev() => _shiftWeek(-7);
-  void goNext() => _shiftWeek(7);
-
-  DateTime? _weekTarget(int days) {
-    final d = weekAnchor.value.add(Duration(days: days));
-    if (d.isAfter(DateTime.now())) return null;
-    if (d.year != month.value.year || d.month != month.value.month) return null;
-    return d;
-  }
-
-  void _shiftWeek(int days) {
-    final d = _weekTarget(days);
-    if (d == null) return;
-    touchedBar.value = -1;
-    touchedDay.value = '';
-    weekAnchor.value = d;
-  }
-
-  /// ให้วันอ้างอิงสัปดาห์อยู่ในเดือนที่เลือก — เดือนปัจจุบันยึดวันนี้ เดือนอื่นยึดวันที่ 1
-  void _syncWeekAnchor() {
-    weekAnchor.value = isCurrentMonth ? DateTime.now() : month.value;
-  }
-
-  /// ปุ่ม refresh = เริ่มใหม่ทั้งหน้า — กลับมาเดือน/สัปดาห์ปัจจุบันและล้างตัวกรอง
-  /// ไม่งั้นกดรีเฟรชแล้วยังค้างอยู่ช่วงเก่า ดูเหมือนโหลดไม่ขึ้น
-  Future<void> resetAndRefresh() {
-    final now = DateTime.now();
-    range.value = DashRange.month;
-    month.value = DateTime(now.year, now.month);
-    weekAnchor.value = now;
-    touchedBar.value = -1;
-    touchedDay.value = '';
-    hiddenSeries.clear();
-    onlyIssues.value = false;
-    return refreshAll();
-  }
-
-  Future<void> refreshAll() async {
-    // บูตครั้งแรกเท่านั้นที่ทำทั้งหน้าเป็นโครง — เปลี่ยนเดือนไม่ควรไปรีเซ็ตการ์ดวันนี้ด้านบน
-    final boot = loading.value;
-    if (!boot) rangeLoading.value = true;
-    error.value = '';
-    if (kDashboardDemo) {
-      await Future<void>.delayed(
-        const Duration(milliseconds: 600),
-      ); // demo: หน่วงเล็กน้อยให้เห็น skeleton
-      final first = DateTime(month.value.year, month.value.month);
-      monthRows.assignAll(
-        demoAttendanceRows(first, DateTime(first.year, first.month + 1, 0)),
-      );
-      final now = DateTime.now();
-      yearRows.assignAll(
-        demoAttendanceRows(
-          DateTime(month.value.year),
-          DateTime(month.value.year, 12, 31),
-          until: now,
-        ),
-      );
-      _keepToday();
-      lastSync.value = DateTime.now();
-      loading.value = false;
-      rangeLoading.value = false;
-      return;
-    }
-    try {
-      final att = await _api.myAttendance(month: _monthParam);
-      monthRows.assignAll(
-        ((att['rows'] as List?) ?? []).whereType<Map>().map(
-          (e) => e.cast<String, dynamic>(),
-        ),
-      );
-      // การ์ดกราฟทุกโหมดอ่านจาก yearRows — สัปดาห์คร่อมเดือนได้ จึงพึ่ง monthRows อย่างเดียวไม่พอ
-      final y = await _api.myAttendance(days: 365);
-      yearRows.assignAll(
-        ((y['rows'] as List?) ?? []).whereType<Map>().map(
-          (e) => e.cast<String, dynamic>(),
-        ),
-      );
-      _keepToday();
-      lastSync.value = DateTime.now();
-    } catch (e) {
-      error.value = 'โหลดข้อมูลไม่ได้ — ตรวจเครือข่ายแล้วลองใหม่';
-    } finally {
-      loading.value = false;
-      rangeLoading.value = false;
-    }
-  }
-
-  /// อัปเดตเวรวันนี้เฉพาะตอนที่ข้อมูลชุดใหม่ครอบคลุมวันนี้จริง
-  /// (เลื่อนไปดูเดือนอื่นแล้ว monthRows ไม่มีวันนี้ — ต้องคงของเดิมไว้ ไม่ใช่ล้างทิ้ง)
-  void _keepToday() {
-    if (isCurrentMonth) todayRows.assignAll(monthRows.where(isToday));
-  }
-
-  String _hhmm(int h, int m) =>
-      '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
-
-  // ---------- รวมตัวเลข ----------
-
-  DateTime? _dateOf(Map<String, dynamic> r) =>
-      DateTime.tryParse('${r['date']}');
-
-  void _tally(Bucket b, Map<String, dynamic> r) {
-    if ('${r['in'] ?? ''}'.isEmpty) return; // ไม่มีเวลาเข้า = ไม่นับว่ามาทำงาน
-    b.shifts++;
-    if ('${r['out'] ?? ''}'.isEmpty && r['no_out'] != true) b.openShifts++;
-    b.addDay(
-      '${r['date']}',
-      late: r['late'] == true,
-      early: r['early'] == true,
-      noOut: r['no_out'] == true,
-    );
-    final w = workedMinutes(r);
-    b.minutes += w;
-    switch (markOf(r)) {
-      case DayMark.bad:
-        b.minutesBad += w;
-      case DayMark.early:
-        b.minutesEarly += w;
-      case DayMark.late:
-        b.minutesLate += w;
-      case DayMark.ok:
-        b.minutesOk += w;
-    }
-    if (r['late'] == true) b.late++;
-    if (r['early'] == true) b.early++;
-    if (r['no_out'] == true) b.noOut++;
-  }
-
-  /// นาทีทำงานของหนึ่งเวร — ยังไม่สแกนออก/ลืมออก = นับไม่ได้ (0)
-  /// เวรข้ามคืน (ออกเช้าวันถัดไป) บวก 24 ชม.ให้ ไม่งั้นได้ค่าติดลบ
-  int workedMinutes(Map<String, dynamic> r) {
-    final a = _minOfDay('${r['in'] ?? ''}');
-    final b = _minOfDay('${r['out'] ?? ''}');
-    if (a == null || b == null) return 0;
-    final d = b - a;
-    return d >= 0 ? d : d + 24 * 60;
-  }
-
-  int? _minOfDay(String hhmm) {
-    final p = hhmm.split(':');
-    if (p.length < 2) return null;
-    final h = int.tryParse(p[0]);
-    final m = int.tryParse(p[1]);
-    if (h == null || m == null) return null;
-    return h * 60 + m;
-  }
-
-  /// จันทร์ของสัปดาห์ที่วันนั้นอยู่
-  DateTime _mondayOf(DateTime d) =>
-      DateTime(d.year, d.month, d.day).subtract(Duration(days: d.weekday - 1));
-
-  /// แถวในช่วงที่กราฟวาดอยู่ — การ์ดสรุป 4 ช่องต้องตรงกับกราฟ
-  List<Map<String, dynamic>> get rowsInRange {
-    switch (range.value) {
-      case DashRange.week:
-        final mon = weekMonday;
-        final sun = mon.add(const Duration(days: 6));
-        return yearRows.where((r) {
-          final d = _dateOf(r);
-          return d != null && !d.isBefore(mon) && !d.isAfter(sun);
-        }).toList();
-      case DashRange.month:
-        return monthRows;
-      case DashRange.year:
-        return yearRows
-            .where((r) => _dateOf(r)?.year == month.value.year)
-            .toList();
-    }
-  }
-
-  /// สรุปตัวเลขของช่วงที่ดูอยู่ (การ์ด 4 ช่อง)
-  Bucket get summary {
-    final b = Bucket('');
-    for (final r in rowsInRange) {
-      _tally(b, r);
-    }
-    return b;
-  }
-
-  /// รายการที่ต้องจัดการ — ลืมออกเวร (ไม่รวมวันนี้ เพราะอาจยังไม่เลิกงาน) ใหม่→เก่า
-  List<Map<String, dynamic>> get pendingFixes {
-    final list = monthRows
-        .where(
-          (r) => (r['no_out'] == true || r['out_area'] == true) && !isToday(r),
-        )
-        .toList();
-    list.sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
-    return list;
-  }
-
-  /// แถวที่ผิดปกติ — ใช้ทั้งตัวกรองรายวันและนับจำนวนบนชิป
-  bool isIssue(Map<String, dynamic> r) =>
-      r['late'] == true ||
-      r['early'] == true ||
-      r['no_out'] == true ||
-      r['out_area'] == true;
-
-  /// กราฟของช่วงที่เลือก — สัปดาห์:7 วัน · เดือน:ทุกวันในเดือน · ปี:12 เดือน
-  ChartCard get card {
-    final now = DateTime.now();
-    switch (range.value) {
-      case DashRange.week:
-        final mon = weekMonday;
-        final idx = DateTime(
-          now.year,
-          now.month,
-          now.day,
-        ).difference(mon).inDays;
-        return ChartCard(
-          buckets: _dayBuckets(mon),
-          current: (idx >= 0 && idx < 7) ? idx : null,
-          byDay: true,
-        );
-
-      case DashRange.month:
-        final first = month.value;
-        final mon0 = _mondayOf(first);
-        return ChartCard(
-          buckets: _weekBuckets(first),
-          current: isCurrentMonth
-              ? DateTime(
-                      now.year,
-                      now.month,
-                      now.day,
-                    ).difference(mon0).inDays ~/
-                    7
-              : null,
-          byDay: false,
-        );
-
-      case DashRange.year:
-        final y = month.value.year;
-        final out = [for (var m = 1; m <= 12; m++) Bucket(thaiMonthShort(m))];
-        for (final r in yearRows) {
-          final d = _dateOf(r);
-          if (d == null || d.year != y) continue;
-          _tally(out[d.month - 1], r);
-        }
-        return ChartCard(
-          buckets: out,
-          current: y == now.year ? now.month - 1 : null,
-          byDay: false,
-        );
-    }
-  }
-
-  /// แท่งละสัปดาห์ (บล็อกจันทร์–อาทิตย์) ของเดือน [first] — สัปดาห์คร่อมเดือนนับเฉพาะวันที่อยู่ในเดือนนี้
-  List<Bucket> _weekBuckets(DateTime first) {
-    final mon0 = _mondayOf(first);
-    final last = DateTime(first.year, first.month + 1, 0);
-    final n = last.difference(mon0).inDays ~/ 7 + 1;
-    // ป้ายเป็นช่วงวันที่ ไม่ใช่ "สัปดาห์ 1..n" — เดือนที่ขึ้นต้น/ลงท้ายคาบเกี่ยว (เช่น ส.ค. 69
-    // เริ่มเสาร์ จบจันทร์) แตะบล็อกจันทร์–อาทิตย์ถึง 6 อัน อ่านว่า "6 สัปดาห์" แล้วสะดุด
-    final out = [
-      for (var i = 0; i < n; i++)
-        Bucket(() {
-          final a = mon0.add(Duration(days: i * 7));
-          final b = a.add(const Duration(days: 6));
-          final s = a.isBefore(first) ? first.day : a.day;
-          final e = b.isAfter(last) ? last.day : b.day;
-          return '$s - $e ${thaiMonthShort(first.month)}';
-        }()),
-    ];
-    for (final r in monthRows) {
-      final d = _dateOf(r);
-      if (d == null) continue;
-      final i = DateTime(d.year, d.month, d.day).difference(mon0).inDays ~/ 7;
-      if (i >= 0 && i < out.length) _tally(out[i], r);
-    }
-    return out;
-  }
-
-  /// 7 แท่ง จ.–อา. ของสัปดาห์ที่ขึ้นต้นด้วย [mon]
-  List<Bucket> _dayBuckets(DateTime mon) {
-    final out = [
-      for (var i = 0; i < 7; i++)
-        Bucket(weekdayNames[i], sub: '${mon.add(Duration(days: i)).day}'),
-    ];
-    for (final r in yearRows) {
-      final d = _dateOf(r);
-      if (d == null) continue;
-      final i = DateTime(d.year, d.month, d.day).difference(mon).inDays;
-      if (i >= 0 && i < 7) _tally(out[i], r);
-    }
-    return out;
-  }
-
-  /// รายละเอียดรายวันของช่วงที่กราฟวาดอยู่ (ใหม่→เก่า) — เลื่อน ‹ › แล้วรายการเลื่อนตาม
-  List<Map<String, dynamic>> get dailyRows {
-    final list = [...rowsInRange.where((r) => !onlyIssues.value || isIssue(r))];
-    list.sort((a, b) => '${b['date']}'.compareTo('${a['date']}'));
-    return list;
-  }
-
-  int get issueCount => rowsInRange.where(isIssue).length;
-
-  /// เวรของแต่ละวันในช่วงที่ดูอยู่ เรียงตามเวลาเข้า — ใช้วาดวงกลมสถานะรายสัปดาห์
-  Map<String, List<Map<String, dynamic>>> get dayShifts {
-    final out = <String, List<Map<String, dynamic>>>{};
-    for (final r in rowsInRange) {
-      out.putIfAbsent('${r['date']}', () => []).add(r);
-    }
-    for (final v in out.values) {
-      v.sort((a, b) => '${a['in']}'.compareTo('${b['in']}'));
-    }
-    return out;
-  }
-
-  /// วันที่แตะค้างไว้ในแถบสถานะ (yyyy-MM-dd · ว่าง = ยังไม่เลือก)
-  final touchedDay = ''.obs;
-
-  /// สถานะของหนึ่งเวร — ใช้เลือกสีวงกลม เรียงตามความรุนแรง
-  static DayMark markOf(Map<String, dynamic> r) =>
-      r['no_out'] == true || r['out_area'] == true
-      ? DayMark.bad
-      : r['early'] == true
-      ? DayMark.early
-      : r['late'] == true
-      ? DayMark.late
-      : DayMark.ok;
-
-  // ---------- วันนี้ / ไฮไลต์ ----------
-
-  static String ymd(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  String get todayKey => ymd(DateTime.now());
-
-  bool isToday(Map<String, dynamic> r) => '${r['date']}' == todayKey;
-
-  /// เวรของวันนี้ทั้งหมด (วันหนึ่งลงเวลาได้หลายเวร) — เรียงตามเวลาเข้า
-  List<Map<String, dynamic>> get todayShifts {
-    final list = todayRows.toList();
-    list.sort((a, b) => '${a['in']}'.compareTo('${b['in']}'));
-    return list;
-  }
-
-  /// เวรแรกของวันนี้ — ใช้ตอนต้องการค่าเดียว
-  Map<String, dynamic>? get todayRow =>
-      todayShifts.isEmpty ? null : todayShifts.first;
-
-  /// ชื่อวันย่อ จ.–อา. จาก "yyyy-MM-dd"
-  static const weekdayNames = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
-  String weekdayOf(String? raw) {
-    final d = DateTime.tryParse(raw ?? '');
-    return d == null ? '' : weekdayNames[d.weekday - 1];
-  }
-}
-
-/// palette "FaceEnroll" — token จาก web app BMS FaceEnroll (ใช้เฉพาะหน้าแดชบอร์ด ไม่แตะ Nexus กลาง)
-/// ฟ้าโรงพยาบาลสว่าง · การ์ดขาวขอบบาง · pill · badge สถานะสีเฉพาะ · สลับ dark ตาม Nexus.isDark
-class _D {
-  static bool get dark => Nexus.isDark;
-
-  /// ตัวคูณตามความกว้างจอ — Figma วาดบนเฟรม 402 (iPhone 17)
-  /// จอ 320 (SE) ย่อลง ~15% · จอใหญ่ขยายได้ถึง ~10% · หนีบไว้ไม่ให้เพี้ยนเกิน
-  /// ตั้งค่าครั้งเดียวที่ต้นเฟรมใน [DashboardView.build] — ทุก _D.* หลังจากนั้นใช้ค่าเดียวกัน
-  static double _s = 1;
-
-  /// ตัวคูณขนาดฟอนต์ของระบบ (หนีบ 1.0–1.2 ให้ตรงกับ withClampedTextScaling ที่ครอบหน้านี้)
-  static double _ts = 1;
-
-  /// พิกเซลจริงต่อ dp ของเครื่อง — ใช้บอก Image ว่าให้ถอดรหัสละเอียดแค่ไหน
-  static double dpr = 3;
-
-  static void useScale(BuildContext c) {
-    dpr = MediaQuery.devicePixelRatioOf(c);
-    _s = (MediaQuery.sizeOf(c).width / 402).clamp(0.82, 1.1);
-    _ts = MediaQuery.textScalerOf(c).scale(1).clamp(1.0, _maxTextScale);
-  }
-
-  static const double _maxTextScale = 1.2;
-
-  /// ขนาดที่ยืดหดตามจอ (ภาพ/ไอคอน) — ระยะห่างไม่ต้องใช้ ปล่อยตามสเกล 4pt เดิม
-  static double sp(double v) => v * _s;
-
-  /// ความสูงคงที่ของกล่องที่มีข้อความอยู่ข้างใน — ต้องโตตามฟอนต์ระบบด้วย ไม่งั้นล้น
-  static double box(double v) => v * _s * _ts;
-  // พื้น / การ์ด
-  static Color get bg => dark
-      ? const Color(0xFF161A23)
-      : const Color(0xFFF0F6FD); // --bg / --hero-bg
-  static Color get card => dark
-      ? const Color(0xFF222835)
-      : const Color(0xFFFFFFFF); // --surface-card / --bg
-  static Color get wash => dark
-      ? const Color(0xFF1F2A3D)
-      : const Color(0xFFEBF1FD); // --surface-blue
-  // ตัวอักษร
-  static Color get ink =>
-      dark ? const Color(0xFFE8EBF0) : const Color(0xFF111827); // --text
-  static Color get sub =>
-      dark ? const Color(0xFFDDE2EA) : const Color(0xFF252A39); // --text-dark
-  static Color get muted =>
-      dark ? const Color(0xFF9AA5B8) : const Color(0xFF667385); // --text-dim
-  static Color get faint =>
-      dark ? const Color(0xFF5B6678) : const Color(0xFFC3CAD6);
-  // accent
-  static Color get accent => const Color(0xFF5682E9);
-  static Color get accentActive => const Color(0xFF3382E7);
-
-  /// แผงน้ำเงินครึ่งล่างของหน้า (Figma 593:12419) — โหมดมืดหรี่ลงไม่ให้แสบตา
-  static Color get panel =>
-      dark ? const Color(0xFF1B2A4A) : const Color(0xFF3382E7);
-
-  /// แถบ legend ใต้การ์ดกราฟ (Figma 593:12411) — ชิปเป็นสีโปร่ง 50% จึงต้องมีพื้นเข้มรองทั้งสองโหมด
-  static const LinearGradient band = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [Color(0xFF000000), Color(0xFF2F2F2F)],
-  );
-  static Color onPanel([double a = 1]) => Colors.white.withValues(alpha: a);
-  static Color get on => const Color(0xFFFFFFFF);
-  static LinearGradient get accentGradient => const LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF8CBFEE), Color(0xFF5D9BDD), Color(0xFF2E6CB3)],
-    stops: [0, 0.48, 1],
-  );
-  // semantic
-  static Color get ok => const Color(0xFF34C759); // colors/green จาก Figma
-  static Color get hairline => dark
-      ? const Color(0x1AFFFFFF)
-      : const Color(0x1A000000); // border การ์ด rgba(0,0,0,.1)
-  /// พื้นการ์ดย่อย — ทึบ 100% ไม่ใช่สีโปร่ง เพราะภาพประกอบที่วางหลังการ์ดจะทะลุขึ้นมาเห็น
-  static Color get rowBg =>
-      dark ? const Color(0xFF262B36) : const Color(0xFFF4F6F9);
-  static Color get warn => const Color(0xFFFC9709);
-  static Color get bad => const Color(0xFFEB5757);
-  static Color get info =>
-      const Color(0xFF8D58D3); // ออกก่อนเวลา = ม่วง (ตามเว็บ)
-  // badge (bg, text) ตาม --badge-*
-  static (Color, Color) get bLate => dark
-      ? (const Color(0x2EFC9709), const Color(0xFFFFC46B))
-      : (const Color(0xFFFFEBCC), const Color(0xFFB46400));
-  static (Color, Color) get bEarly => dark
-      ? (const Color(0x338D58D3), const Color(0xFFC9A6F0))
-      : (const Color(0xFFEDE4FA), const Color(0xFF6432AA));
-  static (Color, Color) get bNoOut => dark
-      ? (const Color(0x2EEB5757), const Color(0xFFFF9C9C))
-      : (const Color(0x1AEB5757), const Color(0xFFEB5757));
-  static (Color, Color) get bOutArea => dark
-      ? (const Color(0x29B7C0D0), const Color(0xFFB7C0D0))
-      : (const Color(0x0D667385), const Color(0xFF667385));
-
-  // ฟอนต์ใช้ของกลางจาก Nexus — แหล่งเดียวทั้งแอป ต่างแค่สี default ของหน้านี้
-  // ฟอนต์ยืดหดตามจอด้วย — จอแคบตัวหนังสือเท่าเดิมจะกินที่จนตัดคำ/ล้น
-  static TextStyle tech({
-    double size = 14,
-    FontWeight weight = FontWeight.w600,
-    Color? color,
-    double spacing = 0,
-  }) => Nexus.tech(
-    size: sp(size),
-    weight: weight,
-    color: color ?? ink,
-    spacing: spacing,
-  );
-  static TextStyle body({
-    double size = 14,
-    FontWeight weight = FontWeight.w500,
-    Color? color,
-  }) => Nexus.body(size: sp(size), weight: weight, color: color ?? ink);
-  static TextStyle num({
-    double size = 14,
-    FontWeight weight = FontWeight.w700,
-    Color? color,
-  }) => Nexus.num(size: sp(size), weight: weight, color: color ?? ink);
-}
+import 'dash_theme.dart';
+import 'dashboard_controller.dart';
+import 'attendance_row.dart';
+import 'fix_request_view.dart';
+import 'widgets/chart_appear.dart';
+import 'widgets/today_card.dart';
+import 'widgets/skeleton.dart';
+import 'widgets/sliver_headers.dart';
+import 'widgets/split_painters.dart';
+import 'widgets/dash_page.dart';
+import 'widgets/dash_buttons.dart';
+import 'widgets/underline_tab.dart';
 
 /// หน้าแดชบอร์ด — โครงตาม Figma: hero (พื้นฟ้า) + แผ่นขาวมุมมนบนเลื่อนขึ้นซ้อนใต้การ์ดสถานะ
 class DashboardView extends GetView<DashboardController> {
@@ -760,84 +29,71 @@ class DashboardView extends GetView<DashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    _D.useScale(context); // ต้องมาก่อนทุก _D.* ของเฟรมนี้
     // ฟอนต์ระบบใหญ่กว่า 1.2 เท่าทำให้กล่องความสูงคงที่ (การ์ดสแกน/แถบเลือกเดือน) ล้น
-    // ยอมให้ขยายได้ถึง 1.2 แล้วความสูงโตตามผ่าน _D.box()
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: _D._maxTextScale,
-      child: Scaffold(
-        backgroundColor: _D.bg,
-        body: Obx(() {
-          if (controller.error.value.isNotEmpty) return _errorState();
-          if (controller.loading.value) return _skeleton(context);
-          return RefreshIndicator(
-            color: _D.accent,
-            backgroundColor: _D.card,
-            onRefresh: controller.resetAndRefresh,
-            child: CustomScrollView(
-              controller: controller.scroll,
-              slivers: [
-                _appBar(context),
-                // การ์ดวันนี้มี PageView ปัดได้ — กันการวาดซ้ำไม่ให้ลามไปทั้งหน้า
-                SliverToBoxAdapter(
-                  child: RepaintBoundary(child: _hero(context)),
-                ),
-                // แผ่นขาว (ต่อจากที่โผล่มาใต้การ์ด — ไร้รอยต่อ) รับแค่แถบเตือน
-                // ห้ามครอบแผงน้ำเงินไว้ข้างใน: พื้นขาวจะถูกระบายเต็มจอทุกเฟรมแล้วโดนน้ำเงินทับทิ้ง
-                DecoratedSliver(
-                  decoration: BoxDecoration(color: _D.card),
-                  sliver: SliverToBoxAdapter(
-                    child: Obx(
-                      () => controller.pendingFixes.isEmpty
-                          ? const SizedBox(height: 24)
-                          // 24 บน-ล่างเท่ากับตอนไม่มีการ์ด (SizedBox 24) — ไม่งั้นมีการ์ดแล้ว
-                          // ระยะถึงแผงน้ำเงินหดเหลือ 8 ทั้งที่เป็นรอยต่อ section เหมือนกัน
-                          : Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                24,
-                                16,
-                                24,
-                              ),
-                              child: _actionBanner(),
-                            ),
-                    ),
-                  ),
-                ),
-                // แผงน้ำเงินคลุมส่วนล่างทั้งหมด: ภาพรวม + รายวัน (Figma 593:12419)
-                DecoratedSliver(
-                  decoration: BoxDecoration(
-                    color: _D.panel,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                  ),
-                  sliver: SliverMainAxisGroup(
-                    slivers: [
-                      _tabsSliver(context),
-                      _statSliver(),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          // กราฟวาดใหม่เองตอน tween/แตะ — กันไม่ให้ลากแผงน้ำเงินทั้งแผ่นไปวาดด้วย
-                          child: RepaintBoundary(
-                            child: Obx(() => _chartCard(controller.card)),
+    // ยอมให้ขยายได้ถึง 1.2 แล้วความสูงโตตามผ่าน Dash.box()
+    return DashPage(
+      builder: (context) => Obx(() {
+        if (controller.error.value.isNotEmpty) return _errorState();
+        if (controller.loading.value) return _skeleton(context);
+        return RefreshIndicator(
+          color: Dash.accent,
+          backgroundColor: Dash.card,
+          onRefresh: controller.resetAndRefresh,
+          child: CustomScrollView(
+            controller: controller.scroll,
+            slivers: [
+              _appBar(context),
+              // การ์ดวันนี้มี PageView ปัดได้ — กันการวาดซ้ำไม่ให้ลามไปทั้งหน้า
+              SliverToBoxAdapter(child: RepaintBoundary(child: _hero(context))),
+              // แผ่นขาว (ต่อจากที่โผล่มาใต้การ์ด — ไร้รอยต่อ) รับแค่แถบเตือน
+              // ห้ามครอบแผงน้ำเงินไว้ข้างใน: พื้นขาวจะถูกระบายเต็มจอทุกเฟรมแล้วโดนน้ำเงินทับทิ้ง
+              DecoratedSliver(
+                decoration: BoxDecoration(color: Dash.card),
+                sliver: SliverToBoxAdapter(
+                  child: Obx(
+                    () => controller.pendingFixes.isEmpty
+                        ? const SizedBox(height: 14)
+                        // บน-ล่างเท่ากัน ให้รอยต่อ section สม่ำเสมอไม่ว่าจะมีการ์ดหรือไม่
+                        : Padding(
+                            // การ์ดวันนี้ทิ้งช่องไฟใต้ท้ายไว้ ~5 อยู่แล้ว บวกอีก 11 ให้ครบ 16
+                            // เท่ากับระยะด้านล่างถึงแผงน้ำเงิน — สองช่องไฟเท่ากันพอดี
+                            padding: const EdgeInsets.fromLTRB(16, 11, 16, 16),
+                            child: _actionBanner(),
                           ),
+                  ),
+                ),
+              ),
+              // แผงน้ำเงินคลุมส่วนล่างทั้งหมด: ภาพรวม + รายวัน (Figma 593:12419)
+              DecoratedSliver(
+                decoration: BoxDecoration(
+                  color: Dash.panel,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    _tabsSliver(context),
+                    _statSliver(),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        // กราฟวาดใหม่เองตอน tween/แตะ — กันไม่ให้ลากแผงน้ำเงินทั้งแผ่นไปวาดด้วย
+                        child: RepaintBoundary(
+                          child: Obx(() => _chartCard(controller.card)),
                         ),
                       ),
-                      SliverToBoxAdapter(child: _dailyHeader()),
-                      _dailySliver(),
-                      const SliverToBoxAdapter(
-                        child: SizedBox(height: 120),
-                      ), // เว้นที่ให้แถบล่าง
-                    ],
-                  ),
+                    ),
+                    const SliverToBoxAdapter(
+                      child: SizedBox(height: 120),
+                    ), // เว้นที่ให้แถบล่าง
+                  ],
                 ),
-              ],
-            ),
-          );
-        }),
-      ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -845,14 +101,14 @@ class DashboardView extends GetView<DashboardController> {
 
   /// ใช้โครงเดียวกับของจริง (hero + แผ่นขาว) เพื่อไม่ให้ layout กระโดดตอนข้อมูลมาถึง
   /// หัวเรื่องแสดงของจริงไปเลย เพราะเป็นข้อความคงที่ ไม่ต้องรอโหลด
-  Widget _skeleton(BuildContext context) => _Shimmer(
+  Widget _skeleton(BuildContext context) => Shimmer(
     child: SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            color: _D.bg,
+            color: Dash.bg,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -867,7 +123,7 @@ class DashboardView extends GetView<DashboardController> {
                       bottom: 0,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: _D.card,
+                          color: Dash.card,
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(24),
                           ),
@@ -883,10 +139,10 @@ class DashboardView extends GetView<DashboardController> {
               ],
             ),
           ),
-          Container(color: _D.card, height: 24),
+          Container(color: Dash.card, height: 24),
           Container(
             decoration: BoxDecoration(
-              color: _D.panel,
+              color: Dash.panel,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
@@ -895,13 +151,13 @@ class DashboardView extends GetView<DashboardController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const _Skel(width: 96, height: 22, onPanel: true, phase: 0.00),
+                const Skel(width: 96, height: 22, onPanel: true, phase: 0.00),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     for (var i = 0; i < 3; i++) ...[
                       Expanded(
-                        child: _Skel(
+                        child: Skel(
                           height: 36,
                           radius: 100,
                           onPanel: true,
@@ -915,14 +171,14 @@ class DashboardView extends GetView<DashboardController> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const _Skel(
+                    const Skel(
                       width: 120,
                       height: 34,
                       onPanel: true,
                       phase: 0.28,
                     ),
                     const Spacer(),
-                    const _Skel(
+                    const Skel(
                       width: 40,
                       height: 40,
                       radius: 100,
@@ -930,7 +186,7 @@ class DashboardView extends GetView<DashboardController> {
                       phase: 0.32,
                     ),
                     const SizedBox(width: 16),
-                    const _Skel(
+                    const Skel(
                       width: 40,
                       height: 40,
                       radius: 100,
@@ -944,7 +200,7 @@ class DashboardView extends GetView<DashboardController> {
                   children: [
                     for (var i = 0; i < 4; i++) ...[
                       Expanded(
-                        child: _Skel(
+                        child: Skel(
                           height: 88,
                           radius: 16,
                           onPanel: true,
@@ -957,7 +213,7 @@ class DashboardView extends GetView<DashboardController> {
                 ),
                 const SizedBox(height: 16),
                 for (var i = 0; i < 2; i++) ...[
-                  _Skel(
+                  Skel(
                     height: 250,
                     radius: 24,
                     onPanel: true,
@@ -966,10 +222,10 @@ class DashboardView extends GetView<DashboardController> {
                   const SizedBox(height: 16),
                 ],
                 const SizedBox(height: 8),
-                const _Skel(width: 80, height: 20, onPanel: true, phase: 0.76),
+                const Skel(width: 80, height: 20, onPanel: true, phase: 0.76),
                 const SizedBox(height: 12),
                 for (var i = 0; i < 4; i++) ...[
-                  _Skel(
+                  Skel(
                     height: 64,
                     radius: 16,
                     onPanel: true,
@@ -988,28 +244,28 @@ class DashboardView extends GetView<DashboardController> {
   Widget _skelTodayCard() => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: _D.card,
+      color: Dash.card,
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: _D.hairline),
+      border: Border.all(color: Dash.hairline),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            const _Skel(width: 120, height: 14, phase: 0.0),
+            const Skel(width: 120, height: 14, phase: 0.0),
             const Spacer(),
-            const _Skel(width: 56, height: 24, radius: 100, phase: 0.10),
+            const Skel(width: 56, height: 24, radius: 100, phase: 0.10),
           ],
         ),
         const SizedBox(height: 12),
-        const _Skel(width: 150, height: 24, phase: 0.18),
+        const Skel(width: 150, height: 24, phase: 0.18),
         const SizedBox(height: 16),
         Row(
           children: const [
-            Expanded(child: _Skel(height: 84, radius: 16, phase: 0.26)),
+            Expanded(child: Skel(height: 84, radius: 16, phase: 0.26)),
             SizedBox(width: 8),
-            Expanded(child: _Skel(height: 84, radius: 16, phase: 0.34)),
+            Expanded(child: Skel(height: 84, radius: 16, phase: 0.34)),
           ],
         ),
       ],
@@ -1020,7 +276,7 @@ class DashboardView extends GetView<DashboardController> {
 
   Widget _hero(BuildContext context) {
     return Container(
-      color: _D.bg,
+      color: Dash.bg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1035,13 +291,13 @@ class DashboardView extends GetView<DashboardController> {
                 bottom: 0,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: _D.card,
+                    color: Dash.card,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(24),
                     ),
                     // โหมดสว่างเงาจางที่ 4% แทบมองไม่เห็น แต่ต้องเบลอเต็มความกว้างทุกเฟรม
                     // ตัดทิ้งไปเลย เหลือเฉพาะโหมดมืดที่เห็นผลจริง
-                    boxShadow: _D.dark
+                    boxShadow: Dash.dark
                         ? [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.30),
@@ -1055,7 +311,7 @@ class DashboardView extends GetView<DashboardController> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Obx(() => _TodayCard(shifts: controller.todayShifts)),
+                child: Obx(() => TodayCard(shifts: controller.todayShifts)),
               ),
             ],
           ),
@@ -1082,14 +338,14 @@ class DashboardView extends GetView<DashboardController> {
     scrolledUnderElevation: 0,
     automaticallyImplyLeading: false,
     toolbarHeight: 0,
-    expandedHeight: _D.box(76),
+    expandedHeight: Dash.box(76),
     flexibleSpace: FlexibleSpaceBar(
       background: Obx(() {
         // ฟ้าเฉพาะตอนที่ข้างหลังเป็นแผงน้ำเงินแล้ว — ยังอยู่ช่วง hero พื้นสว่างต้องขาวเหมือนเดิม
         final onPanel = controller.panelStuck.value;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          color: onPanel ? _D.panel : _D.bg,
+          color: onPanel ? Dash.panel : Dash.bg,
           child: SafeArea(
             bottom: false,
             child: Padding(
@@ -1103,10 +359,10 @@ class DashboardView extends GetView<DashboardController> {
                       children: [
                         Text(
                           'แดชบอร์ด',
-                          style: _D.tech(
+                          style: Dash.tech(
                             size: 20,
                             weight: FontWeight.w700,
-                            color: onPanel ? _D.onPanel() : null,
+                            color: onPanel ? Dash.onPanel() : null,
                           ),
                         ),
                         // คงที่ทางในเลย์เอาต์ไว้เสมอ จางอย่างเดียว
@@ -1118,9 +374,9 @@ class DashboardView extends GetView<DashboardController> {
                           valueListenable: controller.subFade,
                           builder: (context, v, _) => Text(
                             'สรุปข้อมูลการมาทำงานของคุณ',
-                            style: _D.body(
+                            style: Dash.body(
                               size: 12,
-                              color: _D.muted.withValues(alpha: v),
+                              color: Dash.muted.withValues(alpha: v),
                             ),
                           ),
                         ),
@@ -1136,7 +392,7 @@ class DashboardView extends GetView<DashboardController> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: onPanel ? _D.onPanel() : _D.accent,
+                              color: onPanel ? Dash.onPanel() : Dash.accent,
                             ),
                           )
                         : _iconBtn(
@@ -1165,12 +421,12 @@ class DashboardView extends GetView<DashboardController> {
             children: [
               Text(
                 'แดชบอร์ด',
-                style: _D.tech(size: 20, weight: FontWeight.w700),
+                style: Dash.tech(size: 20, weight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
                 'สรุปข้อมูลการมาทำงานของคุณ',
-                style: _D.body(size: 12, color: _D.muted),
+                style: Dash.body(size: 12, color: Dash.muted),
               ),
             ],
           ),
@@ -1178,7 +434,7 @@ class DashboardView extends GetView<DashboardController> {
         SizedBox(
           width: 18,
           height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2, color: _D.accent),
+          child: CircularProgressIndicator(strokeWidth: 2, color: Dash.accent),
         ),
       ],
     ),
@@ -1190,16 +446,23 @@ class DashboardView extends GetView<DashboardController> {
   /// ความสูงคงที่ทุกสถานะ — เดิมพอตรึงแล้วสูงเพิ่มรวดเดียว ~70dp เลยกระตุกเห็นชัด
   Widget _tabsSliver(BuildContext context) {
     // หัวแอปเป็น floating หายสนิทตอนเลื่อนลง — พอหัวนี้ตรึงถึงบนสุดจะไปอยู่ใต้ status bar
-    // ตอนยังไม่ตรึงค่านี้ทำหน้าที่เป็นช่องไฟหัวแผงพอดี จึงตั้งคงที่ได้ ไม่ต้องสลับ
+    // ตอนยังไม่ตรึงใช้ช่องไฟหัวแผงปกติ แล้วค่อยขยายเป็นความสูง status bar ระหว่างเลื่อนขึ้นไปตรึง
+    // (เครื่องที่ safe area สูง ๆ เคยได้ช่องไฟ 44-47 ตั้งแต่ยังไม่ตรึง หัวข้อเลยลอยห่างขอบแผงมาก)
+    const restGap = 14.0;
     final safeTop = MediaQuery.viewPaddingOf(context).top;
-    final topPad = safeTop < 16 ? 16.0 : safeTop;
-    final rowH = _D.box(52); // แถวหัวข้อ + ปุ่มเดือน
-    final tabH = _D.box(40) + 4; // 40 ตัวแท็บ + 3 ขีดใต้ + 1 เส้นฐาน
+    final stickGap = safeTop < restGap ? restGap : safeTop;
+    final grow = stickGap - restGap;
+    final rowH = Dash.box(52); // แถวหัวข้อ + ปุ่มเดือน
+    final tabH = Dash.box(40) + 4; // 40 ตัวแท็บ + 3 ขีดใต้ + 1 เส้นฐาน
     return SliverLayoutBuilder(
       builder: (context, cons) {
         // ห้ามใช้ overlapsContent — ค่านั้นมาจาก overlap ของ sliver ก่อนหน้า พอหัวแอปเลิก pinned
         // มันเป็น 0 ตลอด
         final stuck = cons.scrollOffset > 0;
+        // โตตามระยะที่เลื่อนไปแล้วพอดี — หัวจึงไม่กระโดดตอนเปลี่ยนเป็นตรึง
+        final topPad = grow <= 0
+            ? restGap
+            : restGap + grow * (cons.scrollOffset / grow).clamp(0.0, 1.0);
         // แจ้งหัวแอปให้เปลี่ยนสี — ตั้งค่า Rx ระหว่าง layout ไม่ได้ ต้องรอจบเฟรม
         if (controller.panelStuck.value != stuck) {
           WidgetsBinding.instance.addPostFrameCallback(
@@ -1208,7 +471,7 @@ class DashboardView extends GetView<DashboardController> {
         }
         return SliverPersistentHeader(
           pinned: true,
-          delegate: _Sticky(
+          delegate: StickyPanelHeader(
             height: topPad + rowH + tabH,
             topGap: topPad,
             stuck: stuck,
@@ -1251,16 +514,16 @@ class DashboardView extends GetView<DashboardController> {
             children: [
               Text(
                 'ภาพรวม',
-                style: _D.tech(
+                style: Dash.tech(
                   size: 17,
                   weight: FontWeight.w700,
-                  color: _D.onPanel(),
+                  color: Dash.onPanel(),
                 ),
               ),
               Obx(
                 () => Text(
                   controller.syncLabel,
-                  style: _D.body(size: 11, color: _D.onPanel(0.75)),
+                  style: Dash.body(size: 11, color: Dash.onPanel(0.75)),
                 ),
               ),
             ],
@@ -1276,11 +539,11 @@ class DashboardView extends GetView<DashboardController> {
     () => Tappable(
       onTap: _pickScope,
       borderRadius: BorderRadius.circular(100),
-      splash: _D.onPanel(),
+      splash: Dash.onPanel(),
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
         decoration: BoxDecoration(
-          color: _D.onPanel(0.18),
+          color: Dash.onPanel(0.18),
           borderRadius: BorderRadius.circular(100),
         ),
         child: Row(
@@ -1288,17 +551,17 @@ class DashboardView extends GetView<DashboardController> {
           children: [
             Text(
               controller.scopeTitle,
-              style: _D.tech(
+              style: Dash.tech(
                 size: 13,
                 weight: FontWeight.w600,
-                color: _D.onPanel(),
+                color: Dash.onPanel(),
               ),
             ),
             const SizedBox(width: 4),
             Icon(
               PhosphorIconsRegular.caretDown,
-              size: _D.sp(14),
-              color: _D.onPanel(0.8),
+              size: Dash.sp(14),
+              color: Dash.onPanel(0.8),
             ),
           ],
         ),
@@ -1307,60 +570,31 @@ class DashboardView extends GetView<DashboardController> {
   );
 
   /// แท็บเลือกช่วง — เหลี่ยม ชิดขอบจอ ตัวที่เลือกขีดเส้นใต้
+  /// สูง 40 ตัวแท็บ + 3 ขีดใต้ · เส้นฐานอีก 1 มาจากขอบล่างของกล่องนี้
   Widget _rangeTabs() => Obx(
     () => DecoratedBox(
       // เส้นฐานจาง ๆ ให้เห็นว่าแถวนี้เป็นแท็บ ไม่ใช่ข้อความลอย
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: _D.onPanel(0.25))),
+        border: Border(bottom: BorderSide(color: Dash.onPanel(0.25))),
       ),
-      child: Row(
-        children: [
-          for (final e in _rangeNames.entries)
-            Expanded(child: _rangeTab(e.key, e.value)),
-        ],
+      child: SizedBox(
+        height: Dash.box(40) + 3,
+        child: Row(
+          children: [
+            for (final e in _rangeNames.entries)
+              Expanded(child: _rangeTab(e.key, e.value)),
+          ],
+        ),
       ),
     ),
   );
 
-  Widget _rangeTab(DashRange r, String label) {
-    final on = controller.range.value == r;
-    return Tappable(
-      onTap: () => controller.setRange(r),
-      borderRadius: BorderRadius.zero,
-      splash: _D.onPanel(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: _D.box(40),
-            child: Center(
-              child: Text(
-                label,
-                style: _D.body(
-                  size: 13,
-                  weight: on ? FontWeight.w700 : FontWeight.w500,
-                  // ตัวที่ไม่ได้เลือกอยู่บนพื้นน้ำเงิน — ขาว 70% ยังอ่านออกแต่ไม่แย่งสายตา
-                  color: _D.onPanel(on ? 1 : 0.7),
-                ),
-              ),
-            ),
-          ),
-          // ทับเส้นฐานพอดี — ตัวที่เลือกจึงดูเหมือนขีดเส้นใต้ ไม่ใช่มีเส้นสองชั้น
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            height: 3,
-            decoration: BoxDecoration(
-              color: on ? _D.onPanel() : Colors.transparent,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(3),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _rangeTab(DashRange r, String label) => UnderlineTab(
+    label: label,
+    on: controller.range.value == r,
+    onTap: () => controller.setRange(r),
+    onPanel: true,
+  );
 
   /// ย้อนหลังได้แค่ไหนในตัวเลือกแบบเลื่อน — เท่าที่ข้อมูลลงเวลามีจริง
   static const _pickMonthsBack = 24;
@@ -1386,12 +620,12 @@ class DashboardView extends GetView<DashboardController> {
     // เดือนที่ดูอยู่เก่ากว่าช่วงที่ให้เลือก — เริ่มที่ตัวเก่าสุด
     if (picked < 0) picked = 0;
     final wheel = FixedExtentScrollController(initialItem: picked);
-    final rowH = _D.box(44);
+    final rowH = Dash.box(44);
 
     Get.bottomSheet<void>(
       Container(
         decoration: BoxDecoration(
-          color: _D.card,
+          color: Dash.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -1404,13 +638,13 @@ class DashboardView extends GetView<DashboardController> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: _D.faint,
+                  color: Dash.faint,
                   borderRadius: BorderRadius.circular(100),
                 ),
               ),
               Text(
                 isYear ? 'เลือกปี' : 'เลือกเดือน',
-                style: _D.tech(size: 14, color: _D.ink),
+                style: Dash.tech(size: 14, color: Dash.ink),
               ),
               const SizedBox(height: 8),
               SizedBox(
@@ -1422,7 +656,7 @@ class DashboardView extends GetView<DashboardController> {
                       child: Container(
                         height: rowH,
                         decoration: BoxDecoration(
-                          color: _D.wash,
+                          color: Dash.wash,
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
@@ -1445,10 +679,10 @@ class DashboardView extends GetView<DashboardController> {
                               isYear
                                   ? 'ปี ${d.year + 543}'
                                   : thaiMonthYear(d.year, d.month),
-                              style: _D.tech(
+                              style: Dash.tech(
                                 size: on ? 16 : 15,
                                 weight: on ? FontWeight.w700 : FontWeight.w500,
-                                color: on ? _D.accentActive : _D.muted,
+                                color: on ? Dash.accentActive : Dash.muted,
                               ),
                             ),
                           );
@@ -1459,29 +693,16 @@ class DashboardView extends GetView<DashboardController> {
                 ),
               ),
               const SizedBox(height: 12),
-              Tappable(
-                onTap: () {
-                  Get.back<void>();
-                  controller.setMonth(items[picked]);
-                },
-                borderRadius: BorderRadius.circular(16),
-                splash: _D.on,
-                child: Container(
-                  width: double.infinity,
-                  height: _D.box(48),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _D.accentActive,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'เลือก',
-                    style: _D.body(
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: _D.on,
-                    ),
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: DashPillButton(
+                  label: 'เลือก',
+                  height: 48,
+                  radius: 16,
+                  onTap: () {
+                    Get.back<void>();
+                    controller.setMonth(items[picked]);
+                  },
                 ),
               ),
             ],
@@ -1503,16 +724,16 @@ class DashboardView extends GetView<DashboardController> {
             children: [
               Text(
                 controller.cardTitle,
-                style: _D.tech(
+                style: Dash.tech(
                   size: 16,
                   weight: FontWeight.w700,
-                  color: _D.ink,
+                  color: Dash.ink,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 controller.cardSub,
-                style: _D.body(size: 12, color: _D.muted),
+                style: Dash.body(size: 12, color: Dash.muted),
               ),
             ],
           ),
@@ -1535,102 +756,19 @@ class DashboardView extends GetView<DashboardController> {
     ),
   );
 
-  Widget _navBtn(IconData icon, VoidCallback onTap, bool enabled) => Tappable(
-    onTap: onTap,
-    enabled: enabled,
-    circle: true,
-    splash: _D.accent,
-    child: Container(
-      width: _D.sp(40),
-      height: _D.sp(40),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        // ปุ่มที่กดได้เป็นฟ้าทึบ ปุ่มที่สุดทางแล้วเป็นฟ้าจาง — ต่างกันชัดโดยไม่ต้องอ่าน
-        color: enabled ? _D.accent : _D.wash,
-      ),
-      child: Icon(
-        icon,
-        size: _D.sp(20),
-        color: enabled ? _D.on : _D.accent.withValues(alpha: 0.45),
-      ),
-    ),
-  );
-
-  Widget _dailyHeader() => Obx(
-    () => Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Text(
-                'รายวัน',
-                style: _D.tech(
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: _D.onPanel(),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                controller.periodTitle,
-                style: _D.body(size: 11.5, color: _D.onPanel(0.8)),
-              ),
-            ],
-          ),
-          if (controller.issueCount > 0) ...[
-            const SizedBox(height: 8),
-            // ส่วนใหญ่เปิดมาเพื่อหาว่า "วันไหนมีปัญหา" — ให้กรองได้ในคลิกเดียว
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Tappable(
-                onTap: controller.onlyIssues.toggle,
-                borderRadius: BorderRadius.circular(100),
-                splash: _D.onPanel(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: controller.onlyIssues.value
-                        ? _D.onPanel()
-                        : _D.onPanel(0.2),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        PhosphorIconsRegular.warningCircle,
-                        size: 14,
-                        color: controller.onlyIssues.value
-                            ? _D.accent
-                            : _D.onPanel(),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'เฉพาะที่ผิดปกติ (${controller.issueCount})',
-                        style: _D.body(
-                          size: 11.5,
-                          weight: FontWeight.w600,
-                          color: controller.onlyIssues.value
-                              ? _D.accent
-                              : _D.onPanel(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
+  Widget _navBtn(
+    IconData icon,
+    VoidCallback onTap,
+    bool enabled,
+  ) => DashCircleButton(
+    icon: icon,
+    onTap: enabled ? onTap : null,
+    size: Dash.sp(40),
+    iconSize: Dash.sp(20),
+    splash: Dash.accent,
+    // ปุ่มที่กดได้เป็นฟ้าทึบ ปุ่มที่สุดทางแล้วเป็นฟ้าจาง — ต่างกันชัดโดยไม่ต้องอ่าน
+    fill: enabled ? Dash.accent : Dash.wash,
+    iconColor: enabled ? Dash.on : Dash.accent.withValues(alpha: 0.45),
   );
 
   // ============ ต้องขอแก้ไข ============
@@ -1639,88 +777,123 @@ class DashboardView extends GetView<DashboardController> {
   /// ยกขึ้นมาไว้บนสุดพร้อมรายละเอียดครบ: วันไหน เวรอะไร เวลาเท่าไหร่ ผิดยังไง แจ้งใคร
   Widget _actionBanner() {
     final fixes = controller.pendingFixes;
-    final c = _D.bad;
-    final contact = controller.settings.contactMsg.value.trim();
     return Tappable(
       // กดแล้วเปิดหน้ารายการที่ต้องขอแก้ไข (กด back กลับมาที่แดชบอร์ดตำแหน่งเดิม)
       onTap: () => Get.toNamed(Routes.fixRequest, arguments: {'rows': fixes}),
       borderRadius: BorderRadius.circular(16),
-      splash: c,
+      splash: Dash.accent,
+      // แผ่นไล่สีน้ำเงินซ้อนอยู่ข้างหลัง โผล่พ้นขอบบนการ์ด 8 (Figma 619:16055)
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.08),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF045FA9), Color(0xFF288AD1)],
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(PhosphorIconsRegular.warningCircle, size: 18, color: c),
-                const SizedBox(width: 8),
-                Text(
-                  'แก้ไขเวลาการเข้า-ออกงาน ${fixes.length} รายการ',
-                  style: _D.tech(size: 13.5, weight: FontWeight.w700, color: c),
+        padding: const EdgeInsets.only(top: 8),
+        child: Container(
+          // ไม่มี padding ที่การ์ด — ลายพื้นต้องชนขอบจริง เนื้อหาเว้นขอบเองข้างใน
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Dash.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          // เส้นขอบวาดทับลูก ไม่ใช่ border ใน decoration — ของเดิมโดน clip กินไปครึ่งเส้น
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Dash.hairline),
+          ),
+          // ย่อเหลือหัวเรื่อง + จำนวน — รายละเอียดของแต่ละวันอยู่ในหน้ารายการอยู่แล้ว
+          // แถวย่อยสามบรรทัดเดิมกินที่บนแดชบอร์ดโดยที่คนต้องกดเข้าไปทำต่ออยู่ดี
+          child: Stack(
+            children: [
+              // ลายพื้น: วงกลมจมขอบล่างการ์ด เห็นแค่ครึ่งบน (การ์ด clip ที่เหลือทิ้ง)
+              // กึ่งกลางตรงกับภาพประกอบ — ภาพกว้าง sp(104) ห่างขอบขวา 8
+              Positioned(
+                right: 8 + (Dash.sp(104) - Dash.sp(116)) / 2,
+                bottom: -Dash.sp(58),
+                child: Container(
+                  width: Dash.sp(116),
+                  height: Dash.sp(116),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Dash.accent.withValues(alpha: 0.08),
+                  ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            for (final r in fixes.take(3)) _fixItem(r),
-            if (fixes.length > 3)
+              ),
+              // บอกว่ากดแล้วออกไปหน้าอื่น — การ์ดนี้ไม่ได้แค่แจ้ง แต่กดต่อได้
+              Positioned(
+                right: 12,
+                top: 12,
+                child: Icon(
+                  PhosphorIconsBold.arrowUpRight,
+                  size: Dash.sp(16),
+                  color: Dash.accentActive.withValues(alpha: 0.55),
+                ),
+              ),
+              // ภาพประกอบวางทับเป็นชั้นบนสุด ไม่ได้อยู่ในแถว — ความสูงการ์ดจึงมาจากข้อความล้วน
+              // ชนขอบล่างการ์ด แล้วย่อ/ขยายตามความสูงที่ข้อความกำหนด
+              Positioned(
+                right: 8,
+                top: 10,
+                bottom: 0,
+                child: Hero(
+                  tag: kFixTimeHeroTag,
+                  child: SizedBox(
+                    width: Dash.sp(104),
+                    child: SvgPicture.asset(
+                      'assets/images/fix_time_hero.svg',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'และอีก ${fixes.length - 3} รายการ',
-                  style: _D.body(size: 11, color: _D.muted),
+                // เว้นขวาให้พ้นภาพประกอบ — ข้อความต้องไม่ไปทับมือที่ถือมือถือ
+                padding: EdgeInsets.fromLTRB(14, 12, Dash.sp(104) + 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ตรวจพบเวลาเข้า - ออกงาน',
+                      style: Dash.body(
+                        size: 12.5,
+                        weight: FontWeight.w600,
+                        color: Dash.sub,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    // จำนวนวันคือสิ่งที่ต้องเห็นก่อน — ตัวเลขใหญ่ คำอธิบายตัวเล็กต่อท้าย
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${fixes.length}',
+                            style: Dash.num(
+                              size: 26,
+                              weight: FontWeight.w700,
+                              color: Dash.accentActive,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ' วันที่ต้องตรวจสอบ',
+                            style: Dash.body(
+                              size: 12.5,
+                              weight: FontWeight.w600,
+                              color: Dash.accentActive,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 8),
-            Text(
-              contact.isEmpty
-                  ? 'ขอแก้ไขเวลาได้ที่หัวหน้าเวรหรือฝ่ายบุคคล'
-                  : 'ขอแก้ไขเวลา: $contact',
-              style: _D.body(
-                size: 11.5,
-                weight: FontWeight.w600,
-                color: _D.accentActive,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  /// หนึ่งรายการค้าง — วันที่ · เวร · เวลาที่มี · สาเหตุ
-  Widget _fixItem(Map<String, dynamic> r) {
-    final inT = '${r['in'] ?? ''}';
-    final outT = '${r['out'] ?? ''}';
-    final why = r['no_out'] == true ? 'ไม่มีเวลาออก' : 'สแกนนอกพื้นที่';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 74,
-            child: Text(
-              thaiShortDate('${r['date']}'),
-              style: _D.body(
-                size: 11.5,
-                weight: FontWeight.w700,
-                color: _D.sub,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '${inT.isEmpty ? 'เวร' : _shiftName(inT)} · '
-              'เข้า ${inT.isEmpty ? '--:--' : inT} · ออก ${outT.isEmpty ? '--:--' : outT} · $why',
-              style: _D.body(size: 11.5, color: _D.muted),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1731,27 +904,15 @@ class DashboardView extends GetView<DashboardController> {
     Key? key,
     bool enabled = true,
     bool onPanel = false,
-  }) => Tappable(
+  }) => DashCircleButton(
     key: key,
+    icon: icon,
     onTap: enabled ? onTap : null,
-    circle: true,
-    splash: onPanel ? _D.onPanel() : _D.accent,
-    child: Container(
-      width: 36,
-      height: 36,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: onPanel ? _D.onPanel(0.2) : _D.rowBg,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon,
-        size: 19,
-        color: onPanel
-            ? _D.onPanel(enabled ? 1 : 0.4)
-            : (enabled ? _D.accent : _D.faint),
-      ),
-    ),
+    splash: onPanel ? Dash.onPanel() : Dash.accent,
+    fill: onPanel ? Dash.onPanel(0.2) : Dash.rowBg,
+    iconColor: onPanel
+        ? Dash.onPanel(enabled ? 1 : 0.4)
+        : (enabled ? Dash.accent : Dash.faint),
   );
 
   Widget _errorState() => Center(
@@ -1760,12 +921,12 @@ class DashboardView extends GetView<DashboardController> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(PhosphorIconsRegular.wifiSlash, size: 36, color: _D.faint),
+          Icon(PhosphorIconsRegular.wifiSlash, size: 36, color: Dash.faint),
           const SizedBox(height: 8),
           Text(
             controller.error.value,
             textAlign: TextAlign.center,
-            style: _D.body(size: 13, color: _D.sub),
+            style: Dash.body(size: 13, color: Dash.sub),
           ),
           const SizedBox(height: 16),
           Tappable(
@@ -1774,12 +935,16 @@ class DashboardView extends GetView<DashboardController> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                gradient: _D.accentGradient,
+                gradient: Dash.accentGradient,
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(
                 'ลองใหม่',
-                style: _D.tech(size: 13, weight: FontWeight.w700, color: _D.on),
+                style: Dash.tech(
+                  size: 13,
+                  weight: FontWeight.w700,
+                  color: Dash.on,
+                ),
               ),
             ),
           ),
@@ -1794,20 +959,20 @@ class DashboardView extends GetView<DashboardController> {
   /// อ่านไม่ออกว่าสัดส่วนวันที่มีปัญหาเทียบกับทั้งเดือนเป็นเท่าไหร่
   Widget _statRow() => Obx(() {
     if (controller.rangeLoading.value) {
-      return _Shimmer(child: _Skel(height: 104, radius: 16, onPanel: true));
+      return Shimmer(child: Skel(height: 104, radius: 16, onPanel: true));
     }
     final b = controller.summary;
     final segs = <(String, int, Color)>[
-      ('ปกติ', b.normalDays, _D.ok),
-      ('สาย', b.lateOnly, _D.warn),
-      ('ออกก่อน', b.earlyOnly, _D.info),
-      ('ลืมออก', b.noOutOnly, _D.bad),
+      ('ปกติ', b.normalDays, Dash.ok),
+      ('สาย', b.lateOnly, Dash.warn),
+      ('ออกก่อน', b.earlyOnly, Dash.info),
+      ('ลืมออก', b.noOutOnly, Dash.bad),
     ];
     final total = b.days;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        color: _D.card,
+        color: Dash.card,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1817,7 +982,7 @@ class DashboardView extends GetView<DashboardController> {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('มาทำงาน', style: _D.body(size: 12.5, color: _D.muted)),
+              Text('มาทำงาน', style: Dash.body(size: 12.5, color: Dash.muted)),
               const SizedBox(width: 8),
               // นับขึ้นจาก 0 — ตาจับได้ว่าตัวเลขนี้เพิ่งเปลี่ยนตามช่วงที่เลือก
               TweenAnimationBuilder<double>(
@@ -1827,10 +992,10 @@ class DashboardView extends GetView<DashboardController> {
                 curve: Curves.easeOutCubic,
                 builder: (context, v, _) => Text(
                   '${v.round()} วัน',
-                  style: _D.num(
+                  style: Dash.num(
                     size: 18,
                     weight: FontWeight.w800,
-                    color: _D.ink,
+                    color: Dash.ink,
                   ),
                 ),
               ),
@@ -1838,7 +1003,7 @@ class DashboardView extends GetView<DashboardController> {
               // ช่วงวันที่ของตัวเลขชุดนี้ — ใช้ค่าเดียวกับหัวการ์ดกราฟ เพราะสรุปจากแถวชุดเดียวกัน
               Text(
                 controller.cardSub,
-                style: _D.body(size: 11.5, color: _D.muted),
+                style: Dash.body(size: 11.5, color: Dash.muted),
               ),
             ],
           ),
@@ -1846,9 +1011,9 @@ class DashboardView extends GetView<DashboardController> {
           ClipRRect(
             borderRadius: BorderRadius.circular(100),
             child: SizedBox(
-              height: _D.sp(12),
+              height: Dash.sp(12),
               child: total == 0
-                  ? ColoredBox(color: _D.rowBg)
+                  ? ColoredBox(color: Dash.rowBg)
                   // ยืดจากซ้ายตอนโผล่/เปลี่ยนช่วง — key ผูกกับตัวเลขจริง
                   // ไม่งั้นสลับแท็บแล้วแถบเปลี่ยนค่าเงียบ ๆ ไม่รู้ว่าอัปเดตแล้ว
                   : TweenAnimationBuilder<double>(
@@ -1875,7 +1040,7 @@ class DashboardView extends GetView<DashboardController> {
                             if (seg.$2 > 0) ...[
                               // ช่องไฟคั่นเป็นสีพื้นหลัง ไม่ใช่ช่องว่าง — ClipRRect ตัดขอบให้เอง
                               if (i > 0 && segs.take(i).any((e) => e.$2 > 0))
-                                Container(width: 2, color: _D.card),
+                                Container(width: 2, color: Dash.card),
                               // Expanded ไม่ใช่ Flexible — loose fit ทำให้ ColoredBox
                               // ที่ไม่มีขนาดของตัวเองหดเหลือ 0 แถบเลยหายไปทั้งแถว
                               Expanded(
@@ -1909,19 +1074,19 @@ class DashboardView extends GetView<DashboardController> {
         height: 8,
         decoration: BoxDecoration(
           // จางลงเมื่อเป็นศูนย์ — ตายังกวาดหาอันที่มีค่าได้เร็ว
-          color: v > 0 ? c : _D.faint,
+          color: v > 0 ? c : Dash.faint,
           shape: BoxShape.circle,
         ),
       ),
       const SizedBox(width: 6),
-      Text(label, style: _D.body(size: 11.5, color: _D.muted)),
+      Text(label, style: Dash.body(size: 11.5, color: Dash.muted)),
       const SizedBox(width: 4),
       Text(
         '$v',
-        style: _D.num(
+        style: Dash.num(
           size: 12.5,
           weight: FontWeight.w700,
-          color: v > 0 ? _D.ink : _D.faint,
+          color: v > 0 ? Dash.ink : Dash.faint,
         ),
       ),
     ],
@@ -1945,7 +1110,7 @@ class DashboardView extends GetView<DashboardController> {
           _chartBody(c, maxMin, empty),
           DecoratedBox(
             decoration: BoxDecoration(
-              gradient: _D.band,
+              gradient: Dash.band,
               borderRadius: const BorderRadius.vertical(
                 bottom: Radius.circular(16),
               ),
@@ -1963,21 +1128,20 @@ class DashboardView extends GetView<DashboardController> {
   /// ออกมาเป็น ErrorWidget ซึ่งใน release build คือกล่องเทาที่ยืดเต็มพื้นที่ที่เหลือ
   /// (การ์ดกราฟอยู่ใน SliverToBoxAdapter = ความสูงไม่จำกัด เลยเทาลงไปเป็นพันพิกเซล)
   Widget _legendBar() {
-    // ชิปชุดเดียวกันทุกแท็บ — ต่างแค่รายการที่กราฟโหมดนั้นวาดจริง
-    // รายปีเป็นแท่งซ้อนตามชั่วโมง จึงมีแค่ 3 ชั้น ไม่มี "ออกก่อน/ไม่มีเวร" ให้บอก
+    // ชิปชุดเดียวกันทุกแท็บ — แตะเพื่อปิด/เปิดชั้นนั้นในแท่ง
     final chips = [
-      _legendChip(_D.ok, 'ปกติ'),
-      _legendChip(_D.warn, 'สาย'),
-      _legendChip(_D.info, 'ออกก่อน'),
-      _legendChip(_D.bad, 'ลืมออก/นอกพื้นที่'),
-      _legendChip(_D.faint, 'ไม่มีเวร'),
+      _legendChip(Series.ok, Dash.ok, 'ปกติ'),
+      _legendChip(Series.late, Dash.warn, 'สาย'),
+      _legendChip(Series.early, Dash.info, 'ออกก่อน'),
+      _legendChip(Series.bad, Dash.bad, 'ลืมออก/นอกพื้นที่'),
+      _legendChip(Series.none, Dash.faint, 'ไม่มีเวร'),
     ];
     // บังคับความสูงไว้ด้วย — การ์ดกราฟอยู่ใน SliverToBoxAdapter (ความสูงไม่จำกัด)
     // แถวเลื่อนแนวนอนที่ไม่มีความสูงบังคับจะยืดไปเท่าที่พื้นที่เหลือให้
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 12),
       child: SizedBox(
-        height: _D.box(34), // ชิป: ตัวอักษร 12 + padding 8 บน-ล่าง
+        height: Dash.box(34), // ชิป: ตัวอักษร 12 + padding 8 บน-ล่าง
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1994,33 +1158,60 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  /// ชิป legend แบบอ่านอย่างเดียว — วงกลมสถานะไม่มีชั้นให้กดซ่อนเหมือนแท่งซ้อนสี
-  Widget _legendChip(Color c, String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      color: c.withValues(alpha: 0.5),
+  /// ชิป legend กดได้ — ปิดแล้วชั้นนั้นหายจากแท่งและยอดรวมของ tooltip
+  /// สถานะปิดใช้ชิปโปร่ง + จุดกลวง + ขีดฆ่า ให้รู้ว่ายังมีอยู่แค่ถูกซ่อน
+  Widget _legendChip(Series s, Color c, String label) => Obx(() {
+    final on = controller.shown(s);
+    return Tappable(
+      onTap: () => controller.toggleSeries(s),
       borderRadius: BorderRadius.circular(100),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: c),
+      splash: c,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: on ? 0.5 : 0.12),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: on ? Colors.transparent : Colors.white.withValues(alpha: .3),
+          ),
         ),
-        const SizedBox(width: 9),
-        Text(label, style: _D.body(size: 12, color: Colors.white)),
-      ],
-    ),
-  );
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: on ? c : Colors.transparent,
+                border: on ? null : Border.all(color: c, width: 1.5),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              label,
+              style:
+                  Dash.body(
+                    size: 12,
+                    color: Colors.white.withValues(alpha: on ? 1 : 0.55),
+                  ).copyWith(
+                    decoration: on ? null : TextDecoration.lineThrough,
+                    decorationColor: Colors.white.withValues(alpha: 0.55),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  });
 
   Widget _chartBody(ChartCard c, int maxMin, bool empty) {
     return Container(
       // 16 ข้าง เท่าการ์ดสรุปด้านบน — เดิม 12 แท่งแรกเลยล้ำออกไปกว่าแถบสัดส่วน 4dp
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
-        color: _D.card,
+        color: Dash.card,
         // มนเฉพาะบน — ล่างเป็นแถบ legend ที่มนต่อให้แล้ว
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -2031,7 +1222,7 @@ class DashboardView extends GetView<DashboardController> {
           const SizedBox(height: 16),
           // ปุ่มเลื่อนอยู่บนหัวการ์ด — ตอนโหลดต้องคงหัวไว้ ให้กดต่อได้ทันที
           if (controller.rangeLoading.value)
-            _Shimmer(child: _Skel(height: _D.sp(160), radius: 16))
+            Shimmer(child: Skel(height: Dash.sp(160), radius: 16))
           else if (empty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -2040,28 +1231,71 @@ class DashboardView extends GetView<DashboardController> {
                   Icon(
                     PhosphorIconsRegular.calendarX,
                     size: 26,
-                    color: _D.faint,
+                    color: Dash.faint,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'ยังไม่มีข้อมูลในช่วงนี้',
-                    style: _D.body(size: 12, color: _D.muted),
+                    style: Dash.body(size: 12, color: Dash.muted),
                   ),
                 ],
               ),
             )
           // รายสัปดาห์แค่ 7 วัน ไล่ดูทีละวงได้ — ตอบ "วันไหนมีปัญหา" ทันทีโดยไม่ต้องแตะทีละแท่ง
           // เดือน/ปีข้อมูลเยอะเกินกว่าจะไล่ทีละวง จึงยังเป็นกราฟแท่ง
-          else if (controller.range.value == DashRange.week)
-            _dayStrip()
-          else if (controller.range.value == DashRange.month)
-            _monthHeatmap()
           else
-            _bars(c.buckets, maxMin, c.current, c.byDay),
+            _rangeBody(c, maxMin),
         ],
       ),
     );
   }
+
+  /// เนื้อกราฟของช่วงที่เลือก — สลับแท็บแล้วตัวใหม่ค่อย ๆ โผล่ขึ้นแทนที่จะเด้งมาทันที
+  /// ความสูงของสามแบบไม่เท่ากัน จึงยืด/หดการ์ดตามไปด้วย ไม่ให้กระตุก
+  Widget _rangeBody(ChartCard c, int maxMin) {
+    final range = controller.range.value;
+    final body = switch (range) {
+      DashRange.week => _dayStrip(),
+      DashRange.month => _monthHeatmap(),
+      DashRange.year => _bars(c.buckets, maxMin, c.current, c.byDay),
+    };
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeIn,
+        // ตัวเก่าซ้อนอยู่ที่เดิมระหว่างจาง ไม่ดันความสูงการ์ด
+        layoutBuilder: (cur, prev) => Stack(
+          alignment: Alignment.topCenter,
+          children: [...prev, if (cur != null) cur],
+        ),
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.06),
+              end: Offset.zero,
+            ).animate(anim),
+            child: child,
+          ),
+        ),
+        child: KeyedSubtree(key: ValueKey(range), child: body),
+      ),
+    );
+  }
+
+  /// ชิ้นเดียวของการไล่โผล่ — ขยายจาก 88% พร้อมจางเข้า
+  /// เด้งเล็กน้อยตอนจบ (easeOutBack) ให้รู้สึกว่าข้อมูล "วางลง" ไม่ใช่แค่จางมา
+  static Widget _popIn(double t, Widget child) => Opacity(
+    opacity: t,
+    child: Transform.scale(
+      scale: 0.88 + 0.12 * Curves.easeOutBack.transform(t),
+      child: child,
+    ),
+  );
 
   /// 7 วันของสัปดาห์เป็นวงกลมสถานะ — สีมาจากเวรที่แย่ที่สุดของวันนั้น
   /// วันที่มีสองเวรผ่าครึ่งทแยง · เวรเดียวที่ผิดหลายอย่างมีจุดเล็กมุมบน
@@ -2073,19 +1307,26 @@ class DashboardView extends GetView<DashboardController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            for (var i = 0; i < 7; i++)
-              Expanded(
-                child: _dayDot(
-                  mon.add(Duration(days: i)),
-                  DashboardController.weekdayNames[i],
-                  map,
-                  sel,
-                  today,
+        // จุดวันไล่โผล่ซ้าย→ขวา ตามลำดับวันในสัปดาห์
+        ChartAppear(
+          trigger: DashboardController.ymd(mon),
+          builder: (context, t) => Row(
+            children: [
+              for (var i = 0; i < 7; i++)
+                Expanded(
+                  child: _popIn(
+                    appearAt(t, i, 7),
+                    _dayDot(
+                      mon.add(Duration(days: i)),
+                      DashboardController.weekdayNames[i],
+                      map,
+                      sel,
+                      today,
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 14),
         // กล่องรายละเอียดสูงไม่เท่ากันตามจำนวนเวร — ยืด/หดให้ลื่น ไม่ใช่กระตุกเปลี่ยนความสูงทันที
@@ -2121,14 +1362,16 @@ class DashboardView extends GetView<DashboardController> {
     final shifts = map[key] ?? const <Map<String, dynamic>>[];
     final isToday = key == today;
     final on = key == sel;
-    final size = _D.box(38);
-    final marks = [for (final r in shifts) DashboardController.markOf(r)];
+    final size = Dash.box(38);
+    final marks = _visibleMarks(shifts);
+    // ปิด "ไม่มีเวร" จาก legend = ไม่ต้องวาดวงเทาของวันที่ไม่มีเวรเลย
+    final blank = controller.hiddenSeries.contains(Series.none);
     return Tappable(
       onTap: shifts.isEmpty
           ? null
           : () => controller.touchedDay.value = on ? '' : key,
       borderRadius: BorderRadius.circular(12),
-      splash: _D.accent,
+      splash: Dash.accent,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(
@@ -2136,7 +1379,10 @@ class DashboardView extends GetView<DashboardController> {
           children: [
             Text(
               wd,
-              style: _D.body(size: 10.5, color: isToday ? _D.accent : _D.muted),
+              style: Dash.body(
+                size: 10.5,
+                color: isToday ? Dash.accent : Dash.muted,
+              ),
             ),
             const SizedBox(height: 6),
             SizedBox(
@@ -2151,11 +1397,13 @@ class DashboardView extends GetView<DashboardController> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: marks.isEmpty ? _D.rowBg : null,
+                      color: marks.isEmpty
+                          ? (blank ? Colors.transparent : Dash.rowBg)
+                          : null,
                       // วงเลือก/วันนี้เป็นขอบ ไม่ใช่สี — สีในวงถูกใช้บอกสถานะไปแล้ว
                       border: on || isToday
                           ? Border.all(
-                              color: on ? _D.accentActive : _D.accent,
+                              color: on ? Dash.accentActive : Dash.accent,
                               width: on ? 2.5 : 1.5,
                             )
                           : null,
@@ -2164,9 +1412,9 @@ class DashboardView extends GetView<DashboardController> {
                         ? null
                         : CustomPaint(
                             size: Size.square(size - (on ? 7 : 4)),
-                            painter: _SplitDot(
-                              _markColor(marks.first),
-                              _markColor(marks.last),
+                            painter: SplitDot(
+                              dayMarkColor(marks.first),
+                              dayMarkColor(marks.last),
                             ),
                           ),
                   ),
@@ -2176,10 +1424,10 @@ class DashboardView extends GetView<DashboardController> {
             const SizedBox(height: 6),
             Text(
               '${d.day}',
-              style: _D.num(
+              style: Dash.num(
                 size: 12,
                 weight: FontWeight.w700,
-                color: isToday ? _D.accentActive : _D.sub,
+                color: isToday ? Dash.accentActive : Dash.sub,
               ),
             ),
           ],
@@ -2210,30 +1458,42 @@ class DashboardView extends GetView<DashboardController> {
             for (final w in DashboardController.weekdayNames)
               Expanded(
                 child: Center(
-                  child: Text(w, style: _D.body(size: 10, color: _D.muted)),
+                  child: Text(w, style: Dash.body(size: 10, color: Dash.muted)),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 6),
-        for (var r = 0; r < weeks; r++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: [
-                for (var c = 0; c < 7; c++)
-                  Expanded(
-                    child: _heatCell(
-                      start.add(Duration(days: r * 7 + c)),
-                      first.month,
-                      map,
-                      sel,
-                      today,
-                    ),
+        // ช่องปฏิทินไล่โผล่ทีละช่องตามลำดับวัน (ซ้าย→ขวา บน→ล่าง)
+        ChartAppear(
+          trigger: '${first.year}-${first.month}',
+          builder: (context, t) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var r = 0; r < weeks; r++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      for (var c = 0; c < 7; c++)
+                        Expanded(
+                          child: _popIn(
+                            appearAt(t, r * 7 + c, weeks * 7),
+                            _heatCell(
+                              start.add(Duration(days: r * 7 + c)),
+                              first.month,
+                              map,
+                              sel,
+                              today,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 12),
         AnimatedSize(
           duration: const Duration(milliseconds: 220),
@@ -2267,7 +1527,14 @@ class DashboardView extends GetView<DashboardController> {
       return const AspectRatio(aspectRatio: 1.1, child: SizedBox());
     }
     final key = DashboardController.ymd(d);
-    final shifts = map[key] ?? const <Map<String, dynamic>>[];
+    final all = map[key] ?? const <Map<String, dynamic>>[];
+    final hidden = controller.hiddenSeries;
+    // เหลือเฉพาะเวรที่สถานะยังเปิดอยู่ใน legend — ปิดหมดแล้ววันนั้นต้องว่างเหมือนไม่มีเวร
+    final shifts = [
+      for (final r in all)
+        if (!hidden.contains(_seriesOf(DashboardController.markOf(r)))) r,
+    ];
+    final blank = hidden.contains(Series.none);
     final mins = shifts.fold<int>(
       0,
       (sum, r) => sum + controller.workedMinutes(r),
@@ -2282,39 +1549,67 @@ class DashboardView extends GetView<DashboardController> {
     final t = ((mins - 240) / 360).clamp(0.0, 1.0);
     final on = key == sel;
     final isToday = key == today;
+    final a = 0.3 + 0.7 * t;
     final bg = mark == null
-        ? _D.rowBg
-        : _markColor(mark).withValues(alpha: 0.3 + 0.7 * t);
+        ? (blank ? Colors.transparent : Dash.rowBg)
+        : dayMarkColor(mark).withValues(alpha: a);
+    // วันที่มีสองเวรคนละสถานะ — ผ่าครึ่งทแยงเหมือนวงกลมในมุมมองรายสัปดาห์
+    final marks = [for (final r in shifts) DashboardController.markOf(r)];
+    final split = marks.length > 1 && marks.first != marks.last
+        ? (
+            dayMarkColor(marks.first).withValues(alpha: a),
+            dayMarkColor(marks.last).withValues(alpha: a),
+          )
+        : null;
     return AspectRatio(
       aspectRatio: 1.1,
       child: Padding(
         padding: const EdgeInsets.all(2),
         child: Tappable(
-          onTap: shifts.isEmpty
+          onTap: all.isEmpty
               ? null
               : () => controller.touchedDay.value = on ? '' : key,
           borderRadius: BorderRadius.circular(8),
-          splash: _D.on,
+          splash: Dash.on,
           child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: bg,
+              color: split == null ? bg : null,
               borderRadius: BorderRadius.circular(8),
               border: on || isToday
                   ? Border.all(
-                      color: on ? _D.accentActive : _D.accent,
+                      color: on ? Dash.accentActive : Dash.accent,
                       width: on ? 2 : 1.2,
                     )
                   : null,
             ),
-            child: Text(
-              '${d.day}',
-              style: _D.num(
-                size: 11,
-                weight: FontWeight.w700,
-                // พื้นเข้มแล้วตัวเลขต้องขาว ไม่งั้นอ่านไม่ออก
-                color: mark == null ? _D.faint : (t > 0.4 ? _D.on : _D.sub),
-              ),
+            // expand — Container ที่ตั้ง alignment ไว้จะส่ง constraint แบบหลวมให้ลูก
+            // ถ้าไม่บังคับ Stack จะหดเท่าตัวเลข พื้นที่ผ่าครึ่งเลยเหลือนิดเดียว
+            child: Stack(
+              fit: StackFit.expand,
+              alignment: Alignment.center,
+              children: [
+                if (split != null)
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CustomPaint(painter: SplitBox(split.$1, split.$2)),
+                    ),
+                  ),
+                Center(
+                  child: Text(
+                    '${d.day}',
+                    style: Dash.num(
+                      size: 11,
+                      weight: FontWeight.w700,
+                      // พื้นเข้มแล้วตัวเลขต้องขาว ไม่งั้นอ่านไม่ออก
+                      color: mark == null
+                          ? Dash.faint
+                          : (t > 0.4 ? Dash.on : Dash.sub),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2322,12 +1617,23 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  Color _markColor(DayMark m) => switch (m) {
-    DayMark.ok => _D.ok,
-    DayMark.late => _D.warn,
-    DayMark.early => _D.info,
-    DayMark.bad => _D.bad,
+  /// ชิป legend หนึ่งตัวคุมหนึ่งสถานะ — แปลงกลับให้วงกลม/ปฏิทินใช้ตัวกรองเดียวกับกราฟแท่ง
+  static Series _seriesOf(DayMark m) => switch (m) {
+    DayMark.ok => Series.ok,
+    DayMark.late => Series.late,
+    DayMark.early => Series.early,
+    DayMark.bad => Series.bad,
   };
+
+  /// เวรของวันนั้นที่ยังไม่ถูกปิดจาก legend (อ่าน Rx ตรงนี้ = ทั้งการ์ดวาดใหม่เมื่อกดชิป)
+  List<DayMark> _visibleMarks(List<Map<String, dynamic>> shifts) {
+    final hidden = controller.hiddenSeries;
+    return [
+      for (final r in shifts)
+        if (!hidden.contains(_seriesOf(DashboardController.markOf(r))))
+          DashboardController.markOf(r),
+    ];
+  }
 
   /// บรรทัดใต้แถบ — บอกว่าวันที่แตะมีเวรอะไร เวลาเท่าไหร่ ผิดตรงไหน
   Widget _dayDetail(String key, Map<String, List<Map<String, dynamic>>> map) {
@@ -2340,56 +1646,102 @@ class DashboardView extends GetView<DashboardController> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _D.rowBg,
+          color: Dash.rowBg,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           'แตะวันที่มีเวรเพื่อดูรายละเอียด',
-          style: _D.body(size: 11.5, color: _D.muted),
+          style: Dash.body(size: 11.5, color: Dash.muted),
         ),
       );
     }
     final d = DateTime.parse(key);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _D.rowBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${d.day} ${thaiMonthShort(d.month)} ${(d.year + 543) % 100}',
-            style: _D.tech(size: 12.5, weight: FontWeight.w700, color: _D.ink),
-          ),
-          for (final r in list) ...[
-            const SizedBox(height: 6),
+    // วันไหนมีเวรที่ต้องแก้ กดที่การ์ดตรงไหนก็เข้าฟอร์มได้ ไม่ต้องเล็งบรรทัด
+    // (วันควบเวรที่ต้องแก้ทั้งคู่ ให้เข้าเวรแรกก่อน — ส่งเสร็จค่อยกลับมากดอีกที)
+    final fixable = list.where(_needsFix).toList();
+    return Tappable(
+      onTap: fixable.isEmpty ? null : () => _openFixForm(fixable.first),
+      borderRadius: BorderRadius.circular(12),
+      splash: Dash.accent,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Dash.rowBg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(top: 5, right: 8),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _markColor(DashboardController.markOf(r)),
-                  ),
-                ),
                 Expanded(
                   child: Text(
-                    _shiftLine(r),
-                    style: _D.body(size: 11.5, color: _D.sub),
+                    '${d.day} ${thaiMonthShort(d.month)} ${(d.year + 543) % 100}',
+                    style: Dash.tech(
+                      size: 12.5,
+                      weight: FontWeight.w700,
+                      color: Dash.ink,
+                    ),
                   ),
                 ),
+                // มุมขวาบนบอกว่ากดการ์ดนี้แล้วไปยื่นคำขอแก้ไขได้
+                if (fixable.isNotEmpty) ...[
+                  Text(
+                    'แก้ไข',
+                    style: Dash.body(
+                      size: 11.5,
+                      weight: FontWeight.w700,
+                      color: Dash.accentActive,
+                    ),
+                  ),
+                  Icon(
+                    PhosphorIconsBold.caretRight,
+                    size: Dash.sp(11),
+                    color: Dash.accentActive,
+                  ),
+                ],
               ],
             ),
+            for (final r in list) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(top: 5, right: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: dayMarkColor(DashboardController.markOf(r)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      _shiftLine(r),
+                      style: Dash.body(size: 11.5, color: Dash.sub),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
+  }
+
+  /// เวรนี้ยื่นคำขอแก้ไขได้ไหม — เกณฑ์เดียวกับการ์ดแจ้งเตือนด้านบน
+  /// (มาสาย/ออกก่อนไม่นับ เพราะเวลาที่เครื่องบันทึกถูกต้องอยู่แล้ว)
+  static bool _needsFix(Map<String, dynamic> r) =>
+      rowNoIn(r) || rowNoOut(r) || r['out_area'] == true;
+
+  /// เปิดฟอร์มขอแก้ไขของวันนั้นตรง ๆ — ส่งแล้วจำไว้ว่าวันนี้ยื่นไปแล้ว
+  /// ให้หน้ารายการเปิดมาเห็นอยู่ในแท็บ "ส่งแล้ว" ตรงกัน
+  Future<void> _openFixForm(Map<String, dynamic> r) async {
+    final ok = await Get.toNamed<Object?>(Routes.fixRequestForm, arguments: r);
+    if (ok == true) FixRequestView.sentDates.add('${r['date']}');
   }
 
   String _shiftLine(Map<String, dynamic> r) {
@@ -2401,8 +1753,8 @@ class DashboardView extends GetView<DashboardController> {
       if (r['no_out'] == true) 'ไม่มีเวลาออก',
       if (r['out_area'] == true) 'สแกนนอกพื้นที่',
     ];
-    final name = inT.isEmpty ? 'เวร' : _shiftName(inT);
-    final time = '$inT - ${outT.isEmpty ? '--:--' : outT}';
+    final name = inT.isEmpty ? 'เวร' : shiftName(inT);
+    final time = '$inT ถึง ${outT.isEmpty ? '--:--' : outT}';
     return why.isEmpty ? '$name · $time' : '$name · $time · ${why.join(' · ')}';
   }
 
@@ -2427,91 +1779,99 @@ class DashboardView extends GetView<DashboardController> {
         // ความกว้างแท่งตามพื้นที่จริง — เดิมตายตัว 16 ทำให้กราฟ 5 แท่งดูผอมเก้อ
         final barW = (box.maxWidth / list.length * 0.6).clamp(5.0, 30.0);
         return SizedBox(
-          height: _D.sp(160),
-          child: BarChart(
-            BarChartData(
-              maxY: top,
-              minY: 0,
-              // spaceBetween — แท่งแรก/สุดท้ายชิดขอบกราฟพอดี ไม่เหลือช่องว่างหัวท้าย
-              alignment: BarChartAlignment.spaceBetween,
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: false),
-              titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                topTitles: const AxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 24,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= list.length)
-                        return const SizedBox.shrink();
-                      if (step > 1 && i % step != 0)
-                        return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: SizedBox(
-                          width: box.maxWidth / list.length - 2,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              list[i].label,
-                              maxLines: 1,
-                              softWrap: false,
-                              style: _D.body(
-                                size: 10,
-                                color: i == cur ? _D.accent : _D.muted,
+          height: Dash.sp(160),
+          // แท่งไล่งอกจากพื้นทีละแท่ง ซ้าย→ขวา ทุกครั้งที่เปลี่ยนชุดข้อมูล
+          child: ChartAppear(
+            trigger: '${controller.month.value.year}|${list.length}|$byDay',
+            builder: (context, t) => BarChart(
+              BarChartData(
+                maxY: top,
+                minY: 0,
+                // spaceBetween — แท่งแรก/สุดท้ายชิดขอบกราฟพอดี ไม่เหลือช่องว่างหัวท้าย
+                alignment: BarChartAlignment.spaceBetween,
+                borderData: FlBorderData(show: false),
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(),
+                  rightTitles: const AxisTitles(),
+                  topTitles: const AxisTitles(),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 24,
+                      getTitlesWidget: (value, meta) {
+                        final i = value.toInt();
+                        if (i < 0 || i >= list.length)
+                          return const SizedBox.shrink();
+                        if (step > 1 && i % step != 0)
+                          return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: SizedBox(
+                            width: box.maxWidth / list.length - 2,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                list[i].label,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: Dash.body(
+                                  size: 10,
+                                  color: i == cur ? Dash.accent : Dash.muted,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              barTouchData: BarTouchData(
-                // จัดการเองเพื่อให้ tooltip ค้างจนกดที่อื่น — ของ built-in หายทันทีที่ปล่อยนิ้ว
-                handleBuiltInTouches: false,
-                touchCallback: (event, resp) {
-                  if (event is! FlTapUpEvent) return;
-                  final i = resp?.spot?.touchedBarGroupIndex ?? -1;
-                  controller.touchedBar.value = controller.touchedBar.value == i
-                      ? -1
-                      : i;
-                },
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipColor: (_) => _D.ink,
-                  fitInsideHorizontally: true,
-                  fitInsideVertically: true,
-                  maxContentWidth: 200,
-                  tooltipBorderRadius: BorderRadius.circular(12),
-                  tooltipPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                barTouchData: BarTouchData(
+                  // จัดการเองเพื่อให้ tooltip ค้างจนกดที่อื่น — ของ built-in หายทันทีที่ปล่อยนิ้ว
+                  handleBuiltInTouches: false,
+                  touchCallback: (event, resp) {
+                    if (event is! FlTapUpEvent) return;
+                    final i = resp?.spot?.touchedBarGroupIndex ?? -1;
+                    controller.touchedBar.value =
+                        controller.touchedBar.value == i ? -1 : i;
+                  },
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => Dash.ink,
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
+                    maxContentWidth: 200,
+                    tooltipBorderRadius: BorderRadius.circular(12),
+                    tooltipPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    tooltipMargin: 8,
+                    // สลับช่วงแล้ว fl_chart ยัง tween จากชุดเดิมอยู่ — groupIndex อาจเกินความยาว list ชุดใหม่
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) =>
+                        groupIndex < 0 || groupIndex >= list.length
+                        ? null
+                        : _tooltip(list[groupIndex], byDay, hidden),
                   ),
-                  tooltipMargin: 8,
-                  // สลับช่วงแล้ว fl_chart ยัง tween จากชุดเดิมอยู่ — groupIndex อาจเกินความยาว list ชุดใหม่
-                  getTooltipItem: (group, groupIndex, rod, rodIndex) =>
-                      groupIndex < 0 || groupIndex >= list.length
-                      ? null
-                      : _tooltip(list[groupIndex], byDay, hidden),
                 ),
+                barGroups: [
+                  for (var i = 0; i < list.length; i++)
+                    _group(
+                      i,
+                      list[i],
+                      top,
+                      barW,
+                      hidden,
+                      touched,
+                      current: i == cur,
+                      grow: Curves.easeOutCubic.transform(
+                        appearAt(t, i, list.length),
+                      ),
+                    ),
+                ],
               ),
-              barGroups: [
-                for (var i = 0; i < list.length; i++)
-                  _group(
-                    i,
-                    list[i],
-                    top,
-                    barW,
-                    hidden,
-                    touched,
-                    current: i == cur,
-                  ),
-              ],
+              // ไม่ให้ fl_chart tween ซ้อนกับการไล่โผล่ของเราเอง — คุมความสูงเองทั้งหมด
+              duration: Duration.zero,
             ),
           ),
         );
@@ -2528,6 +1888,7 @@ class DashboardView extends GetView<DashboardController> {
     Set<Series> hidden,
     int touched, {
     bool current = false,
+    double grow = 1,
   }) {
     // เวรที่ยังไม่เลิกงานไม่ใช่ความผิดปกติ — ขีดจางแทนแดง
     final open = b.openShifts > 0 && b.noOut == 0;
@@ -2538,20 +1899,28 @@ class DashboardView extends GetView<DashboardController> {
     // ชั้นที่ถูกปิดจาก legend ต้องหายไปจริง — สแต็กจึงต้องคำนวณ offset ใหม่ ไม่ใช่แค่ทำให้ใส
     // สีชุดเดียวกับชิป legend ทุกแท็บ — แท่งเดียวบอกได้ว่าชั่วโมงมาจากเวรแบบไหน
     final parts = <(double, Color)>[
-      (b.minutesOk / 60, _D.ok.withValues(alpha: a)),
-      (b.minutesLate / 60, _D.warn.withValues(alpha: a)),
-      (b.minutesEarly / 60, _D.info.withValues(alpha: a)),
-      (b.minutesBad / 60, _D.bad.withValues(alpha: a)),
+      if (!hidden.contains(Series.ok))
+        (b.minutesOk / 60, Dash.ok.withValues(alpha: a)),
+      if (!hidden.contains(Series.late))
+        (b.minutesLate / 60, Dash.warn.withValues(alpha: a)),
+      if (!hidden.contains(Series.early))
+        (b.minutesEarly / 60, Dash.info.withValues(alpha: a)),
+      if (!hidden.contains(Series.bad))
+        (b.minutesBad / 60, Dash.bad.withValues(alpha: a)),
       // มีเวรแต่ไม่มีชั่วโมง (ลืมออก / ยังไม่เลิกงาน) — ขีดเตี้ย ๆ ไม่ให้เดือนนั้นหายไปเลย
-      if (b.minutes == 0 && b.shifts > 0)
-        (top * 0.04, (open ? _D.faint : _D.bad).withValues(alpha: a)),
+      if (b.minutes == 0 &&
+          b.shifts > 0 &&
+          !hidden.contains(open ? Series.none : Series.bad))
+        (top * 0.04, (open ? Dash.faint : Dash.bad).withValues(alpha: a)),
     ];
     final stack = <BarChartRodStackItem>[];
     var acc = 0.0;
     for (final (v, c) in parts) {
       if (v <= 0) continue;
-      stack.add(BarChartRodStackItem(acc, acc + v, c));
-      acc += v;
+      // คูณด้วยความคืบหน้าของแท่งนี้ — สัดส่วนของแต่ละสีคงเดิม แค่เตี้ยลงตอนกำลังงอก
+      final h = v * grow;
+      stack.add(BarChartRodStackItem(acc, acc + h, c));
+      acc += h;
     }
 
     return BarChartGroupData(
@@ -2564,12 +1933,12 @@ class DashboardView extends GetView<DashboardController> {
           // แท่งกว้างขึ้นแล้ว มุม 100 กลายเป็นครึ่งวงกลมเต็มหัว — ตรึงไว้ที่ 6
           borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
           rodStackItems: stack,
-          color: _D.ok,
+          color: Dash.ok,
           // รางพื้นหลัง = สเกล ต้องจางจริง — withValues(alpha:) แทนที่ค่า alpha เดิม ไม่ได้คูณ
           backDrawRodData: BackgroundBarChartRodData(
             show: true,
             toY: top,
-            color: _D.dark
+            color: Dash.dark
                 ? Colors.white.withValues(alpha: 0.06)
                 : Colors.black.withValues(alpha: 0.05),
           ),
@@ -2581,12 +1950,12 @@ class DashboardView extends GetView<DashboardController> {
   /// สรุปของแท่งที่แตะ — หัวข้อ + ชั่วโมง + สิ่งที่ผิดปกติ
   /// แท่ง = วัน จะนับเป็น "ครั้ง" (วันเดียวลงได้หลายเวร) · แท่ง = สัปดาห์/เดือน นับเป็น "วัน"
   BarTooltipItem _tooltip(Bucket b, bool byDay, Set<Series> hidden) {
-    final head = _D.num(
+    final head = Dash.num(
       size: 12.5,
       weight: FontWeight.w800,
       color: Colors.white,
     );
-    final line = _D.body(
+    final line = Dash.body(
       size: 11.5,
       color: Colors.white.withValues(alpha: 0.85),
     );
@@ -2615,1962 +1984,17 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  /// นาทีที่แท่งแสดงจริง — ตอนนี้แสดงครบทุกชั้น ป้ายค่าจึงเท่ากับยอดรวม
-  int _visibleMinutes(Bucket b, Set<Series> hidden) => b.minutes;
+  /// นาทีที่แท่งแสดงจริง — ชั้นที่ปิดจาก legend ไม่ถูกนับ ป้ายค่าจึงตรงกับความสูงแท่ง
+  int _visibleMinutes(Bucket b, Set<Series> hidden) =>
+      (hidden.contains(Series.ok) ? 0 : b.minutesOk) +
+      (hidden.contains(Series.late) ? 0 : b.minutesLate) +
+      (hidden.contains(Series.early) ? 0 : b.minutesEarly) +
+      (hidden.contains(Series.bad) ? 0 : b.minutesBad);
 
   String _hShort(int minutes) {
     final h = minutes / 60;
     return h >= 10 ? '${h.round()} ชม.' : '${h.toStringAsFixed(1)} ชม.';
   }
-
-  // ============ รายวันทั้งเดือน ============
-
-  /// รายการรายวัน — sliver แยก Obx ของตัวเอง สร้างแถวเฉพาะที่เห็นในจอ
-  Widget _dailySliver() => Obx(() {
-    if (controller.rangeLoading.value) {
-      return SliverToBoxAdapter(
-        child: _Shimmer(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                for (var i = 0; i < 4; i++) ...[
-                  _Skel(height: 64, radius: 16, onPanel: true, phase: i * 0.09),
-                  const SizedBox(height: 8),
-                ],
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    // อ่านครั้งเดียวต่อ build — getter นี้ filter + sort ทุกครั้งที่เรียก ห้ามเรียกใน itemBuilder
-    final rows = controller.dailyRows;
-    if (rows.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Column(
-            children: [
-              Icon(PhosphorIconsRegular.tray, size: 28, color: _D.onPanel(0.5)),
-              const SizedBox(height: 8),
-              Text(
-                'ไม่มีรายการในช่วงนี้',
-                style: _D.body(size: 12.5, color: _D.onPanel(0.8)),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    // การ์ดใบเดียวคลุมทั้งลิสต์ แถวคั่นด้วยเส้น — อ่านเทียบเวลาข้ามวันได้เพราะคอลัมน์ตรงกัน
-    // (การ์ดแยกใบต่อวันทำให้ตาต้องกระโดดข้ามช่องไฟทุกแถว)
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: DecoratedSliver(
-        decoration: BoxDecoration(
-          color: _D.card,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        sliver: SliverMainAxisGroup(
-          slivers: [
-            SliverToBoxAdapter(child: _dayTableHead()),
-            SliverList.builder(
-              itemCount: rows.length,
-              itemBuilder: (context, i) =>
-                  _dayRow(rows[i], last: i == rows.length - 1),
-            ),
-          ],
-        ),
-      ),
-    );
-  });
-
-  /// ความกว้างคอลัมน์ — หัวตารางกับทุกแถวต้องอ่านค่าชุดเดียวกัน ไม่งั้นเลื่อนไม่ตรง
-  static double get _colDate => _D.box(46);
-  static double get _colRight => _D.box(104);
-  static const double _colBar = 13; // แถบสถานะ 3 + ช่องไฟ 10
-  static const double _rowPad = 12;
-
-  Widget _dayTableHead() => Padding(
-    padding: const EdgeInsets.fromLTRB(_rowPad, 10, _rowPad, 10),
-    child: Row(
-      children: [
-        SizedBox(width: _colBar + _colDate, child: _headCell('วันที่')),
-        Expanded(child: _headCell('เข้า - ออก')),
-        SizedBox(
-          width: _colRight,
-          child: _headCell('ชั่วโมง · สถานะ', end: true),
-        ),
-      ],
-    ),
-  );
-
-  Widget _headCell(String s, {bool end = false}) => Text(
-    s,
-    textAlign: end ? TextAlign.right : TextAlign.left,
-    style: _D.tech(
-      size: 10.5,
-      weight: FontWeight.w600,
-      color: _D.muted,
-      spacing: 0.3,
-    ),
-  );
-
-  Widget _dayRow(Map<String, dynamic> r, {required bool last}) {
-    final today = controller.isToday(r);
-    final inT = '${r['in'] ?? ''}';
-    final outT = '${r['out'] ?? ''}';
-    final date = DateTime.tryParse('${r['date']}');
-    final tags = _tags(r); // สร้างครั้งเดียว — เดิมเรียกซ้ำตอนเช็คว่าง
-    final mins = controller.workedMinutes(r);
-    final Color dotC = r['no_out'] == true || r['out_area'] == true
-        ? _D.bad
-        : r['early'] == true
-        ? _D.info
-        : r['late'] == true
-        ? _D.warn
-        : _D.ok;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(_rowPad, 12, _rowPad, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 3,
-                height: _D.box(34),
-                decoration: BoxDecoration(
-                  color: dotC,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: _colDate,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${date?.day ?? '-'}',
-                      style: _D.num(
-                        size: 18,
-                        weight: FontWeight.w800,
-                        color: today ? _D.accentActive : _D.ink,
-                      ),
-                    ),
-                    Text(
-                      // ใช้ date ที่ parse ไว้แล้ว — weekdayOf() parse สตริงซ้ำอีกรอบต่อแถว
-                      date == null
-                          ? ''
-                          : DashboardController.weekdayNames[date.weekday - 1],
-                      style: _D.body(
-                        size: 10.5,
-                        color: today ? _D.accent : _D.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        _timeCell(inT),
-                        Text(' - ', style: _D.body(size: 12, color: _D.faint)),
-                        _timeCell(outT),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      inT.isEmpty ? 'ไม่มีการลงเวลา' : _shiftName(inT),
-                      style: _D.body(size: 11, color: _D.muted),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: _colRight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      mins > 0
-                          ? '${mins ~/ 60}:${(mins % 60).toString().padLeft(2, '0')} ชม.'
-                          : '—',
-                      style: _D.num(
-                        size: 13.5,
-                        weight: FontWeight.w700,
-                        color: mins > 0 ? _D.ink : _D.faint,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        if (today) _todayChip(),
-                        ...tags,
-                        if (tags.isEmpty && !today) _okChip(),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (tags.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _rowPad + _colBar,
-              0,
-              _rowPad,
-              12,
-            ),
-            child: _fixNote(r, inT),
-          ),
-        // เส้นคั่นเว้นขอบเท่า padding แถว — ลากชนขอบการ์ดจะดูเหมือนตารางถูกหั่นเป็นท่อน
-        if (!last)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _rowPad),
-            child: Container(height: 1, color: _D.hairline),
-          ),
-      ],
-    );
-  }
-
-  Widget _timeCell(String v) => Text(
-    v.isEmpty ? '--:--' : v,
-    style: _D.num(
-      size: 14,
-      weight: FontWeight.w700,
-      color: v.isEmpty ? _D.faint : _D.ink,
-    ),
-  );
-
-  Widget _todayChip() => _chip('วันนี้', _D.wash, _D.accentActive);
-  Widget _okChip() => _chip('ปกติ', _D.rowBg, _D.muted);
-
-  Widget _chip(String label, Color bg, Color fg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(100),
-    ),
-    child: Text(
-      label,
-      style: _D.body(size: 10, weight: FontWeight.w700, color: fg),
-    ),
-  );
-
-  /// รายการที่ผิดปกติต้องบอกให้ครบว่า "เวรไหน เวลาเท่าไหร่ ผิดยังไง แล้วต้องทำอะไรต่อ"
-  /// ระบบยังไม่มี API ขอแก้ไขเวลา — บอกช่องทางติดต่อจริงแทนปุ่มที่กดแล้วไม่เกิดอะไร
-  Widget _fixNote(Map<String, dynamic> r, String inT) {
-    final shift = inT.isEmpty ? 'เวร' : _shiftName(inT);
-    final outT = '${r['out'] ?? ''}';
-    final why = <String>[
-      if (r['no_out'] == true)
-        '$shift วันนี้มีเวลาเข้า $inT แต่ไม่มีเวลาออก ระบบคำนวณชั่วโมงทำงานไม่ได้',
-      if (r['late'] == true) 'สแกนเข้า $inT ซึ่งช้ากว่าเวลาเริ่ม$shift',
-      if (r['early'] == true) 'สแกนออก $outT ซึ่งเร็วกว่าเวลาเลิก$shift',
-      if (r['out_area'] == true) 'จุดที่สแกนอยู่นอกพื้นที่ที่กำหนดไว้',
-    ];
-    if (why.isEmpty) return const SizedBox.shrink();
-    final contact = controller.settings.contactMsg.value.trim();
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _D.rowBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(PhosphorIconsRegular.info, size: 14, color: _D.muted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final w in why)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(w, style: _D.body(size: 11, color: _D.sub)),
-                  ),
-                const SizedBox(height: 2),
-                Text(
-                  contact.isEmpty
-                      ? 'ขอแก้ไขเวลาได้ที่หัวหน้าเวรหรือฝ่ายบุคคล'
-                      : 'ขอแก้ไขเวลา: $contact',
-                  style: _D.body(
-                    size: 11,
-                    weight: FontWeight.w600,
-                    color: _D.accentActive,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _tags(Map<String, dynamic> r) {
-    final tags = <(String, (Color, Color))>[
-      if (r['late'] == true) ('สาย', _D.bLate),
-      if (r['early'] == true) ('ออกก่อนเวลา', _D.bEarly),
-      if (r['no_out'] == true) ('ลืมออกเวร', _D.bNoOut),
-      if (r['out_area'] == true) ('นอกพื้นที่', _D.bOutArea),
-    ];
-    return [
-      for (final (label, c) in tags)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: c.$1,
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Text(
-            label,
-            style: _D.body(size: 10, weight: FontWeight.w600, color: c.$2),
-          ),
-        ),
-    ];
-  }
 }
 
 // ============ การ์ด "การสแกนของวันนี้" ============
-
-/// เวรจากเวลาเข้า — ข้อมูลลงเวลายังไม่ส่งชื่อเวรมาด้วย จึงอนุมานจากช่วงเวลา
-String _shiftName(String hhmm) {
-  final h = int.tryParse(hhmm.split(':').first) ?? 8;
-  if (h < 12) return 'เวรเช้า';
-  if (h < 18) return 'เวรบ่าย';
-  return 'เวรดึก';
-}
-
-/// สีอ่อนประจำเวร — ใช้ไล่เฉดมุมขวาบนการ์ดและเป็นพื้นฉากที่วาดเอง
-Color _shiftTint(String hhmm) {
-  final h = int.tryParse(hhmm.split(':').first) ?? 8;
-  if (h < 12) return const Color(0xFFCFE3FB); // เช้า ฟ้า
-  if (h < 18) return const Color(0xFFFFE3BE); // บ่าย ครีม
-  return const Color(0xFFD6CCE6); // ดึก ม่วง
-}
-
-/// สีชิปเวร — ชุดเดียวกับ web app FaceEnroll (.chip เช้า/บ่าย/ดึก)
-/// เช้า ฟ้าอ่อน · บ่าย ครีม · ดึก เทาน้ำเงิน — พื้นอ่อน ตัวอักษรเข้ม ไม่ใช่พื้นทึบตัวขาว
-(Color, Color) _shiftChipColors(String hhmm) {
-  final h = int.tryParse(hhmm.split(':').first) ?? 8;
-  if (h < 12) return (const Color(0xFFD7E8F6), const Color(0xFF404D8C));
-  if (h < 18) return (const Color(0xFFFFF0D9), const Color(0xFF8C591A));
-  return (const Color(0xFFD4DDE9), const Color(0xFF263873));
-}
-
-Widget _pill(String text, Color bg, {Color fg = Colors.white}) => Container(
-  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-  decoration: BoxDecoration(
-    color: bg,
-    borderRadius: BorderRadius.circular(100),
-  ),
-  child: Text(
-    text,
-    style: _D.body(size: 10.5, weight: FontWeight.w600, color: fg),
-  ),
-);
-
-/// ชิปเวรบนการ์ดวันนี้ — ใช้สีตามเวรแบบเดียวกับเว็บ
-Widget _shiftPill(String hhmm) {
-  final (bg, fg) = _shiftChipColors(hhmm);
-  return _pill(_shiftName(hhmm), bg, fg: fg);
-}
-
-/// การ์ดสถานะวันนี้ — ปัดซ้าย/ขวาดูเวรอื่นของวันเดียวกัน มี dot บอกว่ามีกี่เวรและอยู่เวรไหน
-class _TodayCard extends StatefulWidget {
-  const _TodayCard({required this.shifts});
-
-  final List<Map<String, dynamic>> shifts;
-
-  @override
-  State<_TodayCard> createState() => _TodayCardState();
-}
-
-class _TodayCardState extends State<_TodayCard>
-    with SingleTickerProviderStateMixin {
-  /// ไล่สีมุมขวาบนค่อย ๆ ขึ้นตอนการ์ดโผล่ — ครั้งเดียว ไม่วน
-  late final AnimationController _intro = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 700),
-  )..forward();
-
-  /// PageView ต้องการความสูงคงที่ — หัวเรื่อง ~28 + ระยะ 16 + แผ่นขาว (12 + การ์ดสแกน 84 + 12) + เผื่อ 8
-  /// (ตัวเนื้อหาห่อ scroll ไว้อีกชั้น เผื่อฟอนต์/ตัวอักษรใหญ่กว่าที่เผื่อไว้ จะได้เลื่อนแทนที่จะล้น)
-  static double get _pageH => _D.box(160);
-
-  final _pc = PageController();
-  int _page = 0;
-
-  @override
-  void didUpdateWidget(covariant _TodayCard old) {
-    super.didUpdateWidget(old);
-    // จำนวนเวรลดลง (เปลี่ยนเดือน/รีเฟรช) — กันหน้าค้างเกินขอบ
-    final maxPage = (widget.shifts.isEmpty ? 1 : widget.shifts.length) - 1;
-    if (_page > maxPage && _pc.hasClients) {
-      _page = maxPage;
-      _pc.jumpToPage(maxPage);
-    }
-  }
-
-  @override
-  void dispose() {
-    _intro.dispose();
-    _pc.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // ยังไม่ลงเวลาเลย = หน้าว่างหนึ่งหน้า
-    final pages = widget.shifts.isEmpty
-        ? <Map<String, dynamic>?>[null]
-        : widget.shifts;
-    // เวรของหน้าที่กำลังดู — คุมทั้งภาพประกอบและ badge ที่อยู่แถวบนสุดของการ์ด
-    final current = pages[_page.clamp(0, pages.length - 1)];
-    final currentIn = '${current?['in'] ?? ''}';
-    final tint = _shiftTint(currentIn).withValues(alpha: _D.dark ? 0.22 : 0.95);
-    return AnimatedBuilder(
-      animation: _intro,
-      // ตัวการ์ดไม่ต้องสร้างใหม่ทุกเฟรม ส่งเป็น child ให้ AnimatedBuilder ถือไว้
-      child: _cardBody(currentIn, pages),
-      builder: (context, child) {
-        final v = Curves.easeOutCubic.transform(_intro.value);
-        return AnimatedContainer(
-          // เปลี่ยนเวร (ปัดหน้า) แล้วสีไล่ไปหาสีใหม่ ไม่กระโดด
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeOut,
-          // ไม่มี padding ที่การ์ด — แผ่นขาวส่วนล่างต้องกว้างชนขอบการ์ด
-          // ส่วนบนเว้นระยะเองด้วย Padding
-          decoration: BoxDecoration(
-            color: _D.card,
-            // ไล่สีของเวรจากมุมขวาบนจางลงเป็นสีการ์ด — ให้ฉากที่วาดไว้มุมนั้นมีท้องฟ้ารองรับ
-            // radial ไม่ใช่ linear เพราะต้องการให้จางหมดก่อนถึงกลางการ์ด ไม่ไปแย่งตัวหนังสือ
-            gradient: RadialGradient(
-              center: const Alignment(0.95, -1.1),
-              radius: 1.15,
-              colors: [Color.lerp(_D.card, tint, v)!, _D.card],
-              stops: const [0, 0.72],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _D.hairline),
-          ),
-          child: child,
-        );
-      },
-    );
-  }
-
-  Widget _cardBody(String currentIn, List<Map<String, dynamic>?> pages) {
-    return Stack(
-      children: [
-        // ภาพประกอบมุมขวาบน — เปลี่ยนตามเวรที่เลือก
-        // ไฟล์ทั้ง 3 อยู่บน canvas ร่วม 246×176 (ฐานโดมที่ y=149) จึงสลับกันได้โดยไม่ขยับ
-        // top 3 = ให้ฐานโดมตกที่ y76 เท่าเดิม (13 + 63 ของสเปก Figma)
-        Positioned(
-          top:
-              25, // ดันลงล่าง — ส่วนที่ทับการ์ดสแกนถูกการ์ดบังไว้อยู่แล้ว (วาดก่อน Column)
-          right: 34, // Figma: ห่างขอบขวาการ์ด 34
-          child: Opacity(
-            opacity: _D.dark ? 0.35 : 1,
-            // วาดเองแทน PNG — ดวงอาทิตย์ต้องเคลื่อนข้ามโดม เมฆต้องค่อยประกอบร่าง
-            // ภาพ raster แยกชิ้นไม่ได้ ต้องเป็นรูปทรงที่วาดเองถึงขยับทีละชิ้นได้
-            child: _ShiftScene(
-              hhmm: currentIn,
-              width: _D.sp(150),
-              height: _D.sp(86),
-            ),
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // แถวบนสุด: label ซ้าย · badge เวรขวา (ชิดบนตาม Figma items-start)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'การสแกนของวันนี้',
-                      style: _D.body(size: 12, color: _D.muted),
-                    ),
-                  ),
-                  if (currentIn.isNotEmpty) _shiftPill(currentIn),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: _pageH,
-              child: PageView.builder(
-                controller: _pc,
-                itemCount: pages.length,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (context, i) => SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: _shiftPage(pages[i], i),
-                ),
-              ),
-            ),
-            if (pages.length > 1) ...[
-              _dots(pages.length),
-              const SizedBox(height: 12),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _shiftPage(Map<String, dynamic>? r, int index) {
-    final inT = '${r?['in'] ?? ''}';
-    final outT = '${r?['out'] ?? ''}';
-    final hasIn = inT.isNotEmpty;
-    final hasOut = outT.isNotEmpty;
-
-    final (String headline, Color headColor) = switch (r) {
-      null => ('ยังไม่ลงเวลา', _D.muted),
-      _ when r['no_out'] == true => ('ลืมออกเวร', _D.bad),
-      _ when r['late'] == true => ('เข้างานสาย', _D.warn),
-      _ when r['early'] == true => ('ออกก่อนเวลา', _D.info),
-      _ when !hasOut => ('กำลังเข้าเวร', _D.accent),
-      _ => ('เข้างานปกติ', _D.ok),
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ไม่ต้องเว้นระยะเอง — สองบรรทัดนี้มีช่องว่างจาก line-height ของฟอนต์อยู่แล้ว
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              headline,
-              style: _D.tech(
-                size: 20,
-                weight: FontWeight.w600,
-                color: headColor,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // แผ่นทึบคลุมการ์ดสแกน — แยกสถานะด้านบนออกจากเวลาด้านล่าง (Figma 606:12591)
-        // กว้างชนขอบการ์ด มุมโค้ง 24 เท่ากัน ท่อนล่างของไล่สีเวรจึงถูกบังไว้ทั้งแถบ
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _D.card,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: _ScanTiles(
-            inTime: inT,
-            outTime: outT,
-            inColor: hasIn ? (r?['late'] == true ? _D.warn : _D.ok) : _D.muted,
-            outColor: hasOut
-                ? (r?['early'] == true ? _D.info : _D.ok)
-                : _D.muted,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _dots(int count) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      for (var i = 0; i < count; i++)
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          width: i == _page ? 18 : 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: i == _page ? _D.accent : _D.hairline,
-            borderRadius: BorderRadius.circular(100),
-          ),
-        ),
-    ],
-  );
-}
-
-/// การ์ดสแกนเข้า/ออก วางคู่กัน (Figma 584:14302)
-class _ScanTiles extends StatefulWidget {
-  const _ScanTiles({
-    required this.inTime,
-    required this.outTime,
-    required this.inColor,
-    required this.outColor,
-  });
-
-  static double get _tileH => _D.box(84);
-
-  final String inTime;
-  final String outTime;
-  final Color inColor;
-  final Color outColor;
-
-  @override
-  State<_ScanTiles> createState() => _ScanTilesState();
-}
-
-class _ScanTilesState extends State<_ScanTiles> {
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: _ScanTiles._tileH,
-    child: Row(
-      children: [
-        Expanded(
-          child: _tile(
-            'สแกนเข้า',
-            widget.inTime,
-            widget.inColor,
-            'assets/images/scan_in.png',
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _tile(
-            'สแกนออก',
-            widget.outTime,
-            widget.outColor,
-            'assets/images/scan_out.png',
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _tile(String label, String time, Color timeColor, String art) =>
-      Container(
-        decoration: BoxDecoration(
-          color: _D.rowBg,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Stack(
-          clipBehavior: Clip
-              .none, // ปล่อยให้ภาพล้นพ้นการ์ดได้ (Stack ตัดขอบเป็นค่าเริ่มต้น)
-          children: [
-            // ภาพประกอบล้นพ้นขอบล่างการ์ดนิดเดียว — เห็นเต็มตัว ไม่ถูกตัด
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Image.asset(
-                art,
-                width: _D.sp(56),
-                height: _D.sp(62),
-                fit: BoxFit.contain,
-                alignment: Alignment.bottomRight,
-                cacheWidth: (_D.sp(56) * _D.dpr).round(),
-                cacheHeight: (_D.sp(62) * _D.dpr).round(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(label, style: _D.body(size: 12, color: _D.muted)),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${time.isEmpty ? '--:--' : time} น.',
-                    style: _D.num(
-                      size: 16,
-                      weight: FontWeight.w700,
-                      color: timeColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-/// กล่องโครงร่างสีเทา — กวาดแสง "ภายในกล่องตัวเอง" ไม่ใช่เส้นพาดทั้งจอ
-class _Skel extends StatelessWidget {
-  const _Skel({
-    this.width,
-    required this.height,
-    this.radius = 8,
-    this.phase = 0,
-    this.onPanel = false,
-  });
-
-  final double? width;
-  final double height;
-  final double radius;
-
-  /// วางบนแผงน้ำเงิน — เทาอ่อนจะดูเป็นรอยเปื้อน ใช้ขาวโปร่งแทน
-  final bool onPanel;
-
-  /// เหลื่อมจังหวะกวาดแสง 0..1 — ถ้าทุกกล่องเฟสตรงกัน แถบสว่างจะเรียงเป็นเส้นเดียวพาดทั้งจอ
-  final double phase;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = _ShimmerScope.of(context)?.value ?? 0;
-    final base = onPanel ? _D.onPanel(0.18) : _D.rowBg;
-    final highlight = onPanel
-        ? _D.onPanel(0.34)
-        : (_D.dark ? const Color(0xFF343A47) : Colors.white);
-    // แถบสว่างวิ่งจากซ้ายไปขวาในขอบเขตของกล่องนี้เท่านั้น
-    final c = ((t + phase) % 1.0) * 1.6 - 0.3;
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [base, highlight, base],
-          stops: [
-            (c - 0.3).clamp(0.0, 1.0),
-            c.clamp(0.0, 1.0),
-            (c + 0.3).clamp(0.0, 1.0),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// หัวที่ตรึงไว้บนสุดของ CustomScrollView — ความสูงคงที่ ไม่ย่อ
-class _ShimmerScope extends InheritedNotifier<Animation<double>> {
-  const _ShimmerScope({
-    required Animation<double> super.notifier,
-    required super.child,
-  });
-
-  static Animation<double>? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_ShimmerScope>()?.notifier;
-}
-
-class _Shimmer extends StatefulWidget {
-  const _Shimmer({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_Shimmer> createState() => _ShimmerState();
-}
-
-class _ShimmerState extends State<_Shimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      _ShimmerScope(notifier: _c, child: widget.child);
-}
-
-/// หัวตรึงความสูงคงที่ — [topGap] คือที่ว่างสำหรับ status bar ตอนตรึงถึงบนสุด
-class _Sticky extends SliverPersistentHeaderDelegate {
-  const _Sticky({
-    required this.height,
-    required this.topGap,
-    required this.stuck,
-    required this.child,
-  });
-
-  final double height;
-  final double topGap;
-  final bool stuck;
-  final Widget child;
-
-  /// ล้นขึ้นข้างบนนิดหน่อย — ตอนตรึง ขอบล่างหัวแอปกับขอบบนหัวนี้ตกลงคนละครึ่งพิกเซลจริง
-  /// เหลือรอยบาง ๆ ให้เห็นการ์ดขาวข้างใต้ทะลุขึ้นมา ระบายเผื่อไว้ให้ทับรอยนั้น
-  /// ตอนยังไม่ตรึงต้องไม่ล้น ไม่งั้นสีน้ำเงินเลยขอบบนแผงขึ้นไปทับแผ่นขาว
-  static const double _bleedMax = 4;
-  double get _bleed => stuck ? _bleedMax : 0;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
-      RepaintBoundary(
-        child: OverflowBox(
-          alignment: Alignment.bottomCenter,
-          minHeight: height + _bleed,
-          maxHeight: height + _bleed,
-          child: AnimatedContainer(
-            // เงาค่อย ๆ มา ไม่ปรากฏพรวด ตอนเริ่มมีอะไรลอดใต้หัว
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              // ทึบเสมอ ไม่งั้นแถวรายวันเลื่อนลอดใต้หัวแล้วเห็นทะลุ
-              color: _D.panel,
-              // หัวนี้คือขอบบนสุดของแผงน้ำเงิน — ต้องมนตามแผง
-              // พอตรึงถึงขอบจอแล้วค่อยคลายเป็นเหลี่ยมให้เต็มความกว้างจริง
-              borderRadius: stuck
-                  ? BorderRadius.zero
-                  : const BorderRadius.vertical(top: Radius.circular(24)),
-              // เงาบอกว่าการ์ดข้างล่างลอดอยู่ใต้หัว ไม่ใช่ต่อกันเป็นแผ่นเดียว
-              boxShadow: stuck
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
-            ),
-            // ส่วนที่ล้นบวกเข้าที่ช่องบน แท็บจึงสูงเท่าเดิม ขีดใต้ไม่ขยับ
-            child: Column(
-              children: [
-                SizedBox(height: topGap + _bleed),
-                Expanded(child: child),
-              ],
-            ),
-          ),
-        ),
-      );
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  double get minExtent => height;
-
-  @override
-  // ไม่เทียบ child — SliverLayoutBuilder สร้าง widget ใหม่ทุกเฟรมที่เลื่อน
-  // เทียบแล้วไม่มีทางตรง แท็บเลยรีบิลด์ทิ้งทุกเฟรมทั้งที่หน้าตาเหมือนเดิม
-  // (ตัวแท็บเป็น Obx อยู่แล้ว เปลี่ยนช่วงเมื่อไหร่มันอัปเดตตัวเอง)
-  bool shouldRebuild(_Sticky old) =>
-      old.height != height || old.topGap != topGap || old.stuck != stuck;
-}
-
-/// วงกลมสถานะ — เวรเดียวระบายสีเดียว สองเวรผ่าครึ่งทแยงคนละสี
-class _SplitDot extends CustomPainter {
-  const _SplitDot(this.a, this.b);
-  final Color a;
-  final Color b;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final r = size.width / 2;
-    final c = Offset(r, r);
-    if (a == b) {
-      canvas.drawCircle(c, r, Paint()..color = a);
-      return;
-    }
-    void half(Path clip, Color color) {
-      canvas
-        ..save()
-        ..clipPath(clip)
-        ..drawCircle(c, r, Paint()..color = color)
-        ..restore();
-    }
-
-    half(
-      Path()
-        ..moveTo(0, 0)
-        ..lineTo(size.width, 0)
-        ..lineTo(0, size.height)
-        ..close(),
-      a,
-    );
-    half(
-      Path()
-        ..moveTo(size.width, 0)
-        ..lineTo(size.width, size.height)
-        ..lineTo(0, size.height)
-        ..close(),
-      b,
-    );
-    // เส้นขาวคั่นให้เห็นว่าเป็นสองเวร ไม่ใช่สีไล่เฉด
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(size.width, 0),
-      Paint()
-        ..color = Colors.white
-        ..strokeWidth = 1.5,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SplitDot old) => old.a != a || old.b != b;
-}
-
-/// ฉากประจำเวรบนการ์ดวันนี้ — วาดเองทั้งหมดเพื่อให้ขยับทีละชิ้นได้
-/// ดวงอาทิตย์/จันทร์ไต่ข้ามโดมช้า ๆ · เมฆค่อย ๆ ลอยมารวมกันเป็นก้อนตอนเปิดการ์ด
-class _ShiftScene extends StatefulWidget {
-  const _ShiftScene({
-    required this.hhmm,
-    required this.width,
-    required this.height,
-  });
-
-  final String hhmm;
-  final double width;
-  final double height;
-
-  @override
-  State<_ShiftScene> createState() => _ShiftSceneState();
-}
-
-class _ShiftSceneState extends State<_ShiftScene>
-    with TickerProviderStateMixin {
-  /// ดวงอาทิตย์ไต่โดม — 18 วิต่อรอบ ช้าจนไม่รบกวนตอนอ่านตัวเลข แต่เห็นว่าขยับ
-  late final AnimationController _sun = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 18),
-  )..repeat(reverse: true);
-
-  /// เมฆประกอบร่าง — เล่นครั้งเดียวตอนโผล่ และเล่นใหม่เมื่อสลับเวร
-  late final AnimationController _form = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..forward();
-
-  /// 0 = ดวงอาทิตย์เต็มดวง · 1 = พระจันทร์เสี้ยว — ค่อย ๆ แปลงร่างตอนสลับไปเวรดึก
-  late final AnimationController _night = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 650),
-    value: _isNight(widget.hhmm) ? 1 : 0,
-  );
-
-  static bool _isNight(String hhmm) =>
-      (int.tryParse(hhmm.split(':').first) ?? 8) >= 18;
-
-  @override
-  void didUpdateWidget(covariant _ShiftScene old) {
-    super.didUpdateWidget(old);
-    if (_shiftName(old.hhmm) != _shiftName(widget.hhmm)) {
-      _form.forward(from: 0);
-      _night.animateTo(_isNight(widget.hhmm) ? 1 : 0, curve: Curves.easeInOut);
-    }
-  }
-
-  @override
-  void dispose() {
-    _sun.dispose();
-    _form.dispose();
-    _night.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => RepaintBoundary(
-    child: CustomPaint(
-      size: Size(widget.width, widget.height),
-      painter: _ShiftPainter(
-        sun: _sun,
-        form: CurvedAnimation(parent: _form, curve: Curves.easeOutBack),
-        night: _night,
-      ),
-    ),
-  );
-}
-
-class _ShiftPainter extends CustomPainter {
-  _ShiftPainter({required this.sun, required this.form, required this.night})
-    : super(repaint: Listenable.merge([sun, form, night]));
-
-  final Animation<double> sun;
-  final Animation<double> form;
-
-  /// 0 = ดวงอาทิตย์ · 1 = พระจันทร์เสี้ยว (ค่ากลางคือกำลังแปลงร่าง)
-  final Animation<double> night;
-
-  // สีดูดมาจากไฟล์ภาพประกอบเดิม
-  static const _sunColor = Color(0xFFFDAF32);
-  static const _moonColor = Color(0xFFDCC8F5);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final baseY = h * 0.97;
-    final cx = w * 0.5;
-    final orbR = w * 0.085;
-    // เผื่อรัศมีดวง + แสงเรือง (1.7 เท่า) ไว้ทั้งสองข้าง ไม่งั้นตอนไต่ไปสุดขอบจะโดนตัด
-    final margin = orbR * 1.7;
-    // รัศมีโดม — กว้างที่สุดเท่าที่ดวงยังอยู่ในกรอบครบทั้งใบตลอดทาง
-    final r = math.min(w * 0.46, math.min(w * 0.5, baseY) - margin);
-
-    // ไม่วาดโดมแล้ว — พื้นหลังการ์ดที่ไล่สีจากมุมขวาบนทำหน้าที่เป็นท้องฟ้าแทน
-    // โดมเหลือไว้เป็นแค่ "เส้นทาง" ที่ดวงอาทิตย์ไต่ (r, cx, baseY ด้านล่าง)
-
-    // ดวงอาทิตย์/จันทร์ไต่จากซ้ายไปขวาตามขอบโดม แล้ววนใหม่
-    // ไต่แค่ช่วงกลางของโดม แล้ววิ่งกลับ — ดวงอาทิตย์อยู่ในกรอบตลอด
-    // ปล่อยให้วิ่งครบ 0→1 จะมีช่วงที่มันลับขอบฟ้าแล้วมุมนั้นว่างเปล่าเฉย ๆ
-    final t = 0.15 + sun.value * 0.7;
-    final a = math.pi * (1 - t); // pi → 0
-    final orbC = Offset(cx + r * math.cos(a), baseY - r * math.sin(a));
-    canvas.save();
-    // ไม่ตัดที่เส้นฐานโดมแล้ว — ไม่ได้วาดพื้น/ขอบฟ้าไว้ ตัดแล้วดูเป็นดวงโดนเฉือนเฉย ๆ
-    // (รัศมีโดมคุมไว้ให้ดวงอยู่ในกรอบครบทั้งใบตลอดทางแล้ว)
-    final n = night.value;
-    final orbColor = Color.lerp(_sunColor, _moonColor, n)!;
-    canvas.drawCircle(
-      orbC,
-      orbR * 1.7,
-      Paint()..color = orbColor.withValues(alpha: 0.18),
-    );
-    // วาดตัวดวงในเลเยอร์แยกแล้ว "เจาะ" ด้วย dstOut — เสี้ยวจึงโปร่งจริง
-    // ไม่ต้องรู้ว่าพื้นหลังตรงนั้นสีอะไร (การ์ดไล่เฉดอยู่ ทาสีทับจะเห็นรอยต่อ)
-    canvas
-      ..saveLayer(Rect.fromCircle(center: orbC, radius: orbR * 1.2), Paint())
-      ..drawCircle(orbC, orbR, Paint()..color = orbColor);
-    if (n > 0.01) {
-      // วงที่มาเจาะเลื่อนเข้ามาจากนอกดวง (2.1R) จนถึงตำแหน่งเสี้ยว (0.55R)
-      canvas.drawCircle(
-        orbC.translate(orbR * (2.1 - 1.55 * n), -orbR * 0.3 * n),
-        orbR * 0.95,
-        Paint()..blendMode = BlendMode.dstOut,
-      );
-    }
-    canvas
-      ..restore()
-      ..restore();
-
-    // เมฆ 3 ก้อนลอยเข้ามารวมกัน — p=0 กระจายและจาง · p=1 ประกอบร่างเสร็จ
-    final p = form.value.clamp(0.0, 1.0);
-    final cloud = Paint()..color = Colors.white.withValues(alpha: 0.92 * p);
-    final base = Offset(w * 0.54, baseY - h * 0.13);
-    const spread = [Offset(-1.6, 0.9), Offset(0, -1.4), Offset(1.7, 0.8)];
-    const puffs = [
-      (Offset(-0.20, 0.05), 0.135),
-      (Offset(0.0, -0.10), 0.175),
-      (Offset(0.21, 0.04), 0.145),
-    ];
-    for (var i = 0; i < puffs.length; i++) {
-      final (rel, rr) = puffs[i];
-      final off = Offset(
-        rel.dx * w + spread[i].dx * w * 0.28 * (1 - p),
-        rel.dy * h + spread[i].dy * h * 0.24 * (1 - p),
-      );
-      canvas.drawCircle(base + off, w * rr * (0.55 + 0.45 * p), cloud);
-    }
-    // ฐานเมฆแบน ๆ เชื่อมก้อนให้เป็นก้อนเดียว
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: base + Offset(0, h * 0.09),
-          width: w * 0.52 * p,
-          height: h * 0.16,
-        ),
-        Radius.circular(h * 0.08),
-      ),
-      cloud,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ShiftPainter old) => false; // repaint ผูกกับ animation แล้ว
-}
-
-/// หน้ารายการที่ต้องขอแก้ไข — เปิดจากการ์ดแจ้งเตือนบนแดชบอร์ด
-///
-/// อ่านอย่างเดียว: รวมวันที่ลงเวลาไม่ครบ/สแกนนอกพื้นที่ไว้ที่เดียว พร้อมบอกว่าติดต่อใคร
-/// (ตัวแอปแก้เวลาเองไม่ได้ — ต้องให้หัวหน้าเวรหรือฝ่ายบุคคลแก้ในระบบหลัง)
-class FixRequestView extends StatefulWidget {
-  const FixRequestView({super.key});
-
-  /// วันที่ที่ส่งคำขอไปแล้วในเซสชันนี้ — ต้นแบบยังไม่มีที่เก็บจริง
-  /// (ของจริงต้องอ่านสถานะคำขอจาก backend ไม่ใช่จำไว้ในแอป)
-  static final Set<String> sentDates = <String>{};
-
-  @override
-  State<FixRequestView> createState() => _FixRequestViewState();
-}
-
-class _FixRequestViewState extends State<FixRequestView> {
-  /// แท็บสถานะ: false = ยังไม่ส่ง (ค่าเริ่มต้น คือที่ยังต้องทำ) · true = ส่งแล้ว
-  bool _showSent = false;
-
-  /// รายการทั้งหมด — เริ่มจาก snapshot ที่แดชบอร์ดส่งมา แล้วอัปเดตเมื่อดึงรีเฟรช
-  late List<Map<String, dynamic>> _all = _rowsFromArgs();
-
-  static List<Map<String, dynamic>> _rowsFromArgs() {
-    final args = (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
-    return ((args['rows'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
-  }
-
-  /// ดึงลงเพื่อรีเฟรช: โหลดเดือนใหม่ผ่านตัวควบคุมแดชบอร์ด แล้วอ่านรายการค้างชุดล่าสุด
-  /// (ใช้ตัวควบคุมเดิม จะได้ไม่ยิงซ้ำและแดชบอร์ดข้างหลังก็อัปเดตตามไปด้วย)
-  Future<void> _refresh() async {
-    if (!Get.isRegistered<DashboardController>()) return;
-    final c = Get.find<DashboardController>();
-    await c.refreshAll();
-    if (!mounted) return;
-    setState(() => _all = c.pendingFixes);
-  }
-
-  static const _intro =
-      'รายการเวลาที่ระบบบันทึกไว้ไม่ครบหรือสแกนนอกพื้นที่ที่กำหนด '
-      'แก้เองในแอปไม่ได้ ต้องส่งคำขอให้หัวหน้าเวรหรือฝ่ายบุคคลแก้ให้ในระบบหลัง '
-      'แตะรายการเพื่อระบุเวลาที่ถูกต้องและสาเหตุ แล้วกดส่งคำขอ';
-
-  @override
-  Widget build(BuildContext context) {
-    _D.useScale(context); // ต้องมาก่อนทุก _D.* ของเฟรมนี้
-    final all = _all;
-    final sent = FixRequestView.sentDates;
-    final rows = all
-        .where((r) => sent.contains('${r['date']}') == _showSent)
-        .toList();
-
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: _D._maxTextScale,
-      child: Scaffold(
-        backgroundColor: _D.bg,
-        body: RefreshIndicator(
-          color: _D.accent,
-          backgroundColor: _D.card,
-          // ให้วงกลมโผล่ใต้แถบบนที่ตรึงไว้ ไม่ทับปุ่ม back
-          edgeOffset: _D.box(52) + MediaQuery.paddingOf(context).top,
-          onRefresh: _refresh,
-          child: CustomScrollView(
-            // ให้ดึงลงได้แม้รายการสั้นกว่าจอ
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              _heroBar(context),
-              SliverToBoxAdapter(child: _titleBlock(all.length)),
-              _stickyHead(
-                context,
-                pending: all
-                    .where((r) => !sent.contains('${r['date']}'))
-                    .length,
-                sent: all.where((r) => sent.contains('${r['date']}')).length,
-                count: rows.length,
-              ),
-              if (rows.isEmpty)
-                SliverToBoxAdapter(child: _empty())
-              else
-                SliverList.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (context, i) => _row(rows[i]),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------- หัวเรื่อง ----------
-
-  /// ภาพหัวเรื่องที่ยุบเป็นแถบชื่อเมื่อเลื่อนลง
-  Widget _heroBar(BuildContext context) {
-    final top = MediaQuery.viewPaddingOf(context).top;
-    final maxH = _D.sp(176) + top;
-    final minH = _D.box(52) + top;
-    // สร้างครั้งเดียวแล้วใช้ instance เดิมทุกเฟรมที่เลื่อน — วิดเจ็ตตัวเดิมเป๊ะ
-    // Flutter จะข้ามการ build ซ้ำทั้งกิ่ง (ไม่งั้นภาพประกอบถูกสร้างใหม่ทุกเฟรม)
-    final art = Padding(
-      padding: EdgeInsets.only(top: minH),
-      child: _heroArt(),
-    );
-    final back = _backBtn();
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor: _D.wash,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      expandedHeight: maxH - top,
-      collapsedHeight: minH - top,
-      automaticallyImplyLeading: false,
-      flexibleSpace: LayoutBuilder(
-        builder: (context, c) {
-          // 0 = กางเต็ม · 1 = ยุบเป็นแถบ — ใช้สลับภาพกับชื่อเรื่อง
-          final t = ((maxH - c.maxHeight) / (maxH - minH)).clamp(0.0, 1.0);
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: _D.wash),
-              // ยุบสุดแล้วไม่ต้องวาดภาพเลย · กางสุดก็ไม่ต้องมี Opacity มาบังคับ saveLayer
-              if (t < 0.995)
-                if (t == 0) art else Opacity(opacity: 1 - t, child: art),
-              // แถบบนสุด: ปุ่มย้อนกลับมุมซ้ายเสมอ ทั้งตอนกางและตอนยุบ
-              Positioned(
-                left: 0,
-                right: 0,
-                top: top,
-                height: minH - top,
-                child: Row(
-                  children: [
-                    back,
-                    Expanded(
-                      // จางด้วยค่าอัลฟาของสีตัวอักษร ไม่ใช่ Opacity — เลี่ยง saveLayer ทุกเฟรม
-                      child: Text(
-                        'แก้ไขเวลาการเข้า-ออกงาน',
-                        textAlign: TextAlign.center,
-                        style: _D.tech(
-                          size: 16,
-                          weight: FontWeight.w700,
-                          color: _D.ink.withValues(alpha: t),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: _D.box(44)),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _backBtn() => Tappable(
-    onTap: Get.back,
-    circle: true,
-    splash: _D.accent,
-    child: SizedBox(
-      width: _D.box(44),
-      height: _D.box(44),
-      child: Icon(
-        PhosphorIconsRegular.arrowLeft,
-        size: _D.sp(20),
-        color: _D.ink,
-      ),
-    ),
-  );
-
-  /// ภาพประกอบหัวเรื่อง — นาฬิกากับเครื่องหมายคำถาม วาดเป็นรูปทรงเรียบ ๆ
-  Widget _heroArt() => Center(
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        Container(
-          width: _D.sp(120),
-          height: _D.sp(120),
-          decoration: BoxDecoration(
-            color: _D.accent.withValues(alpha: 0.16),
-            shape: BoxShape.circle,
-          ),
-        ),
-        Icon(
-          PhosphorIconsRegular.clockCounterClockwise,
-          size: _D.sp(64),
-          color: _D.accentActive,
-        ),
-        Positioned(
-          right: _D.sp(24),
-          bottom: _D.sp(22),
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(color: _D.bad, shape: BoxShape.circle),
-            child: Icon(
-              PhosphorIconsFill.pencilSimple,
-              size: _D.sp(16),
-              color: _D.on,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  /// ชื่อเรื่องใหญ่ + วันที่ของข้อมูล (เลื่อนหายไปกับเนื้อหา)
-  Widget _titleBlock(int total) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'แก้ไขเวลาการเข้า-ออกงาน',
-          style: _D.tech(size: 24, weight: FontWeight.w700, color: _D.ink),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'ข้อมูล ณ ${thaiShortDate(DashboardController.ymd(DateTime.now()))}',
-          style: _D.body(size: 12, color: _D.muted),
-        ),
-      ],
-    ),
-  );
-
-  // ---------- แถบตรึง: แท็บสถานะ + คำอธิบาย + จำนวน ----------
-
-  Widget _stickyHead(
-    BuildContext context, {
-    required int pending,
-    required int sent,
-    required int count,
-  }) {
-    final w = MediaQuery.sizeOf(context).width - 32;
-    final style = _D.body(size: 12.5, color: _D.sub).copyWith(height: 1.5);
-    // วัดความสูงย่อหน้าเอง — หัวที่ตรึงต้องรู้ความสูงก่อนวาง
-    final tp = TextPainter(
-      text: TextSpan(text: _intro, style: style),
-      textDirection: TextDirection.ltr,
-      // ต้องคูณสเกลฟอนต์ระบบด้วย ไม่งั้นวัดสั้นกว่าจริงแล้วหัวตรึงล้น
-      textScaler: TextScaler.linear(_D._ts),
-    )..layout(maxWidth: w);
-    final h = _D.box(46) + 16 + tp.height + 12 + _D.box(28) + 10;
-    return SliverPersistentHeader(
-      pinned: true,
-      delegate: _FixHead(
-        height: h,
-        // ความสูงเท่าเดิมทุกแท็บ ถ้าเทียบแค่ความสูงหัวจะไม่วาดใหม่ แท็บที่เลือกเลยค้าง
-        signature: '$_showSent|$pending|$sent|$count',
-        child: ColoredBox(
-          color: _D.bg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: _D.box(46), child: _tabs(pending, sent)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                child: Text(_intro, style: style),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: SizedBox(
-                  height: _D.box(28),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$count รายการ',
-                        style: _D.tech(
-                          size: 15,
-                          weight: FontWeight.w600,
-                          color: _D.ink,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        _showSent ? 'ส่งคำขอไปแล้ว' : 'รอส่งคำขอ',
-                        style: _D.body(size: 12.5, color: _D.muted),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// แท็บสถานะแบบขีดใต้ — ชิดขอบจอเหมือนแท็บช่วงเวลาบนแดชบอร์ด
-  Widget _tabs(int pending, int sent) => Row(
-    children: [
-      Expanded(child: _tab('ยังไม่ส่ง', pending, !_showSent, false)),
-      Expanded(child: _tab('ส่งแล้ว', sent, _showSent, true)),
-    ],
-  );
-
-  Widget _tab(String label, int count, bool on, bool showSent) => Tappable(
-    onTap: () => setState(() => _showSent = showSent),
-    splash: _D.accent,
-    child: Stack(
-      alignment: Alignment.bottomCenter,
-      children: [
-        Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.only(bottom: 3),
-          child: Text(
-            '$label ($count)',
-            style: _D.tech(
-              size: 14,
-              weight: on ? FontWeight.w700 : FontWeight.w500,
-              color: on ? _D.ink : _D.muted,
-            ),
-          ),
-        ),
-        Container(height: 1, color: _D.hairline),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: 3,
-          color: on ? _D.accentActive : Colors.transparent,
-        ),
-      ],
-    ),
-  );
-
-  Widget _empty() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 48),
-    child: Column(
-      children: [
-        Icon(
-          _showSent
-              ? PhosphorIconsRegular.paperPlaneTilt
-              : PhosphorIconsRegular.checkCircle,
-          size: 34,
-          color: _showSent ? _D.muted : _D.ok,
-        ),
-        const SizedBox(height: 10),
-        Text(
-          _showSent ? 'ยังไม่ได้ส่งคำขอไหน' : 'ไม่มีรายการค้าง',
-          style: _D.body(size: 13, color: _D.muted),
-        ),
-      ],
-    ),
-  );
-
-  // ---------- หนึ่งรายการ ----------
-
-  /// แถวรายการ — ป้ายสาเหตุด้านบน · วันที่+เวรซ้าย · เวลาที่บันทึกไว้ขวา
-  /// คั่นด้วยเส้น ไม่ใช่การ์ดแยกใบ ตาจะได้ไล่คอลัมน์ขวาลงมาได้รวดเดียว
-  Widget _row(Map<String, dynamic> r) {
-    final inT = '${r['in'] ?? ''}';
-    final outT = '${r['out'] ?? ''}';
-    final noOut = r['no_out'] == true;
-    final done = FixRequestView.sentDates.contains('${r['date']}');
-    return Tappable(
-      onTap: () => _openForm(r),
-      splash: _D.accent,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: _D.hairline)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _reason(
-                noOut ? 'ไม่มีเวลาออก' : 'สแกนนอกพื้นที่',
-                noOut ? _D.warn : _D.bad,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: _D.box(36),
-                  height: _D.box(36),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _D.rowBg,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    done
-                        ? PhosphorIconsRegular.paperPlaneTilt
-                        : PhosphorIconsRegular.calendarBlank,
-                    size: _D.sp(18),
-                    color: done ? _D.accentActive : _D.muted,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        thaiShortDate('${r['date']}'),
-                        style: _D.tech(
-                          size: 15,
-                          weight: FontWeight.w700,
-                          color: _D.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        inT.isEmpty ? 'ไม่มีเวลาเข้า' : _shiftName(inT),
-                        style: _D.body(size: 12, color: _D.muted),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${inT.isEmpty ? '--:--' : inT} - ${outT.isEmpty ? '--:--' : outT}',
-                      style: _D.tech(
-                        size: 15,
-                        weight: FontWeight.w700,
-                        color: _D.sub,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    _status(done),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _status(bool done) {
-    final c = done ? _D.ok : _D.accentActive;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        done ? 'ส่งแล้ว' : 'ขอแก้ไข',
-        style: _D.body(size: 11.5, weight: FontWeight.w600, color: c),
-      ),
-    );
-  }
-
-  Widget _reason(String label, Color c) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: c.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(100),
-    ),
-    child: Text(
-      label,
-      style: _D.body(size: 11, weight: FontWeight.w600, color: c),
-    ),
-  );
-
-  Future<void> _openForm(Map<String, dynamic> r) async {
-    final ok = await Get.toNamed<Object?>(Routes.fixRequestForm, arguments: r);
-    if (ok != true || !mounted) return;
-    setState(() => FixRequestView.sentDates.add('${r['date']}'));
-  }
-}
-
-/// หัวตรึงของหน้าขอแก้ไข — ความสูงคงที่ที่ผู้เรียกวัดมาให้แล้ว
-class _FixHead extends SliverPersistentHeaderDelegate {
-  _FixHead({
-    required this.height,
-    required this.child,
-    required this.signature,
-  });
-
-  final double height;
-  final Widget child;
-
-  /// สรุปสถานะที่หัวนี้วาดอยู่ — เปลี่ยนเมื่อไหร่ถึงจะวาดใหม่
-  /// (เทียบ child ตรง ๆ ไม่ได้ เพราะสร้างใหม่ทุกเฟรมอยู่แล้ว)
-  final String signature;
-
-  @override
-  double get minExtent => height;
-  @override
-  double get maxExtent => height;
-  @override
-  Widget build(BuildContext context, double shrink, bool overlaps) => child;
-  @override
-  bool shouldRebuild(_FixHead old) =>
-      old.height != height || old.signature != signature;
-}
-
-/// หน้าฟอร์มขอแก้ไขเวลาของหนึ่งวัน — เปิดจากรายการในหน้า "ต้องขอแก้ไข"
-///
-/// ⚠️ ต้นแบบ: กดส่งแล้วไม่ได้ยิงไปไหน (ยังไม่มี endpoint รับคำขอ)
-/// ปิดหน้าแล้วคืน true ให้หน้ารายการย้ายวันนั้นไปแท็บ "ส่งแล้ว" — ต่อ API ที่ _submit()
-class FixRequestFormView extends StatefulWidget {
-  const FixRequestFormView({super.key});
-
-  @override
-  State<FixRequestFormView> createState() => _FixRequestFormViewState();
-}
-
-class _FixRequestFormViewState extends State<FixRequestFormView> {
-  static const _shifts = ['เวรเช้า', 'เวรบ่าย', 'เวรดึก'];
-
-  /// สาเหตุที่เจอบ่อย — กดเลือกแทนพิมพ์ (พิมพ์เองได้ในช่องล่าง)
-  static const _reasons = [
-    'ลืมสแกนออก',
-    'สแกนนอกพื้นที่',
-    'เครื่องสแกนขัดข้อง',
-    'ปฏิบัติงานนอกสถานที่',
-    'ควบเวรต่อ',
-  ];
-
-  late final Map<String, dynamic> _row =
-      (Get.arguments as Map?)?.cast<String, dynamic>() ?? const {};
-
-  late String _shift;
-  late TimeOfDay? _in;
-  late TimeOfDay? _out;
-  String _reason = '';
-  final _note = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    final inT = '${_row['in'] ?? ''}';
-    _shift = inT.isEmpty ? _shifts.first : _shiftName(inT);
-    if (!_shifts.contains(_shift)) _shift = _shifts.first;
-    _in = _parse(inT);
-    _out = _parse('${_row['out'] ?? ''}');
-    // เดาสาเหตุจากสิ่งที่ระบบจับได้ ผู้ใช้กดเปลี่ยนได้ถ้าไม่ตรง
-    _reason = _row['no_out'] == true
-        ? 'ลืมสแกนออก'
-        : (_row['out_area'] == true ? 'สแกนนอกพื้นที่' : '');
-  }
-
-  @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
-  }
-
-  static TimeOfDay? _parse(String hhmm) {
-    final p = hhmm.split(':');
-    if (p.length != 2) return null;
-    final h = int.tryParse(p[0]), m = int.tryParse(p[1]);
-    if (h == null || m == null) return null;
-    return TimeOfDay(hour: h, minute: m);
-  }
-
-  static String _fmt(TimeOfDay? t) => t == null
-      ? '--:--'
-      : '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
-  Future<void> _pick(bool isIn) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: (isIn ? _in : _out) ?? const TimeOfDay(hour: 8, minute: 0),
-      builder: (context, child) => MediaQuery(
-        // นาฬิกาแบบเข็มกดยากบนจอเล็ก — เปิดเป็นช่องกรอกตัวเลขไปเลย
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
-    );
-    if (picked == null) return;
-    setState(() => isIn ? _in = picked : _out = picked);
-  }
-
-  bool get _ready => _in != null && _out != null && _reason.isNotEmpty;
-
-  void _submit() {
-    if (!_ready) return;
-    // ต้นแบบ: ยังไม่ส่งออกนอกเครื่อง — ต่อ API ตรงนี้เมื่อมี endpoint
-    Get.back(result: true);
-    Get.snackbar(
-      'บันทึกคำขอแล้ว',
-      // อย่าบอกว่า "ส่งให้หัวหน้าเวรแล้ว" — ยังไม่มีอะไรออกจากเครื่องจริง ๆ
-      'ต้นแบบ: ยังไม่ส่งเข้าระบบ — ${thaiShortDate('${_row['date']}')} · $_shift · ${_fmt(_in)}-${_fmt(_out)} · $_reason',
-      snackPosition: SnackPosition.BOTTOM,
-      margin: const EdgeInsets.all(16),
-      borderRadius: 16,
-      backgroundColor: _D.card,
-      colorText: _D.ink,
-      duration: const Duration(seconds: 3),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    _D.useScale(context);
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: _D._maxTextScale,
-      child: Scaffold(
-        backgroundColor: _D.bg,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _header(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _label('เวร'),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        for (final s in _shifts) ...[
-                          if (s != _shifts.first) const SizedBox(width: 8),
-                          Expanded(
-                            child: _choice(
-                              s,
-                              _shift == s,
-                              () => setState(() => _shift = s),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    _label('เวลาที่ถูกต้อง'),
-                    const SizedBox(height: 4),
-                    _timeField('เวลาเข้า', _in, () => _pick(true)),
-                    const SizedBox(height: 4),
-                    _timeField('เวลาออก', _out, () => _pick(false)),
-                    const SizedBox(height: 22),
-                    _label('สาเหตุ'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final r in _reasons)
-                          _choice(
-                            r,
-                            _reason == r,
-                            () => setState(() => _reason = r),
-                            wrap: true,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _note,
-                      maxLines: 2,
-                      style: _D.body(size: 13.5, color: _D.ink),
-                      decoration: InputDecoration(
-                        hintText: 'รายละเอียดเพิ่มเติม (ไม่บังคับ)',
-                        hintStyle: _D.body(size: 13.5, color: _D.faint),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: _D.hairline),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: _D.accentActive),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _submitBar(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------- หัวเรื่อง: แถบสี + การ์ดสรุปวันที่ขอแก้ ----------
-
-  Widget _header(BuildContext context) {
-    final inT = '${_row['in'] ?? ''}';
-    final outT = '${_row['out'] ?? ''}';
-    final noOut = _row['no_out'] == true;
-    return Container(
-      color: _D.panel,
-      padding: EdgeInsets.only(top: MediaQuery.viewPaddingOf(context).top),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: _D.box(52),
-            child: Row(
-              children: [
-                Tappable(
-                  onTap: Get.back,
-                  circle: true,
-                  splash: _D.onPanel(),
-                  child: SizedBox(
-                    width: _D.box(52),
-                    height: _D.box(52),
-                    child: Icon(
-                      PhosphorIconsRegular.arrowLeft,
-                      size: _D.sp(20),
-                      color: _D.onPanel(),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'ขอแก้ไขเวลา',
-                    textAlign: TextAlign.center,
-                    style: _D.tech(
-                      size: 16,
-                      weight: FontWeight.w700,
-                      color: _D.onPanel(),
-                    ),
-                  ),
-                ),
-                SizedBox(width: _D.box(52)),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'วันที่ขอแก้ไข',
-                  style: _D.body(size: 12, color: _D.onPanel(0.8)),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _D.card,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              thaiShortDate('${_row['date']}'),
-                              style: _D.tech(
-                                size: 16,
-                                weight: FontWeight.w700,
-                                color: _D.ink,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            inT.isEmpty ? '' : _shiftName(inT),
-                            style: _D.body(size: 12, color: _D.muted),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'บันทึกไว้ ${inT.isEmpty ? '--:--' : inT} - ${outT.isEmpty ? '--:--' : outT}'
-                        ' · ${noOut ? 'ไม่มีเวลาออก' : 'สแกนนอกพื้นที่'}',
-                        style: _D.body(size: 12.5, color: _D.sub),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------- ปุ่มส่ง ----------
-
-  Widget _submitBar(BuildContext context) => Container(
-    padding: EdgeInsets.fromLTRB(
-      16,
-      12,
-      16,
-      12 + MediaQuery.viewPaddingOf(context).bottom,
-    ),
-    decoration: BoxDecoration(
-      color: _D.bg,
-      border: Border(top: BorderSide(color: _D.hairline)),
-    ),
-    child: Tappable(
-      onTap: _ready ? _submit : null,
-      borderRadius: BorderRadius.circular(100),
-      splash: _D.on,
-      child: Container(
-        height: _D.box(50),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _ready ? _D.accentActive : _D.hairline,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Text(
-          'ส่งคำขอ',
-          style: _D.tech(
-            size: 15,
-            weight: FontWeight.w700,
-            color: _ready ? _D.on : _D.faint,
-          ),
-        ),
-      ),
-    ),
-  );
-
-  // ---------- ชิ้นส่วนฟอร์ม ----------
-
-  Widget _label(String t) => Text(
-    t,
-    style: _D.tech(size: 13.5, weight: FontWeight.w700, color: _D.ink),
-  );
-
-  Widget _choice(
-    String label,
-    bool on,
-    VoidCallback onTap, {
-    bool wrap = false,
-  }) => Tappable(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(100),
-    splash: _D.accent,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      padding: EdgeInsets.symmetric(horizontal: wrap ? 12 : 8, vertical: 10),
-      alignment: wrap ? null : Alignment.center,
-      decoration: BoxDecoration(
-        color: on ? _D.accentActive : _D.card,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: on ? _D.accentActive : _D.hairline),
-      ),
-      child: Text(
-        label,
-        style: _D.body(
-          size: 12.5,
-          weight: FontWeight.w600,
-          color: on ? _D.on : _D.sub,
-        ),
-      ),
-    ),
-  );
-
-  /// ช่องเวลาแบบขีดเส้นใต้ — แตะแล้วเปิดตัวเลือกเวลา
-  Widget _timeField(String label, TimeOfDay? v, VoidCallback onTap) => Tappable(
-    onTap: onTap,
-    splash: _D.accent,
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: _D.hairline)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: _D.body(size: 13.5, color: _D.muted)),
-          ),
-          Text(
-            _fmt(v),
-            style: _D.tech(
-              size: 17,
-              weight: FontWeight.w700,
-              color: v == null ? _D.faint : _D.ink,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(PhosphorIconsRegular.clock, size: 18, color: _D.muted),
-        ],
-      ),
-    ),
-  );
-}

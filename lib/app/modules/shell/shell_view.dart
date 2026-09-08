@@ -10,6 +10,7 @@ import '../../theme/nexus.dart';
 import '../home/home_binding.dart';
 import '../home/home_controller.dart';
 import '../account/account_view.dart';
+import '../dashboard/dashboard_controller.dart';
 import '../dashboard/dashboard_view.dart';
 import '../home/home_view.dart';
 import '../my_time/my_time.dart';
@@ -39,7 +40,8 @@ class ShellView extends GetView<ShellController> {
         () => IndexedStack(
           index: controller.tab.value,
           children: [
-            for (var i = 0; i < pages.length; i++) controller.built.contains(i) ? pages[i] : const SizedBox.shrink(),
+            for (var i = 0; i < pages.length; i++)
+              controller.built.contains(i) ? pages[i] : const SizedBox.shrink(),
           ],
         ),
       ),
@@ -70,7 +72,9 @@ class ShellView extends GetView<ShellController> {
                 color: Nexus.pSheet,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: Nexus.isDark ? 0.40 : 0.10),
+                    color: Colors.black.withValues(
+                      alpha: Nexus.isDark ? 0.40 : 0.10,
+                    ),
                     blurRadius: 20,
                     offset: const Offset(0, -4),
                   ),
@@ -82,9 +86,21 @@ class ShellView extends GetView<ShellController> {
                 child: Obx(
                   () => Row(
                     children: [
-                      Expanded(child: _navItem(0, PhosphorIconsRegular.house, PhosphorIconsFill.house, 'หน้าหลัก')),
                       Expanded(
-                        child: _navItem(1, PhosphorIconsRegular.chartBar, PhosphorIconsFill.chartBar, 'แดชบอร์ด'),
+                        child: _navItem(
+                          0,
+                          PhosphorIconsRegular.house,
+                          PhosphorIconsFill.house,
+                          'หน้าหลัก',
+                        ),
+                      ),
+                      Expanded(
+                        child: _navItem(
+                          1,
+                          PhosphorIconsRegular.chartBar,
+                          PhosphorIconsFill.chartBar,
+                          'แดชบอร์ด',
+                        ),
                       ),
                       const SizedBox(width: 80), // เว้นช่องให้ปุ่มสแกน
                       Expanded(
@@ -95,7 +111,14 @@ class ShellView extends GetView<ShellController> {
                           'ประวัติ',
                         ),
                       ),
-                      Expanded(child: _navItem(3, PhosphorIconsRegular.user, PhosphorIconsFill.user, 'บัญชี')),
+                      Expanded(
+                        child: _navItem(
+                          3,
+                          PhosphorIconsRegular.user,
+                          PhosphorIconsFill.user,
+                          'บัญชี',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -127,7 +150,9 @@ class ShellView extends GetView<ShellController> {
                 color: Nexus.pSheet,
                 boxShadow: [
                   BoxShadow(
-                    color: (locked ? Colors.black : Nexus.pAccent).withValues(alpha: locked ? 0.16 : 0.30),
+                    color: (locked ? Colors.black : Nexus.pAccent).withValues(
+                      alpha: locked ? 0.16 : 0.30,
+                    ),
                     blurRadius: 14,
                     offset: const Offset(0, 5),
                   ),
@@ -186,7 +211,12 @@ class ShellView extends GetView<ShellController> {
               scale: a,
               child: FadeTransition(opacity: a, child: w),
             ),
-            child: Icon(sel ? iconActive : icon, key: ValueKey(sel), size: 26, color: color),
+            child: Icon(
+              sel ? iconActive : icon,
+              key: ValueKey(sel),
+              size: 26,
+              color: color,
+            ),
           ),
           const SizedBox(height: 4),
           _label(label, color, sel),
@@ -202,7 +232,11 @@ class ShellView extends GetView<ShellController> {
       text,
       maxLines: 1,
       softWrap: false,
-      style: Nexus.body(size: 11, weight: bold ? FontWeight.w700 : FontWeight.w500, color: color),
+      style: Nexus.body(
+        size: 11,
+        weight: bold ? FontWeight.w700 : FontWeight.w500,
+        color: color,
+      ),
     ),
   );
 }
