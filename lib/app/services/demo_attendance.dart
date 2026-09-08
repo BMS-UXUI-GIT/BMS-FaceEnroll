@@ -54,6 +54,8 @@ List<Map<String, dynamic>> demoAttendanceRows(
   final stop = until != null && until.isBefore(to) ? until : to;
   final now = DateTime.now();
   final out = <Map<String, dynamic>>[];
+  // เดือนไหนปัก "ขาดทั้งเข้าและออก" ไปแล้วบ้าง — เดือนละวันพอ
+  final blankDone = <int>{};
   for (var d = from; !d.isAfter(stop); d = d.add(const Duration(days: 1))) {
     final today =
         d.year == now.year && d.month == now.month && d.day == now.day;
@@ -67,6 +69,7 @@ List<Map<String, dynamic>> demoAttendanceRows(
         'out': '23:06',
         'late': false,
         'early': false,
+        'no_in': false,
         'no_out': false,
         'out_area': false,
       });
@@ -77,6 +80,7 @@ List<Map<String, dynamic>> demoAttendanceRows(
         'out': '',
         'late': false,
         'early': false,
+        'no_in': false,
         'no_out': false,
         'out_area': false,
       });
@@ -89,13 +93,31 @@ List<Map<String, dynamic>> demoAttendanceRows(
     final w = _seed(_mondayOf(d));
     final idx = d.weekday - 1;
     final isDouble = idx == w % 7; // วันควบเวร → วงกลมผ่าครึ่งสองสี
-    final isMixed =
-        idx == (w >> 3) % 7; // วันที่เวรเดียวผิดสองอย่าง → จุดมุมบน
+    final isMixed = idx == (w >> 3) % 7; // วันที่เวรเดียวผิดสองอย่าง → จุดมุมบน
+    // ปักอีกวันต่อสัปดาห์ให้ "ลืมออก" — รายการขอแก้ไขจะได้มีสาเหตุปนกัน ไม่ใช่นอกพื้นที่ล้วน
+    final isNoOut = idx == (w >> 5) % 7 && !isDouble && !isMixed;
+    // และอีกวันให้ "ลืมสแกนเข้า" — มีแต่เวลาออก ระบบได้ข้อมูลครึ่งเดียว
+    final isNoIn = idx == (w >> 11) % 7 && !isDouble && !isMixed && !isNoOut;
+    // เดือนละวัน ขาดทั้งเข้าและออก — ระบบไม่มีข้อมูลเลย ต้องกรอกใหม่ทั้งคู่
+    // ปักที่วันทำงานวันแรกของเดือนที่ยังไม่ติดเคสอื่น — ชนวันหยุด/วันลาแล้วหายไปทั้งเดือนไม่ได้
+    final monthKey = d.year * 100 + d.month;
+    final isBlank =
+        !blankDone.contains(monthKey) &&
+        d.day > 2 &&
+        !isDouble &&
+        !isMixed &&
+        !isNoOut &&
+        !isNoIn;
+    if (isBlank) blankDone.add(monthKey);
     final shift = isDouble ? 0 : _shiftOf(d); // ควบเวรเริ่มที่เวรเช้าเสมอ
-    final late = isMixed || r % 100 < 12;
-    final early = !isMixed && (r >> 5) % 100 < 6;
-    final noOut = !isMixed && (r >> 9) % 100 < 3;
-    final outArea = isMixed || (r >> 13) % 100 < 2;
+    final late = !isBlank && (isMixed || r % 100 < 12);
+    final early = !isBlank && !isMixed && (r >> 5) % 100 < 6;
+    final noOut =
+        isBlank || (!isNoIn && (isNoOut || (!isMixed && (r >> 9) % 100 < 3)));
+    // บางสัปดาห์วันลืมออกก็สแกนเข้านอกพื้นที่ด้วย → แถวเดียวสองสาเหตุ
+    final outArea =
+        !isBlank &&
+        (isMixed || (r >> 13) % 100 < 2 || (isNoOut && (w >> 9) % 3 == 0));
     final date =
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -109,10 +131,12 @@ List<Map<String, dynamic>> demoAttendanceRows(
     final outT = _hhmm(outH, (outBase + (r >> 3) % 20) % 60);
     out.add({
       'date': date,
-      'in': inT,
+      // ลืมสแกนเข้า = ไม่มีเวลาเข้า แต่มีเวลาออก · ขาดทั้งคู่ = ว่างทั้งสองช่อง
+      'in': (isNoIn || isBlank) ? '' : inT,
       'out': noOut ? '' : outT,
-      'late': late,
+      'late': !isNoIn && late,
       'early': !noOut && early,
+      'no_in': isNoIn || isBlank,
       'no_out': noOut,
       'out_area': outArea,
     });
@@ -128,6 +152,7 @@ List<Map<String, dynamic>> demoAttendanceRows(
         'out': _hhmm(23, (r >> 4) % 30),
         'late': late2,
         'early': false,
+        'no_in': false,
         'no_out': false,
         'out_area': false,
       });
