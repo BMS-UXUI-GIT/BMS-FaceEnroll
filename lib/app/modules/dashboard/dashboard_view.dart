@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -89,9 +91,21 @@ class DashboardView extends GetView<DashboardController> {
                               ),
                       ),
                     ),
-                    const SliverToBoxAdapter(
-                      child: SizedBox(height: 120),
-                    ), // เว้นที่ให้แถบล่าง
+                    // Shell ตั้ง extendBody: true — เนื้อหาไหลไปอยู่ "หลัง" dock
+                    // จึงต้องเว้นเท่าความสูง dock จริง (76 แถบ + 24 ปุ่มที่โผล่ขึ้น
+                    // + safe area) แล้วบวกช่องไฟอีก 24 ไม่งั้นชิ้นสุดท้ายจ่อใต้ปุ่ม
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height:
+                            76 +
+                            24 +
+                            24 +
+                            math.max(
+                              MediaQuery.viewPaddingOf(context).bottom,
+                              10.0,
+                            ),
+                      ),
+                    ),
                   ],
                 ),
               ),
