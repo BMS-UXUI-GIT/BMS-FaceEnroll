@@ -18,21 +18,54 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="FaceCheck — ต้นแบบ UI แอปลงเวลาด้วยใบหน้า">
+  <!-- viewport-fit=cover — จำเป็นเพื่อให้ env(safe-area-inset-*) มีค่าจริงบนเครื่องจอบาก -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#f0f6fd">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="bms_face_scan">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- โปร่ง — แอปวาดพื้นเองใต้แถบสถานะ (คู่กับ safe area ที่ส่งให้ด้านล่าง) -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FaceCheck">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>bms_face_scan</title>
+  <title>FaceCheck</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <style>
+    html, body { margin: 0; height: 100%; background: #f0f6fd; overflow: hidden; }
+    /* กล่องวัดพื้นที่ปลอดภัยของเครื่อง — ไม่แสดงผล ใช้แค่ให้ JS อ่านค่า env() ออกมา */
+    #safe-probe {
+      position: fixed; top: 0; left: 0; width: 0; visibility: hidden; pointer-events: none;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  </style>
+  <div id="safe-probe"></div>
+  <script>
+    // Flutter web ไม่ได้อ่าน safe area ของเครื่องเอง (MediaQuery.padding = 0 เสมอ)
+    // วัดจาก env() แล้วยัดเป็น query ก่อน flutter_bootstrap.js ทำงาน — main.dart
+    // อ่านต่อจาก Uri.base แล้ว override MediaQuery ให้ (เฉพาะ build เดโม)
+    // ถ้ามีค่ามากับ URL อยู่แล้ว (กรอบมือถือบนเดสก์ท็อปส่งมา) ไม่ต้องวัดซ้ำ
+    (function () {
+      var q = new URLSearchParams(location.search);
+      if (q.has('safeTop') || q.has('safeBottom')) return;
+      var cs = getComputedStyle(document.getElementById('safe-probe'));
+      var top = parseFloat(cs.paddingTop) || 0;
+      var bottom = parseFloat(cs.paddingBottom) || 0;
+      if (!top && !bottom) return;
+      q.set('safeTop', String(Math.round(top)));
+      q.set('safeBottom', String(Math.round(bottom)));
+      history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+    })();
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
