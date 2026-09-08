@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../config/demo_mode.dart';
 
 /// การตั้งค่าประจำเครื่อง — เก็บใน SharedPreferences
 /// ค่าหลักคือ "เลขโรงพยาบาล (hcode)" + session ของพนักงานที่ login (emp_id/ชื่อ)
@@ -131,7 +132,10 @@ class SettingsService extends GetxService {
     telegramBotToken.value = p.getString('telegramBotToken') ?? '';
     telegramChatId.value = p.getString('telegramChatId') ?? '';
     contactMsg.value = p.getString('contactMsg') ?? '';
-    themeMode.value = p.getString('themeMode') ?? 'dark';
+    // ต้นแบบบนเว็บเปิดมาเป็นโหมดสว่าง — คนรีวิว UI ดูบนจอเดสก์ท็อปสว่าง
+    // แอปจริงบนมือถือยังเริ่มที่โหมดมืดเหมือนเดิม
+    themeMode.value =
+        p.getString('themeMode') ?? (kDemoBuild ? 'light' : 'dark');
 
     // เลข version จาก pubspec (เช่น 0.1.0+1) — กันพังถ้าโหลดไม่ได้ (เช่นใน test)
     try {

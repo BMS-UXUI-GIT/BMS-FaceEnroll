@@ -18,9 +18,6 @@
     --screen-bg:#f0f6fd;
     --sb-ink:#111827;
   }
-  @media (prefers-color-scheme:dark){
-    :root{--screen-bg:#161a23;--sb-ink:#e8ebf0}
-  }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -241,7 +238,8 @@
   // แอปเก็บธีมไว้ที่ shared_preferences → localStorage ของ iframe (same-origin อ่านได้)
   // ธีมมืด = ตัวหนังสือขาว · ธีมสว่าง = ตัวหนังสือดำ ไม่ใช่ blend ที่ได้สีเพี้ยน
   function syncInk() {
-    let dark = matchMedia('(prefers-color-scheme:dark)').matches;
+    // ต้นแบบเปิดมาเป็นโหมดสว่างเสมอ — ใช้เป็นค่าตั้งต้นจนกว่าจะอ่านธีมจากแอปได้
+    let dark = false;
     try {
       // ค่าเก็บเป็นสตริง 'dark'/'light' (บาง build ห่อ JSON) — เช็กแบบหยาบพอ
       const v = app.contentWindow.localStorage.getItem('flutter.themeMode');
