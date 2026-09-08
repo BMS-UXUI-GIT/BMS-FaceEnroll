@@ -39,10 +39,15 @@ class LocationService {
     try {
       if (!await _geo.isLocationServiceEnabled()) return;
       final perm = await _geo.checkPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever)
+        return;
       _sub = _geo
           .getPositionStream(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 0),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 0,
+            ),
           )
           .listen(_push, onError: (Object e) => log('GPS stream: $e'));
     } catch (e) {
@@ -98,20 +103,30 @@ class LocationService {
   /// ขอค่าเดียวแบบเดิม — ใช้เฉพาะตอน stream ยังไม่มีอะไรให้เลย
   Future<Position?> _oneShot() async {
     for (final attempt in const [
-      LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 8)),
-      LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 5)),
+      LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 8),
+      ),
+      LocationSettings(
+        accuracy: LocationAccuracy.medium,
+        timeLimit: Duration(seconds: 5),
+      ),
     ]) {
       try {
         final pos = await _geo.getCurrentPosition(locationSettings: attempt);
         _push(pos);
-        log('GPS one-shot: ${pos.latitude},${pos.longitude} ±${pos.accuracy.round()}m');
+        log(
+          'GPS one-shot: ${pos.latitude},${pos.longitude} ±${pos.accuracy.round()}m',
+        );
         return pos;
       } catch (e) {
         log('GPS error (${attempt.accuracy}): $e');
       }
     }
     final fb = latest ?? await _lastKnown();
-    if (fb != null && DateTime.now().difference(fb.timestamp).abs() <= const Duration(seconds: 30)) {
+    if (fb != null &&
+        DateTime.now().difference(fb.timestamp).abs() <=
+            const Duration(seconds: 30)) {
       log('GPS fallback: ${fb.latitude},${fb.longitude} (${fb.timestamp})');
       return fb;
     }
@@ -120,12 +135,15 @@ class LocationService {
 
   // ---- logic เลือกค่า (pure — มี test) ----
 
-  static bool _fresh(Position p) => DateTime.now().difference(p.timestamp).abs() <= freshWindow;
+  static bool _fresh(Position p) =>
+      DateTime.now().difference(p.timestamp).abs() <= freshWindow;
 
-  static void _prune(List<Position> fixes) => fixes.removeWhere((p) => !_fresh(p));
+  static void _prune(List<Position> fixes) =>
+      fixes.removeWhere((p) => !_fresh(p));
 
   /// accuracy ใช้ได้และดีพอ (0/ติดลบ = มือถือไม่รู้ค่า ถือว่าไม่ดี)
-  static bool isGood(Position p) => p.accuracy > 0 && p.accuracy <= goodAccuracyM;
+  static bool isGood(Position p) =>
+      p.accuracy > 0 && p.accuracy <= goodAccuracyM;
 
   /// fix สดที่ accuracy น้อยสุด — fix ที่ไม่รู้ค่า (<= 0) แพ้ fix ที่รู้ค่าเสมอ ; ไม่มีสด = null
   static Position? pickBest(List<Position> fixes) {
@@ -136,7 +154,8 @@ class LocationService {
     return best;
   }
 
-  static double _rank(Position p) => p.accuracy > 0 ? p.accuracy : double.infinity;
+  static double _rank(Position p) =>
+      p.accuracy > 0 ? p.accuracy : double.infinity;
 
   /// ระยะที่ยอมหักออกตอนเทียบรัศมี = accuracy แต่ไม่เกิน maxSlackM ; ค่าเพี้ยน = 0
   static double slackFor(double accuracyM) {

@@ -127,27 +127,46 @@ class EnterPinView extends GetView<EnterPinController> {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Nexus.pLine),
                     ),
-                    child: Icon(PhosphorIconsRegular.lock, size: 26, color: Nexus.pAccent),
+                    child: Icon(
+                      PhosphorIconsRegular.lock,
+                      size: 26,
+                      color: Nexus.pAccent,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Text(controller.title, style: Nexus.tech(size: 19, weight: FontWeight.w700)),
+                  Text(
+                    controller.title,
+                    style: Nexus.tech(size: 19, weight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 28),
-                  PinDots(length: controller.pin.savedPinLength, filled: controller.entered.value.length),
+                  PinDots(
+                    length: controller.pin.savedPinLength,
+                    filled: controller.entered.value.length,
+                  ),
                   const SizedBox(height: 14),
                   SizedBox(
                     height: 22,
                     child: Text(
-                      locked ? 'ลองใหม่ใน ${controller.lockLeft.value} วิ' : controller.error.value,
+                      locked
+                          ? 'ลองใหม่ใน ${controller.lockLeft.value} วิ'
+                          : controller.error.value,
                       style: Nexus.body(size: 13, color: Nexus.pBad),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  PinKeypad(onKey: controller.onKey, onDelete: controller.backspace, disabled: locked),
+                  PinKeypad(
+                    onKey: controller.onKey,
+                    onDelete: controller.backspace,
+                    disabled: locked,
+                  ),
                   const Spacer(),
                   if (controller.dismissible)
                     TextButton(
                       onPressed: controller.cancel,
-                      child: Text('ยกเลิก', style: Nexus.body(size: 14, color: Nexus.pMuted)),
+                      child: Text(
+                        'ยกเลิก',
+                        style: Nexus.body(size: 14, color: Nexus.pMuted),
+                      ),
                     ),
                   const SizedBox(height: 16),
                 ],

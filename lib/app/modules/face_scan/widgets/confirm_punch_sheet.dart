@@ -33,7 +33,8 @@ class ConfirmPunchSheet extends StatefulWidget {
   /// เลยต้องรู้ค่าปัจจุบัน ไม่งั้นจะส่งค่าตั้งต้นแทนสิ่งที่ผู้ใช้กด
   final void Function(int? shiftId, int type)? onPicked;
   final String? matchedAt; // เวลา server (ISO) — fallback เวลาเครื่อง
-  final String? place; // ชื่อจุดลงเวลาที่ยืนอยู่ (จาก geofence) — ให้พนักงานเห็นด้วยตาว่าลงที่จุดไหน
+  final String?
+  place; // ชื่อจุดลงเวลาที่ยืนอยู่ (จาก geofence) — ให้พนักงานเห็นด้วยตาว่าลงที่จุดไหน
   final int countdownSeconds;
 
   @override
@@ -70,7 +71,13 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
 
   void _confirm() {
     _timer?.cancel();
-    Get.back(result: {'confirmed': true, 'emp_shift_id': _shiftId, 'enroll_type': _type});
+    Get.back(
+      result: {
+        'confirmed': true,
+        'emp_shift_id': _shiftId,
+        'enroll_type': _type,
+      },
+    );
   }
 
   void _cancel() {
@@ -108,14 +115,18 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
     final p = widget.person;
     return ConstrainedBox(
       // จำกัดสูงสุด → เนื้อหากลางเลื่อนได้ถ้าจอไม่พอ ปุ่มยืนยันไม่หลุดล่าง
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       child: Container(
         // + viewInsets (คีย์บอร์ด) + padding.bottom (แถบ nav เครื่อง) → ปุ่มไม่จมใต้ nav bar
         padding: EdgeInsets.fromLTRB(
           22,
           14,
           22,
-          16 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
+          16 +
+              MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.of(context).padding.bottom,
         ),
         decoration: const BoxDecoration(
           color: Nexus.sheet,
@@ -129,7 +140,10 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
               width: 42,
               height: 4,
               margin: const EdgeInsets.only(bottom: 18),
-              decoration: BoxDecoration(color: const Color(0xFF23415F), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: const Color(0xFF23415F),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             // เนื้อหาเลื่อนได้เฉพาะเวลาจำเป็น (เวรเยอะ/จอเล็ก) — ปกติแสดงครบทุกเวรไม่ต้องเลื่อน
             Flexible(
@@ -147,11 +161,17 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(15),
                             border: Border.all(color: const Color(0xFF2A4D72)),
-                            gradient: const LinearGradient(colors: [Color(0xFF112233), Color(0xFF1B3A57)]),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF112233), Color(0xFF1B3A57)],
+                            ),
                           ),
                           child: Text(
                             _initials(p.name ?? ''),
-                            style: Nexus.tech(size: 18, weight: FontWeight.w700, color: Nexus.cyan),
+                            style: Nexus.tech(
+                              size: 18,
+                              weight: FontWeight.w700,
+                              color: Nexus.cyan,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 13),
@@ -163,20 +183,42 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                                 p.name ?? 'พนักงาน',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Nexus.body(size: 15, weight: FontWeight.w600, color: Nexus.ink),
+                                style: Nexus.body(
+                                  size: 15,
+                                  weight: FontWeight.w600,
+                                  color: Nexus.ink,
+                                ),
                               ),
                               const SizedBox(height: 2),
-                              Text('ยืนยันการลงเวลา', style: Nexus.body(size: 11.5, color: Nexus.muted)),
+                              Text(
+                                'ยืนยันการลงเวลา',
+                                style: Nexus.body(
+                                  size: 11.5,
+                                  color: Nexus.muted,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('เวลา', style: Nexus.tech(size: 10, color: Nexus.dim, spacing: 1)),
+                            Text(
+                              'เวลา',
+                              style: Nexus.tech(
+                                size: 10,
+                                color: Nexus.dim,
+                                spacing: 1,
+                              ),
+                            ),
                             Text(
                               _timeText,
-                              style: Nexus.tech(size: 22, weight: FontWeight.w700, color: Nexus.cyan, spacing: 1),
+                              style: Nexus.tech(
+                                size: 22,
+                                weight: FontWeight.w700,
+                                color: Nexus.cyan,
+                                spacing: 1,
+                              ),
                             ),
                           ],
                         ),
@@ -186,7 +228,10 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0x80081420),
                           borderRadius: BorderRadius.circular(13),
@@ -194,7 +239,11 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(PhosphorIconsRegular.mapPin, size: 16, color: Nexus.cyan),
+                            const Icon(
+                              PhosphorIconsRegular.mapPin,
+                              size: 16,
+                              color: Nexus.cyan,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -242,7 +291,10 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                     if (widget.smileHint) ...[
                       const SizedBox(height: 14),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0x1419E3FF),
                           borderRadius: BorderRadius.circular(14),
@@ -276,7 +328,11 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                       ),
                       child: Text(
                         'ยกเลิก',
-                        style: Nexus.tech(size: 14, weight: FontWeight.w700, color: Nexus.sub),
+                        style: Nexus.tech(
+                          size: 14,
+                          weight: FontWeight.w700,
+                          color: Nexus.sub,
+                        ),
                       ),
                     ),
                   ),
@@ -297,7 +353,11 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
                         ),
                         child: Text(
                           'ยืนยัน',
-                          style: Nexus.tech(size: 14, weight: FontWeight.w700, color: Nexus.on),
+                          style: Nexus.tech(
+                            size: 14,
+                            weight: FontWeight.w700,
+                            color: Nexus.on,
+                          ),
                         ),
                       ),
                     ),
@@ -306,7 +366,10 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
               ],
             ),
             const SizedBox(height: 8),
-            Text('ปิดเองใน $_left วิ', style: Nexus.body(size: 11.5, color: Nexus.dim)),
+            Text(
+              'ปิดเองใน $_left วิ',
+              style: Nexus.body(size: 11.5, color: Nexus.dim),
+            ),
           ],
         ),
       ),
@@ -315,10 +378,18 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
 
   Widget _sectionLabel(String t) => Align(
     alignment: Alignment.centerLeft,
-    child: Text(t, style: Nexus.tech(size: 10.5, color: Nexus.dim, spacing: 1.5)),
+    child: Text(
+      t,
+      style: Nexus.tech(size: 10.5, color: Nexus.dim, spacing: 1.5),
+    ),
   );
 
-  Widget _typeBtn({required String label, required IconData icon, required int value, required Color color}) {
+  Widget _typeBtn({
+    required String label,
+    required IconData icon,
+    required int value,
+    required Color color,
+  }) {
     final sel = _type == value;
     return Tappable(
       onTap: () => setState(() {
@@ -341,7 +412,11 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
             const SizedBox(width: 8),
             Text(
               label,
-              style: Nexus.tech(size: 14, weight: FontWeight.w700, color: sel ? color : Nexus.muted),
+              style: Nexus.tech(
+                size: 14,
+                weight: FontWeight.w700,
+                color: sel ? color : Nexus.muted,
+              ),
             ),
           ],
         ),
@@ -353,7 +428,7 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
     final sel = _shiftId == sh.id;
     final start = _hhmm(sh.timeStart);
     final end = _hhmm(sh.timeEnd);
-    final range = (start.isNotEmpty && end.isNotEmpty) ? '$start–$end' : '';
+    final range = (start.isNotEmpty && end.isNotEmpty) ? '$start ถึง $end' : '';
     return Tappable(
       onTap: () => setState(() {
         _shiftId = sh.id;
@@ -377,17 +452,34 @@ class _ConfirmPunchSheetState extends State<ConfirmPunchSheet> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: sel ? Nexus.cyan : const Color(0xFF2A4D72),
-                boxShadow: sel ? [BoxShadow(color: Nexus.cyan.withValues(alpha: 0.6), blurRadius: 10)] : null,
+                boxShadow: sel
+                    ? [
+                        BoxShadow(
+                          color: Nexus.cyan.withValues(alpha: 0.6),
+                          blurRadius: 10,
+                        ),
+                      ]
+                    : null,
               ),
               child: Container(
-                decoration: BoxDecoration(shape: BoxShape.circle, color: sel ? Nexus.on : Colors.transparent),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: sel ? Nexus.on : Colors.transparent,
+                ),
               ),
             ),
             const SizedBox(width: 11),
             Expanded(
-              child: Text(sh.name.isEmpty ? 'เวร ${sh.id}' : sh.name, style: Nexus.body(size: 13.5, color: Nexus.ink)),
+              child: Text(
+                sh.name.isEmpty ? 'เวร ${sh.id}' : sh.name,
+                style: Nexus.body(size: 13.5, color: Nexus.ink),
+              ),
             ),
-            if (range.isNotEmpty) Text(range, style: Nexus.tech(size: 11.5, color: Nexus.muted, spacing: 0.5)),
+            if (range.isNotEmpty)
+              Text(
+                range,
+                style: Nexus.tech(size: 11.5, color: Nexus.muted, spacing: 0.5),
+              ),
           ],
         ),
       ),

@@ -43,7 +43,11 @@ class LoginView extends GetView<LoginController> {
                                   'สลับ มืด/สว่าง',
                                 ),
                               ),
-                              _circleBtn(PhosphorIconsRegular.gear, () => _openHcode(context), 'ตั้งค่ารหัสโรงพยาบาล'),
+                              _circleBtn(
+                                PhosphorIconsRegular.gear,
+                                () => _openHcode(context),
+                                'ตั้งค่ารหัสโรงพยาบาล',
+                              ),
                             ],
                           ),
                           const SizedBox(height: 22),
@@ -58,13 +62,25 @@ class LoginView extends GetView<LoginController> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(17),
-                                child: Image.asset('assets/images/logo.png', width: 58, height: 58, fit: BoxFit.cover),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  width: 58,
+                                  height: 58,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 14),
                           Center(
-                            child: Text('FaceCheck', style: Nexus.tech(size: 18, weight: FontWeight.w700, spacing: 1)),
+                            child: Text(
+                              'FaceCheck',
+                              style: Nexus.tech(
+                                size: 18,
+                                weight: FontWeight.w700,
+                                spacing: 1,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Center(
@@ -73,7 +89,10 @@ class LoginView extends GetView<LoginController> {
                                 onTap: () => _openHcode(context),
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Nexus.pPanel,
                                     borderRadius: BorderRadius.circular(20),
@@ -90,7 +109,11 @@ class LoginView extends GetView<LoginController> {
                                                     ? 'รพ. ${s.hcode.value}'
                                                     : '${s.hcode.value} · ${s.hospitalName.value}'),
                                           overflow: TextOverflow.ellipsis,
-                                          style: Nexus.tech(size: 11.5, color: Nexus.pSub, spacing: 1),
+                                          style: Nexus.tech(
+                                            size: 11.5,
+                                            color: Nexus.pSub,
+                                            spacing: 1,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 6),
@@ -109,7 +132,13 @@ class LoginView extends GetView<LoginController> {
                           ),
                           const SizedBox(height: 26),
                           Center(
-                            child: Text('เข้าสู่ระบบ', style: Nexus.tech(size: 22, weight: FontWeight.w700)),
+                            child: Text(
+                              'เข้าสู่ระบบ',
+                              style: Nexus.tech(
+                                size: 22,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Center(
@@ -135,7 +164,9 @@ class LoginView extends GetView<LoginController> {
                               suffix: Tappable(
                                 onTap: controller.obscure.toggle,
                                 child: Icon(
-                                  controller.obscure.value ? PhosphorIconsRegular.eyeSlash : PhosphorIconsRegular.eye,
+                                  controller.obscure.value
+                                      ? PhosphorIconsRegular.eyeSlash
+                                      : PhosphorIconsRegular.eye,
                                   color: Nexus.pDim,
                                   size: 19,
                                 ),
@@ -148,7 +179,13 @@ class LoginView extends GetView<LoginController> {
                               height: 20,
                               child: controller.message.value.isEmpty
                                   ? null
-                                  : Text(controller.message.value, style: Nexus.body(size: 12.5, color: Nexus.pBad)),
+                                  : Text(
+                                      controller.message.value,
+                                      style: Nexus.body(
+                                        size: 12.5,
+                                        color: Nexus.pBad,
+                                      ),
+                                    ),
                             ),
                           ),
                           const Spacer(),
@@ -156,7 +193,9 @@ class LoginView extends GetView<LoginController> {
                             () => controller.busy.value
                                 ? Container(
                                     width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       gradient: Nexus.cyanGradient,
@@ -165,15 +204,27 @@ class LoginView extends GetView<LoginController> {
                                     child: SizedBox(
                                       height: 22,
                                       width: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Nexus.pOn),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Nexus.pOn,
+                                      ),
                                     ),
                                   )
-                                : NexusButton(label: 'เข้าสู่ระบบ · Sign in', onTap: controller.doLogin),
+                                : NexusButton(
+                                    label: 'เข้าสู่ระบบ · Sign in',
+                                    onTap: controller.doLogin,
+                                  ),
                           ),
                           const SizedBox(height: 14),
                           Center(
                             child: Obx(
-                              () => Text(s.appVersion.value, style: Nexus.body(size: 11, color: Nexus.pMuted)),
+                              () => Text(
+                                s.appVersion.value,
+                                style: Nexus.body(
+                                  size: 11,
+                                  color: Nexus.pMuted,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -201,7 +252,10 @@ class LoginView extends GetView<LoginController> {
         decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.pLine),
         child: Container(
           alignment: Alignment.center,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.pPanel),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Nexus.pPanel,
+          ),
           child: Icon(icon, size: 18, color: Nexus.pAccent),
         ),
       ),
@@ -220,7 +274,9 @@ class LoginView extends GetView<LoginController> {
       controller: ctrl,
       obscureText: obscure,
       onSubmitted: onSubmit == null ? null : (_) => onSubmit(),
-      textInputAction: onSubmit == null ? TextInputAction.next : TextInputAction.done,
+      textInputAction: onSubmit == null
+          ? TextInputAction.next
+          : TextInputAction.done,
       style: Nexus.body(size: 14.5, color: Nexus.pInk),
       decoration: InputDecoration(
         prefixIcon: Icon(icon, size: 19, color: Nexus.pDim),

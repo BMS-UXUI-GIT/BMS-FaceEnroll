@@ -28,7 +28,10 @@ class HomeView extends GetView<HomeController> {
                 // ตั้งค่าอยู่เฟืองมุมขวาบน (ปุ่มสแกนย้ายไปกลาง dock แล้ว)
                 Row(
                   children: [
-                    Text('หน้าหลัก', style: Nexus.tech(size: 17, weight: FontWeight.w700)),
+                    Text(
+                      'หน้าหลัก',
+                      style: Nexus.tech(size: 17, weight: FontWeight.w700),
+                    ),
                     const Spacer(),
                     Tappable(
                       onTap: controller.goSettings,
@@ -42,7 +45,11 @@ class HomeView extends GetView<HomeController> {
                           border: Border.all(color: Nexus.pLine),
                           color: Nexus.pPanel,
                         ),
-                        child: Icon(PhosphorIconsRegular.gear, size: 19, color: Nexus.pSub),
+                        child: Icon(
+                          PhosphorIconsRegular.gear,
+                          size: 19,
+                          color: Nexus.pSub,
+                        ),
                       ),
                     ),
                   ],
@@ -57,7 +64,10 @@ class HomeView extends GetView<HomeController> {
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       margin: const EdgeInsets.only(top: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: Nexus.pBadBg,
                         borderRadius: BorderRadius.circular(12),
@@ -65,7 +75,11 @@ class HomeView extends GetView<HomeController> {
                       ),
                       child: Row(
                         children: [
-                          Icon(PhosphorIconsRegular.warningCircle, size: 16, color: Nexus.pBad),
+                          Icon(
+                            PhosphorIconsRegular.warningCircle,
+                            size: 16,
+                            color: Nexus.pBad,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -73,7 +87,11 @@ class HomeView extends GetView<HomeController> {
                               style: Nexus.body(size: 12, color: Nexus.pInk),
                             ),
                           ),
-                          Icon(PhosphorIconsRegular.caretRight, size: 16, color: Nexus.pBad),
+                          Icon(
+                            PhosphorIconsRegular.caretRight,
+                            size: 16,
+                            color: Nexus.pBad,
+                          ),
                         ],
                       ),
                     ),
@@ -86,8 +104,14 @@ class HomeView extends GetView<HomeController> {
                     return ListView(
                       padding: EdgeInsets.zero,
                       children: [
-                        if (reg == false) _notRegistered() else _registeredChip(),
-                        if (reg != false) ...[const SizedBox(height: 14), _todayCard()],
+                        if (reg == false)
+                          _notRegistered()
+                        else
+                          _registeredChip(),
+                        if (reg != false) ...[
+                          const SizedBox(height: 14),
+                          _todayCard(),
+                        ],
                       ],
                     );
                   }),
@@ -124,12 +148,18 @@ class HomeView extends GetView<HomeController> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Nexus.pLine),
-              gradient: const LinearGradient(colors: [Color(0xFF112233), Color(0xFF1B3A57)]),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF112233), Color(0xFF1B3A57)],
+              ),
             ),
             child: Obx(
               () => Text(
                 _initials(s.staffName.value),
-                style: Nexus.tech(size: 17, weight: FontWeight.w700, color: Nexus.pAccent),
+                style: Nexus.tech(
+                  size: 17,
+                  weight: FontWeight.w700,
+                  color: Nexus.pAccent,
+                ),
               ),
             ),
           ),
@@ -150,7 +180,11 @@ class HomeView extends GetView<HomeController> {
                 Obx(
                   () => Text(
                     'EMP ${s.empId.value} · รพ. ${s.hcode.value}',
-                    style: Nexus.tech(size: 10.5, color: Nexus.pAccent, spacing: 1),
+                    style: Nexus.tech(
+                      size: 10.5,
+                      color: Nexus.pAccent,
+                      spacing: 1,
+                    ),
                   ),
                 ),
               ],
@@ -193,7 +227,11 @@ class HomeView extends GetView<HomeController> {
                 children: [
                   Text(
                     'ยังไม่ได้ลงทะเบียนใบหน้า',
-                    style: Nexus.body(size: 13, weight: FontWeight.w600, color: Nexus.pWarn),
+                    style: Nexus.body(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: Nexus.pWarn,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -228,9 +266,16 @@ class HomeView extends GetView<HomeController> {
             children: [
               Text(
                 'ลงทะเบียนใบหน้าแล้ว',
-                style: Nexus.body(size: 13, weight: FontWeight.w600, color: Nexus.pOk),
+                style: Nexus.body(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: Nexus.pOk,
+                ),
               ),
-              Text('พร้อมสแกนลงเวลา', style: Nexus.body(size: 11, color: Nexus.pMuted)),
+              Text(
+                'พร้อมสแกนลงเวลา',
+                style: Nexus.body(size: 11, color: Nexus.pMuted),
+              ),
             ],
           ),
         ),
@@ -243,7 +288,10 @@ class HomeView extends GetView<HomeController> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Nexus.pLine),
             ),
-            child: Text('ลงทะเบียนใหม่', style: Nexus.body(size: 11, color: Nexus.pSub)),
+            child: Text(
+              'ลงทะเบียนใหม่',
+              style: Nexus.body(size: 11, color: Nexus.pSub),
+            ),
           ),
         ),
       ],
@@ -266,8 +314,31 @@ class HomeView extends GetView<HomeController> {
   /// วันที่ปัจจุบันแบบไทย เช่น "จ. 29 มิ.ย. 69" (dynamic — ไม่ hardcode)
   String _todayThai() {
     final n = DateTime.now();
-    const wd = ['', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']; // weekday 1=Mon..7=Sun
-    const mo = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const wd = [
+      '',
+      'จ.',
+      'อ.',
+      'พ.',
+      'พฤ.',
+      'ศ.',
+      'ส.',
+      'อา.',
+    ]; // weekday 1=Mon..7=Sun
+    const mo = [
+      '',
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
+    ];
     final be = ((n.year + 543) % 100).toString().padLeft(2, '0'); // พ.ศ. 2 หลัก
     return '${wd[n.weekday]} ${n.day} ${mo[n.month]} $be';
   }
@@ -293,9 +364,16 @@ class HomeView extends GetView<HomeController> {
           decoration: _cardDeco(),
           child: Row(
             children: [
-              Icon(PhosphorIconsRegular.calendarCheck, color: Nexus.pDim, size: 20),
+              Icon(
+                PhosphorIconsRegular.calendarCheck,
+                color: Nexus.pDim,
+                size: 20,
+              ),
               const SizedBox(width: 10),
-              Text('วันนี้ยังไม่ลงเวลา', style: Nexus.body(size: 13, color: Nexus.pMuted)),
+              Text(
+                'วันนี้ยังไม่ลงเวลา',
+                style: Nexus.body(size: 13, color: Nexus.pMuted),
+              ),
             ],
           ),
         );
@@ -312,12 +390,16 @@ class HomeView extends GetView<HomeController> {
       (String, Color)? inBadge;
       if (hasIn) {
         final m = c.lateMinutes(s);
-        inBadge = c.isLate(s) ? (m > 0 ? 'สาย $m นาที' : 'สาย', Nexus.pBad) : ('ตรงเวลา', Nexus.pOk);
+        inBadge = c.isLate(s)
+            ? (m > 0 ? 'สาย $m นาที' : 'สาย', Nexus.pBad)
+            : ('ตรงเวลา', Nexus.pOk);
       }
       (String, Color)? outBadge;
       if (hasOut) {
         final m = c.earlyMinutes(s);
-        outBadge = c.isEarlyOut(s) ? (m > 0 ? 'ก่อนเวลา $m นาที' : 'ก่อนเวลา', Nexus.pBad) : ('ครบเวลา', Nexus.pOk);
+        outBadge = c.isEarlyOut(s)
+            ? (m > 0 ? 'ก่อนเวลา $m นาที' : 'ก่อนเวลา', Nexus.pBad)
+            : ('ครบเวลา', Nexus.pOk);
       } else if (s.isOpen) {
         outBadge = ('กำลังเข้าเวร', Nexus.pAccent);
       }
@@ -333,31 +415,57 @@ class HomeView extends GetView<HomeController> {
                 children: [
                   Row(
                     children: [
-                      Text('วันนี้', style: Nexus.tech(size: 13.5, weight: FontWeight.w600)),
+                      Text(
+                        'วันนี้',
+                        style: Nexus.tech(size: 13.5, weight: FontWeight.w600),
+                      ),
                       const SizedBox(width: 8),
-                      Text(_todayThai(), style: Nexus.body(size: 11.5, color: Nexus.pMuted)),
+                      Text(
+                        _todayThai(),
+                        style: Nexus.body(size: 11.5, color: Nexus.pMuted),
+                      ),
                       const Spacer(),
                       // เวรเดียว = โชว์ชื่อเวรมุมขวาเหมือนเดิม / ควบเวร = ใช้แท็บด้านล่างแทน
                       if (!multi && shiftLabel.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Nexus.pAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: Nexus.pLine2),
                           ),
-                          child: Text(shiftLabel, style: Nexus.body(size: 11, color: Nexus.pSub)),
+                          child: Text(
+                            shiftLabel,
+                            style: Nexus.body(size: 11, color: Nexus.pSub),
+                          ),
                         ),
                     ],
                   ),
-                  if (multi) ...[const SizedBox(height: 11), _sessionTabs(ss, idx)],
+                  if (multi) ...[
+                    const SizedBox(height: 11),
+                    _sessionTabs(ss, idx),
+                  ],
                   if (_shiftTimeOf(s).isNotEmpty) ...[
                     SizedBox(height: multi ? 9 : 5),
                     Row(
                       children: [
-                        Icon(PhosphorIconsRegular.clock, size: 13, color: Nexus.pDim),
+                        Icon(
+                          PhosphorIconsRegular.clock,
+                          size: 13,
+                          color: Nexus.pDim,
+                        ),
                         const SizedBox(width: 5),
-                        Text(_shiftTimeOf(s), style: Nexus.tech(size: 12, color: Nexus.pSub, spacing: 0.5)),
+                        Text(
+                          _shiftTimeOf(s),
+                          style: Nexus.tech(
+                            size: 12,
+                            color: Nexus.pSub,
+                            spacing: 0.5,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -366,14 +474,22 @@ class HomeView extends GetView<HomeController> {
             ),
             Row(
               children: [
-                Expanded(child: _punchCol('เข้างาน · IN', CheckinService.hhmm(s.inTime), inBadge, borderRight: true)),
+                Expanded(
+                  child: _punchCol(
+                    'เข้างาน · IN',
+                    CheckinService.hhmm(s.inTime),
+                    inBadge,
+                    borderRight: true,
+                  ),
+                ),
                 Expanded(
                   child: _punchCol(
                     'ออกงาน · OUT',
                     CheckinService.hhmm(s.outTime),
                     outBadge,
                     autoOut: hasOut && s.autoOut,
-                    onAutoInfo: () => _showAutoOutInfo(CheckinService.hhmm(s.outTime)),
+                    onAutoInfo: () =>
+                        _showAutoOutInfo(CheckinService.hhmm(s.outTime)),
                   ),
                 ),
               ],
@@ -422,7 +538,9 @@ class HomeView extends GetView<HomeController> {
         decoration: BoxDecoration(
           color: sel ? Nexus.pAccent.withValues(alpha: 0.12) : Nexus.pPanel,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: sel ? Nexus.pAccent.withValues(alpha: 0.5) : Nexus.pLine),
+          border: Border.all(
+            color: sel ? Nexus.pAccent.withValues(alpha: 0.5) : Nexus.pLine,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -433,7 +551,10 @@ class HomeView extends GetView<HomeController> {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.pAccent),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Nexus.pAccent,
+                ),
               ),
             const SizedBox(width: 6),
             Text(
@@ -454,7 +575,8 @@ class HomeView extends GetView<HomeController> {
   void _showAutoOutInfo(String outTime) {
     Get.dialog(
       Dialog(
-        backgroundColor: Nexus.pSheet, // ทึบ — pPanel โปร่งทำให้ทะลุเห็นข้างหลัง
+        backgroundColor:
+            Nexus.pSheet, // ทึบ — pPanel โปร่งทำให้ทะลุเห็นข้างหลัง
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: Nexus.pLine),
@@ -467,9 +589,16 @@ class HomeView extends GetView<HomeController> {
             children: [
               Row(
                 children: [
-                  Icon(PhosphorIconsRegular.info, size: 20, color: Nexus.pAccent),
+                  Icon(
+                    PhosphorIconsRegular.info,
+                    size: 20,
+                    color: Nexus.pAccent,
+                  ),
                   const SizedBox(width: 8),
-                  Text('ระบบลงเวลาออกให้', style: Nexus.body(size: 15, weight: FontWeight.w700)),
+                  Text(
+                    'ระบบลงเวลาออกให้',
+                    style: Nexus.body(size: 15, weight: FontWeight.w700),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -486,15 +615,24 @@ class HomeView extends GetView<HomeController> {
                   onTap: Get.back,
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 9,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: Nexus.pAccent.withValues(alpha: 0.15),
-                      border: Border.all(color: Nexus.pAccent.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: Nexus.pAccent.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       'เข้าใจแล้ว',
-                      style: Nexus.body(size: 13, weight: FontWeight.w600, color: Nexus.pAccent),
+                      style: Nexus.body(
+                        size: 13,
+                        weight: FontWeight.w600,
+                        color: Nexus.pAccent,
+                      ),
                     ),
                   ),
                 ),
@@ -524,7 +662,10 @@ class HomeView extends GetView<HomeController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Nexus.tech(size: 10, color: Nexus.pDim, spacing: 1)),
+          Text(
+            label,
+            style: Nexus.tech(size: 10, color: Nexus.pDim, spacing: 1),
+          ),
           const SizedBox(height: 4),
           Text(time, style: Nexus.tech(size: 20, weight: FontWeight.w700)),
           if (badge != null)
@@ -537,7 +678,10 @@ class HomeView extends GetView<HomeController> {
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(color: badge.$2.withValues(alpha: 0.4)),
                 ),
-                child: Text(badge.$1, style: Nexus.body(size: 10.5, color: badge.$2)),
+                child: Text(
+                  badge.$1,
+                  style: Nexus.body(size: 10.5, color: badge.$2),
+                ),
               ),
             ),
           // ควบเวร: เวลาออกนี้ระบบลงให้เอง — แตะดูคำอธิบาย
@@ -549,9 +693,16 @@ class HomeView extends GetView<HomeController> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(PhosphorIconsRegular.info, size: 12, color: Nexus.pMuted),
+                    Icon(
+                      PhosphorIconsRegular.info,
+                      size: 12,
+                      color: Nexus.pMuted,
+                    ),
                     const SizedBox(width: 4),
-                    Text('ระบบลงให้', style: Nexus.body(size: 10.5, color: Nexus.pMuted)),
+                    Text(
+                      'ระบบลงให้',
+                      style: Nexus.body(size: 10.5, color: Nexus.pMuted),
+                    ),
                   ],
                 ),
               ),

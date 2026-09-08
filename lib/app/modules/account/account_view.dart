@@ -40,11 +40,19 @@ class AccountView extends GetView<AccountController> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
-                child: Text('บัญชี', style: Nexus.tech(size: 17, weight: FontWeight.w700)),
+                child: Text(
+                  'บัญชี',
+                  style: Nexus.tech(size: 17, weight: FontWeight.w700),
+                ),
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 110), // 110 = เว้นที่ให้ dock ลอย
+                  padding: const EdgeInsets.fromLTRB(
+                    18,
+                    8,
+                    18,
+                    110,
+                  ), // 110 = เว้นที่ให้ dock ลอย
                   children: [
                     _profileCard(s),
                     const SizedBox(height: 16),
@@ -64,14 +72,24 @@ class AccountView extends GetView<AccountController> {
                       },
                     ),
                     const SizedBox(height: 10),
-                    _tile(PhosphorIconsRegular.lock, 'เปลี่ยน PIN', 'ตั้งรหัส PIN สำหรับปลดล็อกแอป', () {
-                      Get.toNamed<void>(Routes.setPin);
-                    }),
+                    _tile(
+                      PhosphorIconsRegular.lock,
+                      'เปลี่ยน PIN',
+                      'ตั้งรหัส PIN สำหรับปลดล็อกแอป',
+                      () {
+                        Get.toNamed<void>(Routes.setPin);
+                      },
+                    ),
                     const SizedBox(height: 22),
                     _logoutButton(),
                     const SizedBox(height: 14),
                     Center(
-                      child: Obx(() => Text(s.appVersion.value, style: Nexus.body(size: 11, color: Nexus.pMuted))),
+                      child: Obx(
+                        () => Text(
+                          s.appVersion.value,
+                          style: Nexus.body(size: 11, color: Nexus.pMuted),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -96,7 +114,10 @@ class AccountView extends GetView<AccountController> {
           width: 54,
           height: 54,
           alignment: Alignment.center,
-          decoration: BoxDecoration(shape: BoxShape.circle, gradient: Nexus.cyanGradient),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: Nexus.cyanGradient,
+          ),
           child: Icon(PhosphorIconsRegular.user, size: 28, color: Nexus.pOn),
         ),
         const SizedBox(width: 14),
@@ -106,7 +127,9 @@ class AccountView extends GetView<AccountController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  s.staffName.value.isEmpty ? (s.loginName.value.isEmpty ? '-' : s.loginName.value) : s.staffName.value,
+                  s.staffName.value.isEmpty
+                      ? (s.loginName.value.isEmpty ? '-' : s.loginName.value)
+                      : s.staffName.value,
                   style: Nexus.tech(size: 15.5, weight: FontWeight.w700),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -118,7 +141,9 @@ class AccountView extends GetView<AccountController> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  s.hospitalName.value.isEmpty ? 'รพ. ${s.hcode.value}' : s.hospitalName.value,
+                  s.hospitalName.value.isEmpty
+                      ? 'รพ. ${s.hcode.value}'
+                      : s.hospitalName.value,
                   style: Nexus.body(size: 11.5, color: Nexus.pMuted),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -130,7 +155,12 @@ class AccountView extends GetView<AccountController> {
     ),
   );
 
-  Widget _tile(IconData icon, String title, String sub, VoidCallback onTap) => Tappable(
+  Widget _tile(
+    IconData icon,
+    String title,
+    String sub,
+    VoidCallback onTap,
+  ) => Tappable(
     onTap: onTap,
     borderRadius: BorderRadius.circular(16),
     child: Container(
@@ -148,7 +178,10 @@ class AccountView extends GetView<AccountController> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Nexus.tech(size: 13.5, weight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: Nexus.tech(size: 13.5, weight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
                 Text(sub, style: Nexus.body(size: 11.5, color: Nexus.pMuted)),
               ],
@@ -178,7 +211,11 @@ class AccountView extends GetView<AccountController> {
           const SizedBox(width: 8),
           Text(
             'ออกจากระบบ',
-            style: Nexus.tech(size: 13.5, weight: FontWeight.w700, color: Nexus.pBad),
+            style: Nexus.tech(
+              size: 13.5,
+              weight: FontWeight.w700,
+              color: Nexus.pBad,
+            ),
           ),
         ],
       ),

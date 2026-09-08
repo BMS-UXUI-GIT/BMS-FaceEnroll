@@ -51,7 +51,16 @@ class HomeController extends GetxController {
       final sh = await _api.getShifts();
       if (sh.isEmpty) return;
       await checkin.setShifts(
-        sh.map((e) => Shift(id: e.id, name: e.name, timeStart: e.timeStart, timeEnd: e.timeEnd)).toList(),
+        sh
+            .map(
+              (e) => Shift(
+                id: e.id,
+                name: e.name,
+                timeStart: e.timeStart,
+                timeEnd: e.timeEnd,
+              ),
+            )
+            .toList(),
       );
     } catch (_) {}
   }

@@ -38,15 +38,30 @@ class RegistrationController extends GetxController {
 
   // ---- พารามิเตอร์ auto-capture (calibrate บนเครื่องจริงได้) ----
   static const double _frontYaw = 12, _frontPitch = 14, _turnYaw = 20;
-  static const double _still = 4.0; // ขยับได้ไม่เกิน °/เฟรม ถึงนับว่านิ่ง (รอภาพชัด)
+  static const double _still =
+      4.0; // ขยับได้ไม่เกิน °/เฟรม ถึงนับว่านิ่ง (รอภาพชัด)
   static const int _hold = 6; // เฟรมที่ต้องนิ่ง+ตรงมุม ก่อนจับ
   static const double _eyeOpen = 0.4;
 
   // ลำดับมุม: ตรง → ซ้าย → ขวา (yaw normalize ที่ faceYaw() แล้ว — ซ้าย=บวก ขวา=ลบ ทุกเครื่อง)
   late final List<_Pose> _poses = [
-    _Pose('ตรง', '🙂 มองตรงเข้ากล้อง', (y, p) => y.abs() < _frontYaw && p.abs() < _frontPitch),
-    _Pose('ซ้าย', '⬅️ หันหน้าไปทางซ้าย', (y, p) => y >= _turnYaw, audio: 'audios/face_direction_left.mp3'),
-    _Pose('ขวา', '➡️ หันหน้าไปทางขวา', (y, p) => y <= -_turnYaw, audio: 'audios/face_direction_right.mp3'),
+    _Pose(
+      'ตรง',
+      '🙂 มองตรงเข้ากล้อง',
+      (y, p) => y.abs() < _frontYaw && p.abs() < _frontPitch,
+    ),
+    _Pose(
+      'ซ้าย',
+      '⬅️ หันหน้าไปทางซ้าย',
+      (y, p) => y >= _turnYaw,
+      audio: 'audios/face_direction_left.mp3',
+    ),
+    _Pose(
+      'ขวา',
+      '➡️ หันหน้าไปทางขวา',
+      (y, p) => y <= -_turnYaw,
+      audio: 'audios/face_direction_right.mp3',
+    ),
   ];
 
   final step = RegStep.checking.obs;
@@ -71,7 +86,8 @@ class RegistrationController extends GetxController {
   bool _enrollActive = false;
   bool _frameBusy = false;
   int _holdCount = 0;
-  int _announcedPose = -1; // มุมที่เล่นเสียงสั่งไปแล้ว (กันเล่นซ้ำตอน retry มุมเดิม)
+  int _announcedPose =
+      -1; // มุมที่เล่นเสียงสั่งไปแล้ว (กันเล่นซ้ำตอน retry มุมเดิม)
   double _lastYaw = 999, _lastPitch = 999;
   DateTime _lastFrame = DateTime.fromMillisecondsSinceEpoch(0);
   static const _throttle = Duration(milliseconds: 120);
@@ -84,7 +100,9 @@ class RegistrationController extends GetxController {
   String get staffName => settings.staffName.value;
   bool get isAppend => _append;
   int get totalPoses => _poses.length;
-  String get angleLabel => poseIndex.value < _poses.length ? _poses[poseIndex.value].label : 'ครบแล้ว';
+  String get angleLabel => poseIndex.value < _poses.length
+      ? _poses[poseIndex.value].label
+      : 'ครบแล้ว';
 
   @override
   void onInit() {
@@ -131,7 +149,11 @@ class RegistrationController extends GetxController {
     if (pin.hasPin) {
       final ok = await Get.toNamed(
         Routes.enterPin,
-        arguments: {'purpose': 'overlay', 'dismissible': true, 'title': 'ยืนยันด้วย PIN เพื่อลงทะเบียนใหม่'},
+        arguments: {
+          'purpose': 'overlay',
+          'dismissible': true,
+          'title': 'ยืนยันด้วย PIN เพื่อลงทะเบียนใหม่',
+        },
       );
       if (ok != true) return;
     }
@@ -176,13 +198,18 @@ class RegistrationController extends GetxController {
     }
     if (camera == null || !camera!.value.isInitialized) {
       final cams = await availableCameras();
-      final front = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.front, orElse: () => cams.first);
+      final front = cams.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cams.first,
+      );
       camera = CameraController(
         front,
         ResolutionPreset.medium,
         enableAudio: false,
         // Android: yuv420 → แปลง nv21 เอง / iOS: bgra8888 ส่งตรงให้ ML Kit
-        imageFormatGroup: isIOSDevice ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
+        imageFormatGroup: isIOSDevice
+            ? ImageFormatGroup.bgra8888
+            : ImageFormatGroup.yuv420,
       );
       await camera!.initialize();
       // ปิดแฟลช — iPhone ไม่มีแฟลชหน้า เลยทำจอขาวจ้าแทน (Retina Flash) ตอนถ่าย
@@ -203,7 +230,11 @@ class RegistrationController extends GetxController {
           (c) => c.lensDirection == CameraLensDirection.front,
           orElse: () => cams.first,
         );
-        camera = CameraController(front, ResolutionPreset.medium, enableAudio: false);
+        camera = CameraController(
+          front,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
         await camera!.initialize();
       } catch (_) {
         camera = null;
@@ -217,10 +248,15 @@ class RegistrationController extends GetxController {
   /// (camera_web ไม่รองรับ startImageStream)
   Future<void> _startFrames() async {
     if (kDemoBuild) {
-      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      _demoTimer ??= Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => _onDemoTick(),
+      );
       return;
     }
-    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+    if (camera != null &&
+        camera!.value.isInitialized &&
+        !camera!.value.isStreamingImages) {
       await camera!.startImageStream(_onFrame);
     }
   }
@@ -229,7 +265,8 @@ class RegistrationController extends GetxController {
     _demoTimer?.cancel();
     _demoTimer = null;
     if (kDemoBuild) return;
-    if (camera != null && camera!.value.isStreamingImages) await camera!.stopImageStream();
+    if (camera != null && camera!.value.isStreamingImages)
+      await camera!.stopImageStream();
   }
 
   void _onDemoTick() {
@@ -237,7 +274,9 @@ class RegistrationController extends GetxController {
     if (DateTime.now().difference(_lastFrame) < _throttle) return;
     _lastFrame = DateTime.now();
     _frameBusy = true;
-    _handleEnrollFaces([demoFace(_demoFrame)]).whenComplete(() => _frameBusy = false);
+    _handleEnrollFaces([
+      demoFace(_demoFrame),
+    ]).whenComplete(() => _frameBusy = false);
   }
 
   Timer? _demoTimer;
@@ -300,9 +339,13 @@ class RegistrationController extends GetxController {
       return;
     }
     final f = faces.first;
-    final yaw = faceYaw(f); // normalize ซ้าย/ขวา ให้เท่ากันทุกเครื่อง (iOS กลับด้าน)
+    final yaw = faceYaw(
+      f,
+    ); // normalize ซ้าย/ขวา ให้เท่ากันทุกเครื่อง (iOS กลับด้าน)
     final pitch = f.headEulerAngleX ?? 0;
-    final eyesOpen = (f.leftEyeOpenProbability ?? 1) > _eyeOpen && (f.rightEyeOpenProbability ?? 1) > _eyeOpen;
+    final eyesOpen =
+        (f.leftEyeOpenProbability ?? 1) > _eyeOpen &&
+        (f.rightEyeOpenProbability ?? 1) > _eyeOpen;
     final vel = (yaw - _lastYaw).abs() + (pitch - _lastPitch).abs();
     _lastYaw = yaw;
     _lastPitch = pitch;
@@ -315,7 +358,9 @@ class RegistrationController extends GetxController {
       instruction.value = '${pose.instruction} · นิ่งไว้…';
     } else {
       _holdCount = 0;
-      instruction.value = pose.instruction + (inZone && !still ? ' · หยุดนิ่ง' : (!eyesOpen ? ' · ลืมตา' : ''));
+      instruction.value =
+          pose.instruction +
+          (inZone && !still ? ' · หยุดนิ่ง' : (!eyesOpen ? ' · ลืมตา' : ''));
     }
     if (_holdCount >= _hold) {
       await _captureCurrentAngle();
@@ -330,9 +375,13 @@ class RegistrationController extends GetxController {
     try {
       await _stopFrames();
       // เดโมที่ไม่มีเว็บแคมก็ต้องเดินต่อได้ — ฝั่งเดโมไม่ได้อ่านรูปอยู่แล้ว
-      final shot = (kDemoBuild && camera == null) ? null : await camera!.takePicture();
+      final shot = (kDemoBuild && camera == null)
+          ? null
+          : await camera!.takePicture();
       SystemSound.play(SystemSoundType.click); // เสียงชัตเตอร์ = เก็บมุมนี้แล้ว
-      captured.add(shot == null ? '' : await _compress(await shot.readAsBytes()));
+      captured.add(
+        shot == null ? '' : await _compress(await shot.readAsBytes()),
+      );
       poseIndex.value++;
       if (poseIndex.value >= _poses.length) {
         await finishRegister();
@@ -375,7 +424,9 @@ class RegistrationController extends GetxController {
           ? 'เพิ่มใบหน้าแล้ว (+${resp.faceIds.length} รูป)'
           : 'ลงทะเบียนใบหน้าแล้ว ${resp.faceIds.length} รูป';
       step.value = RegStep.done;
-      _audio.play('audios/face_direction_success.mp3'); // เสียงแจ้งลงทะเบียนสำเร็จ
+      _audio.play(
+        'audios/face_direction_success.mp3',
+      ); // เสียงแจ้งลงทะเบียนสำเร็จ
     } catch (e) {
       message.value = 'บันทึกไม่สำเร็จ: $e';
     } finally {
@@ -398,7 +449,9 @@ class RegistrationController extends GetxController {
   // ---------- ML Kit: CameraImage → InputImage (replicate จากจอ scan) ----------
   InputImage? _toInputImage(CameraImage frame) {
     if (camera == null) return null;
-    final rotation = InputImageRotationValue.fromRawValue(camera!.description.sensorOrientation);
+    final rotation = InputImageRotationValue.fromRawValue(
+      camera!.description.sensorOrientation,
+    );
     if (rotation == null) return null;
     // iOS: BGRA8888 plane เดียว ส่งตรง (NV21 มีแค่ Android)
     if (isIOSDevice) {

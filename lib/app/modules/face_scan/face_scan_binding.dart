@@ -11,7 +11,10 @@ import 'face_scan_controller.dart';
 class FaceScanBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<ApiService>(() => buildApiService(Get.find<SettingsService>()), fenix: true);
+    Get.lazyPut<ApiService>(
+      () => buildApiService(Get.find<SettingsService>()),
+      fenix: true,
+    );
     Get.lazyPut<AudioService>(() => AudioService(), fenix: true);
     Get.lazyPut<LocationService>(() => LocationService(), fenix: true);
     Get.lazyPut<LivenessService>(() => LivenessService(), fenix: true);

@@ -142,34 +142,59 @@ class Nexus {
   /// default สี = pInk (สลับ dark/light) ; จอกล้องที่อยู่บนพื้นมืดเสมอ ส่ง color: Nexus.ink เอง
   /// GoogleFonts.* จับคู่ variant + สร้าง TextStyle ใหม่ทุกครั้งที่เรียก และเราเรียกมันทุก Text
   /// (แถวรายวันแถวเดียวมี 6 ครั้ง) — แคชตามชุดพารามิเตอร์ ซึ่งมีอยู่ไม่กี่สิบแบบในทั้งแอป
-  static final Map<(double, FontWeight, int, double), TextStyle> _thaiCache = {};
+  static final Map<(double, FontWeight, int, double), TextStyle> _thaiCache =
+      {};
   static final Map<(double, FontWeight, int), TextStyle> _numCache = {};
 
-  static TextStyle _thai(double size, FontWeight weight, Color color, double spacing) => _thaiCache.putIfAbsent((
-    size,
-    weight,
-    color.toARGB32(),
-    spacing,
-  ), () => GoogleFonts.notoSansThai(fontSize: size, fontWeight: weight, color: color, letterSpacing: spacing));
+  static TextStyle _thai(
+    double size,
+    FontWeight weight,
+    Color color,
+    double spacing,
+  ) => _thaiCache.putIfAbsent(
+    (size, weight, color.toARGB32(), spacing),
+    () => GoogleFonts.notoSansThai(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      letterSpacing: spacing,
+    ),
+  );
 
-  static TextStyle tech({double size = 14, FontWeight weight = FontWeight.w600, Color? color, double spacing = 0}) =>
-      _thai(size, weight, color ?? pInk, spacing);
-  static TextStyle body({double size = 14, FontWeight weight = FontWeight.w400, Color? color}) =>
-      _thai(size, weight, color ?? pInk, 0);
+  static TextStyle tech({
+    double size = 14,
+    FontWeight weight = FontWeight.w600,
+    Color? color,
+    double spacing = 0,
+  }) => _thai(size, weight, color ?? pInk, spacing);
+  static TextStyle body({
+    double size = 14,
+    FontWeight weight = FontWeight.w400,
+    Color? color,
+  }) => _thai(size, weight, color ?? pInk, 0);
 
   /// ตัวเลข/เวลา — Nunito (ตาม Figma ที่แยกฟอนต์สำหรับตัวเลขโดยเฉพาะ)
   /// ความกว้างตัวเลขสม่ำเสมอกว่า อ่านเวลา/สถิติเป็นคอลัมน์ได้ไม่เต้น
   /// Nunito ไม่มี glyph ไทย — ถ้าไม่ใส่ fallback ตัวไทยที่ปนมา (เช่น "08:18 น.") จะตกไปใช้ฟอนต์ระบบ
   /// แคชชื่อ family ไว้ — เดิมเรียก GoogleFonts.notoSansThai() ใหม่ทุกครั้งที่สร้าง TextStyle
   /// (จับคู่ variant + สร้าง TextStyle ทิ้ง) ทั้งที่ต้องการแค่ชื่อ ซึ่งไม่เคยเปลี่ยน
-  static final List<String> _thaiFallback = [GoogleFonts.notoSansThai().fontFamily!];
+  static final List<String> _thaiFallback = [
+    GoogleFonts.notoSansThai().fontFamily!,
+  ];
 
-  static TextStyle num({double size = 14, FontWeight weight = FontWeight.w700, Color? color}) {
+  static TextStyle num({
+    double size = 14,
+    FontWeight weight = FontWeight.w700,
+    Color? color,
+  }) {
     final c = color ?? pInk;
     return _numCache.putIfAbsent(
       (size, weight, c.toARGB32()),
-      () =>
-          GoogleFonts.nunito(fontSize: size, fontWeight: weight, color: c).copyWith(fontFamilyFallback: _thaiFallback),
+      () => GoogleFonts.nunito(
+        fontSize: size,
+        fontWeight: weight,
+        color: c,
+      ).copyWith(fontFamilyFallback: _thaiFallback),
     );
   }
 
@@ -183,8 +208,11 @@ class Nexus {
 
   // ===== gradient / bg =====
   /// gradient accent (สลับสีตามโหมด) — ปุ่มหลักทุกจอ
-  static LinearGradient get cyanGradient =>
-      LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [pAccent, pAccent2]);
+  static LinearGradient get cyanGradient => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [pAccent, pAccent2],
+  );
 
   /// พื้นหลังจอกล้อง (มืดเสมอ)
   static BoxDecoration get screenBg => const BoxDecoration(gradient: _darkBg);
@@ -200,7 +228,10 @@ class Nexus {
 
   /// ธีม Material — page palette (Scaffold/TextField/Dialog/Sheet สลับตามโหมด)
   static ThemeData get themeData {
-    final base = ThemeData(brightness: isDark ? Brightness.dark : Brightness.light, useMaterial3: true);
+    final base = ThemeData(
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      useMaterial3: true,
+    );
     return base.copyWith(
       scaffoldBackgroundColor: pCard,
       canvasColor: pCard,
@@ -211,7 +242,9 @@ class Nexus {
         onSurface: pInk,
         error: pBad,
       ),
-      textTheme: GoogleFonts.notoSansThaiTextTheme(base.textTheme).apply(bodyColor: pInk, displayColor: pInk),
+      textTheme: GoogleFonts.notoSansThaiTextTheme(
+        base.textTheme,
+      ).apply(bodyColor: pInk, displayColor: pInk),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: pAccent,
         selectionColor: pAccent.withValues(alpha: 0.3),
@@ -222,10 +255,16 @@ class Nexus {
         filled: true,
         fillColor: pField,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
         hintStyle: GoogleFonts.notoSansThai(color: pDim, fontSize: 14),
         labelStyle: GoogleFonts.notoSansThai(color: pMuted, fontSize: 13.5),
-        floatingLabelStyle: GoogleFonts.notoSansThai(color: pAccent, fontSize: 13.5),
+        floatingLabelStyle: GoogleFonts.notoSansThai(
+          color: pAccent,
+          fontSize: 13.5,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: pLine),
@@ -245,7 +284,13 @@ class Nexus {
 
 /// ปุ่มหลัก accent gradient (สลับสีตามโหมด) — ใช้ซ้ำทุกจอ
 class NexusButton extends StatelessWidget {
-  const NexusButton({super.key, required this.label, required this.onTap, this.enabled = true, this.glow = true});
+  const NexusButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.enabled = true,
+    this.glow = true,
+  });
   final String label;
   final VoidCallback? onTap;
   final bool enabled;
@@ -265,7 +310,11 @@ class NexusButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Nexus.tech(size: 15, weight: FontWeight.w700, color: Nexus.pFaint),
+          style: Nexus.tech(
+            size: 15,
+            weight: FontWeight.w700,
+            color: Nexus.pFaint,
+          ),
         ),
       );
     }
@@ -283,7 +332,11 @@ class NexusButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: Nexus.tech(size: 15, weight: FontWeight.w700, color: Nexus.pOn),
+          style: Nexus.tech(
+            size: 15,
+            weight: FontWeight.w700,
+            color: Nexus.pOn,
+          ),
         ),
       ),
     );

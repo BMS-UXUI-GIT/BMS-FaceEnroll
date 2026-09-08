@@ -16,10 +16,12 @@ import 'settings_service.dart';
 class PinService extends GetxService with WidgetsBindingObserver {
   static const _kHash = 'pin_hash';
   static const _kSalt = 'pin_salt';
-  static const _kLen = 'pin_len'; // ความยาว PIN ตอนที่ตั้งไว้ (คงที่ ไม่ผูกกับ policy)
+  static const _kLen =
+      'pin_len'; // ความยาว PIN ตอนที่ตั้งไว้ (คงที่ ไม่ผูกกับ policy)
   static const _kFail = 'pin_fail';
   static const _kLockUntil = 'pin_lock_until'; // epoch ms
-  static const _kUnlockSeen = 'pin_unlock_seen'; // timestamp ปลดล็อคจาก admin ที่เครื่องนี้เห็นแล้ว
+  static const _kUnlockSeen =
+      'pin_unlock_seen'; // timestamp ปลดล็อคจาก admin ที่เครื่องนี้เห็นแล้ว
 
   SettingsService get _settings => Get.find<SettingsService>();
   int get pinLength => _settings.pinLength.value;
@@ -31,7 +33,8 @@ class PinService extends GetxService with WidgetsBindingObserver {
   }
 
   int get maxAttempts => _settings.pinMaxAttempts.value;
-  Duration get lockDuration => Duration(seconds: _settings.pinLockSeconds.value);
+  Duration get lockDuration =>
+      Duration(seconds: _settings.pinLockSeconds.value);
   Duration get idleTimeout => Duration(minutes: _settings.pinIdleMinutes.value);
 
   late final SharedPreferences _prefs;
@@ -74,7 +77,10 @@ class PinService extends GetxService with WidgetsBindingObserver {
   Future<int> registerFail() async {
     final n = failCount + 1;
     if (n >= maxAttempts) {
-      await _prefs.setInt(_kLockUntil, DateTime.now().add(lockDuration).millisecondsSinceEpoch);
+      await _prefs.setInt(
+        _kLockUntil,
+        DateTime.now().add(lockDuration).millisecondsSinceEpoch,
+      );
       await _prefs.setInt(_kFail, 0);
       return 0;
     }
@@ -113,7 +119,8 @@ class PinService extends GetxService with WidgetsBindingObserver {
     await _prefs.remove(_kLockUntil);
   }
 
-  String _hash(String pin, String salt) => sha256.convert(utf8.encode('$salt:$pin')).toString();
+  String _hash(String pin, String salt) =>
+      sha256.convert(utf8.encode('$salt:$pin')).toString();
 
   String _randomSalt() {
     final r = Random.secure();

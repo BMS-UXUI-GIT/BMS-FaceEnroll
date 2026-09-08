@@ -12,7 +12,11 @@ class MatchResult {
   final Map<String, dynamic> metadata;
   final double score;
 
-  MatchResult({required this.subjectId, this.metadata = const {}, required this.score});
+  MatchResult({
+    required this.subjectId,
+    this.metadata = const {},
+    required this.score,
+  });
 
   String get empId => metadata['emp_id']?.toString() ?? '';
   String? get name {
@@ -32,28 +36,37 @@ class MatchResult {
 class MatchResponse {
   final bool matched;
   final MatchResult? result;
-  final String? matchedAt; // เวลา server ตอน match (ISO โซนไทย) — ใช้บันทึก session การ์ดวันนี้
+  final String?
+  matchedAt; // เวลา server ตอน match (ISO โซนไทย) — ใช้บันทึก session การ์ดวันนี้
 
   MatchResponse({required this.matched, this.result, this.matchedAt});
 
   factory MatchResponse.fromJson(Map<String, dynamic> json) => MatchResponse(
     matched: json['matched'] == true,
-    result: json['result'] == null ? null : MatchResult.fromJson(json['result'] as Map<String, dynamic>),
+    result: json['result'] == null
+        ? null
+        : MatchResult.fromJson(json['result'] as Map<String, dynamic>),
     matchedAt: json['matched_at']?.toString(),
   );
 }
 
 // ---------- face-scan: /register ----------
 class RegisterResponse {
-  final String subjectId; // uuid ที่ตัวกลางออกให้ (เก็บไว้ถ้าจะเพิ่มรูป/ลบทีหลัง)
+  final String
+  subjectId; // uuid ที่ตัวกลางออกให้ (เก็บไว้ถ้าจะเพิ่มรูป/ลบทีหลัง)
   final List<int> faceIds;
 
   RegisterResponse({required this.subjectId, this.faceIds = const []});
 
-  factory RegisterResponse.fromJson(Map<String, dynamic> json) => RegisterResponse(
-    subjectId: json['subject_id']?.toString() ?? '',
-    faceIds: (json['face_ids'] as List?)?.map((e) => (e as num).toInt()).toList() ?? const [],
-  );
+  factory RegisterResponse.fromJson(Map<String, dynamic> json) =>
+      RegisterResponse(
+        subjectId: json['subject_id']?.toString() ?? '',
+        faceIds:
+            (json['face_ids'] as List?)
+                ?.map((e) => (e as num).toInt())
+                .toList() ??
+            const [],
+      );
 }
 
 // ---------- attendance: /{hcode}/login (พนักงาน login ด้วย HOSxP -> emp_id) ----------
@@ -63,7 +76,12 @@ class LoginResult {
   final String name;
   final String message;
 
-  LoginResult({this.ok = false, this.empId = '', this.name = '', this.message = ''});
+  LoginResult({
+    this.ok = false,
+    this.empId = '',
+    this.name = '',
+    this.message = '',
+  });
 
   factory LoginResult.fromJson(Map<String, dynamic> json) => LoginResult(
     ok: json['ok'] == true,
@@ -129,7 +147,12 @@ class EmpShift {
   final String timeStart;
   final String timeEnd;
 
-  EmpShift({required this.id, required this.name, this.timeStart = '', this.timeEnd = ''});
+  EmpShift({
+    required this.id,
+    required this.name,
+    this.timeStart = '',
+    this.timeEnd = '',
+  });
 
   factory EmpShift.fromJson(Map<String, dynamic> json) => EmpShift(
     id: (json['emp_shift_id'] as num?)?.toInt() ?? 0,

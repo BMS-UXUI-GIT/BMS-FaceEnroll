@@ -9,7 +9,10 @@ import 'registration_controller.dart';
 class RegistrationBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<ApiService>(() => buildApiService(Get.find<SettingsService>()), fenix: true);
+    Get.lazyPut<ApiService>(
+      () => buildApiService(Get.find<SettingsService>()),
+      fenix: true,
+    );
     Get.lazyPut<AudioService>(() => AudioService(), fenix: true);
     Get.lazyPut<RegistrationController>(() => RegistrationController());
   }

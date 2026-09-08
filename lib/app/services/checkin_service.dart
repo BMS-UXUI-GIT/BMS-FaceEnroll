@@ -38,20 +38,27 @@ class CheckinService extends GetxService {
     }
     final raw = _prefs.getString(_kSessions);
     if (raw == null) return;
-    final list = (jsonDecode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map));
+    final list = (jsonDecode(raw) as List).map(
+      (e) => Map<String, dynamic>.from(e as Map),
+    );
     sessions.assignAll(list.map(CheckinSession.fromJson));
   }
 
   Future<void> _persist() async {
     await _prefs.setString(_kDate, _todayStr);
-    await _prefs.setString(_kSessions, jsonEncode(sessions.map((s) => s.toJson()).toList()));
+    await _prefs.setString(
+      _kSessions,
+      jsonEncode(sessions.map((s) => s.toJson()).toList()),
+    );
   }
 
   // ---------- บันทึก punch ----------
   /// เข้างาน: เปิด session ใหม่ (เลือกเวรตอนเข้า — null = ไม่มีเวร)
   /// lateMin: นาทีสายจากเซิร์ฟเวอร์ (null = ไม่รู้ -> การ์ดคำนวณเองจากเวร)
   Future<void> recordIn(Shift? shift, String isoTime, {int? lateMin}) async {
-    sessions.add(CheckinSession(inShift: shift, inTime: isoTime, lateMin: lateMin));
+    sessions.add(
+      CheckinSession(inShift: shift, inTime: isoTime, lateMin: lateMin),
+    );
     sessions.refresh();
     await _persist();
   }
@@ -59,7 +66,12 @@ class CheckinService extends GetxService {
   /// ออกงาน: ปิด session ที่เปิดอยู่ (เลือกเวรตอนออกได้ต่างจากตอนเข้า — null = ไม่มีเวร)
   /// ถ้าไม่มี session เปิด (เผลอไม่ได้สแกนเข้า) → สร้าง session ที่มีแต่ออก
   /// autoOut = ระบบสแตมป์ออกให้เอง (ควบเวร) ไม่ใช่คนสแกนออก
-  Future<void> recordOut(Shift? shift, String isoTime, {int? earlyMin, bool autoOut = false}) async {
+  Future<void> recordOut(
+    Shift? shift,
+    String isoTime, {
+    int? earlyMin,
+    bool autoOut = false,
+  }) async {
     CheckinSession? open;
     for (final s in sessions.reversed) {
       if (s.isOpen) {
@@ -94,13 +106,18 @@ class CheckinService extends GetxService {
   // ---------- เวร ----------
   Future<void> setShifts(List<Shift> list) async {
     shifts.assignAll(list);
-    await _prefs.setString(_kShifts, jsonEncode(list.map((s) => s.toJson()).toList()));
+    await _prefs.setString(
+      _kShifts,
+      jsonEncode(list.map((s) => s.toJson()).toList()),
+    );
   }
 
   void _loadShifts() {
     final raw = _prefs.getString(_kShifts);
     if (raw == null) return;
-    final list = (jsonDecode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map));
+    final list = (jsonDecode(raw) as List).map(
+      (e) => Map<String, dynamic>.from(e as Map),
+    );
     shifts.assignAll(list.map(Shift.fromJson));
   }
 

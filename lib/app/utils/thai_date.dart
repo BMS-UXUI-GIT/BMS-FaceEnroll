@@ -47,4 +47,5 @@ String thaiMonthYear(int year, int month) {
 }
 
 /// ชื่อเดือนย่อไทย "ก.ย." — 1..12 (นอกช่วงคืนค่าว่าง) ไว้ใช้เป็นป้ายแกนในแดชบอร์ด
-String thaiMonthShort(int month) => (month >= 1 && month <= 12) ? _thaiMonths[month] : '';
+String thaiMonthShort(int month) =>
+    (month >= 1 && month <= 12) ? _thaiMonths[month] : '';

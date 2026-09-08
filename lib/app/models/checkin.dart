@@ -1,12 +1,22 @@
 /// เวร (จาก emp_shift) — เก็บใน SharedPreferences ตอน login (ไม่ดึงทุกครั้ง)
 class Shift {
-  const Shift({required this.id, required this.name, required this.timeStart, required this.timeEnd});
+  const Shift({
+    required this.id,
+    required this.name,
+    required this.timeStart,
+    required this.timeEnd,
+  });
   final int id;
   final String name;
   final String timeStart; // "HH:mm:ss"
   final String timeEnd;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'start': timeStart, 'end': timeEnd};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'start': timeStart,
+    'end': timeEnd,
+  };
 
   factory Shift.fromJson(Map<String, dynamic> j) => Shift(
     id: (j['id'] as num?)?.toInt() ?? 0,
@@ -53,9 +63,13 @@ class CheckinSession {
   };
 
   factory CheckinSession.fromJson(Map<String, dynamic> j) => CheckinSession(
-    inShift: j['inShift'] != null ? Shift.fromJson(Map<String, dynamic>.from(j['inShift'] as Map)) : null,
+    inShift: j['inShift'] != null
+        ? Shift.fromJson(Map<String, dynamic>.from(j['inShift'] as Map))
+        : null,
     inTime: j['inTime']?.toString(),
-    outShift: j['outShift'] != null ? Shift.fromJson(Map<String, dynamic>.from(j['outShift'] as Map)) : null,
+    outShift: j['outShift'] != null
+        ? Shift.fromJson(Map<String, dynamic>.from(j['outShift'] as Map))
+        : null,
     outTime: j['outTime']?.toString(),
     lateMin: (j['lateMin'] as num?)?.toInt(),
     earlyMin: (j['earlyMin'] as num?)?.toInt(),

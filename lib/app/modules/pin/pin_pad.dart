@@ -23,10 +23,20 @@ class PinDots extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: on ? Nexus.pAccent : Nexus.pLine,
-            boxShadow: on ? [BoxShadow(color: Nexus.pAccent.withValues(alpha: 0.6), blurRadius: 12)] : null,
+            boxShadow: on
+                ? [
+                    BoxShadow(
+                      color: Nexus.pAccent.withValues(alpha: 0.6),
+                      blurRadius: 12,
+                    ),
+                  ]
+                : null,
           ),
           child: Container(
-            decoration: BoxDecoration(shape: BoxShape.circle, color: on ? Nexus.pAccent : Colors.transparent),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: on ? Nexus.pAccent : Colors.transparent,
+            ),
           ),
         );
       }),
@@ -36,28 +46,47 @@ class PinDots extends StatelessWidget {
 
 /// แป้นตัวเลข 0-9 + ลบ (ธีม NEXUS)
 class PinKeypad extends StatelessWidget {
-  const PinKeypad({super.key, required this.onKey, required this.onDelete, this.disabled = false});
+  const PinKeypad({
+    super.key,
+    required this.onKey,
+    required this.onDelete,
+    this.disabled = false,
+  });
   final void Function(String) onKey;
   final VoidCallback onDelete;
   final bool disabled;
 
-  Widget _key(BuildContext context, {String? label, Widget? child, VoidCallback? onTap}) {
+  Widget _key(
+    BuildContext context, {
+    String? label,
+    Widget? child,
+    VoidCallback? onTap,
+  }) {
     return Padding(
       padding: const EdgeInsets.all(6),
       child: SizedBox(
         width: 74,
         height: 54,
         child: Material(
-          color: (label == null && child == null) ? Colors.transparent : Nexus.pPanel,
+          color: (label == null && child == null)
+              ? Colors.transparent
+              : Nexus.pPanel,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: (label == null && child == null) ? BorderSide.none : BorderSide(color: Nexus.pLine),
+            side: (label == null && child == null)
+                ? BorderSide.none
+                : BorderSide(color: Nexus.pLine),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(15),
             onTap: (disabled || onTap == null) ? null : onTap,
             child: Center(
-              child: child ?? Text(label ?? '', style: Nexus.tech(size: 21, weight: FontWeight.w600)),
+              child:
+                  child ??
+                  Text(
+                    label ?? '',
+                    style: Nexus.tech(size: 21, weight: FontWeight.w600),
+                  ),
             ),
           ),
         ),
@@ -67,7 +96,8 @@ class PinKeypad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget row(List<Widget> children) => Row(mainAxisAlignment: MainAxisAlignment.center, children: children);
+    Widget row(List<Widget> children) =>
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: children);
     Widget num(String n) => _key(context, label: n, onTap: () => onKey(n));
 
     return Column(
@@ -81,7 +111,11 @@ class PinKeypad extends StatelessWidget {
           num('0'),
           _key(
             context,
-            child: Icon(PhosphorIconsRegular.backspace, size: 24, color: Nexus.pSub),
+            child: Icon(
+              PhosphorIconsRegular.backspace,
+              size: 24,
+              color: Nexus.pSub,
+            ),
             onTap: onDelete,
           ),
         ]),

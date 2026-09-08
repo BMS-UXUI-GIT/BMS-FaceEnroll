@@ -7,7 +7,8 @@ import 'dart:ui' show Size;
 import 'package:battery_plus/battery_plus.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
-import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
+import 'package:flutter/widgets.dart'
+    show AppLifecycleState, WidgetsBinding, WidgetsBindingObserver;
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import '../../config/demo_mode.dart';
@@ -34,7 +35,15 @@ import 'widgets/out_of_area_dialog.dart';
 enum ScanPhase { initializing, scanning, processing, success, notFound, error }
 
 /// ชนิดผลที่ไม่สำเร็จ — ให้การ์ดโชว์หัวข้อ/ไอคอน/สีตรงเหตุ (ไม่ใช่ "ไม่พบข้อมูล" หมด)
-enum ScanResultKind { notFound, canceled, rejected, gpsError, incomplete, connError, cameraError }
+enum ScanResultKind {
+  notFound,
+  canceled,
+  rejected,
+  gpsError,
+  incomplete,
+  connError,
+  cameraError,
+}
 
 /// Flow ต่อ 1 สแกน (production):
 /// กล้องหน้า + ML Kit ตรวจ "มีหน้า + ใหญ่พอ" → (ถ้าเปิด) ทำ liveness กันปลอม
@@ -54,33 +63,42 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   final message = 'กำลังเปิดกล้อง...'.obs;
   final matched = Rxn<MatchResult>();
   final matchedPosition = ''.obs; // ตำแหน่งงาน (ดึงจาก attendance-api ไว้โชว์)
-  final gpsPlace =
-      ''.obs; // ชื่อจุดลงเวลาที่พิกัดล่าสุดอยู่ในรัศมี (นอกพื้นที่ = จุดใกล้สุด) — โชว์ใน popup + ส่งให้ backend
+  final gpsPlace = ''
+      .obs; // ชื่อจุดลงเวลาที่พิกัดล่าสุดอยู่ในรัศมี (นอกพื้นที่ = จุดใกล้สุด) — โชว์ใน popup + ส่งให้ backend
   final inOutType = RxnString();
   // สถานะจากเซิร์ฟเวอร์หลังลงเวลา (ตรงเวลา/สาย/ออกก่อนเวลา) + นาทีที่ต่าง
   final punchStatus = ''.obs;
   final punchDiffMin = 0.obs;
-  final faceDetected = false.obs; // เจอหน้า + ใหญ่พอในเฟรมล่าสุด (ไว้เปลี่ยนสีกรอบ)
-  final brightOn = false.obs; // ปุ่ม fill light (ring light ขาวนอกวงรี + จอสว่างสุด)
+  final faceDetected =
+      false.obs; // เจอหน้า + ใหญ่พอในเฟรมล่าสุด (ไว้เปลี่ยนสีกรอบ)
+  final brightOn =
+      false.obs; // ปุ่ม fill light (ring light ขาวนอกวงรี + จอสว่างสุด)
   final paused = false.obs; // หยุดสแกนชั่วคราว (อยู่หน้าเดิม ไม่ออก)
-  final resultKind = ScanResultKind.notFound.obs; // ชนิดผลที่ไม่สำเร็จ (ให้การ์ดโชว์ตรงเหตุ)
+  final resultKind =
+      ScanResultKind.notFound.obs; // ชนิดผลที่ไม่สำเร็จ (ให้การ์ดโชว์ตรงเหตุ)
   final batteryLevel = RxnInt(); // % แบต
   int _missStreak = 0; // จำไม่ได้ติดกันกี่ครั้ง — ≥2 เตือนเรื่องหน้ากาก
 
   // ---- readiness (chip "พร้อม" มุมขวาบน — แตะกางดูรายละเอียด) ----
   final online = true.obs; // backend ติดต่อได้ไหม (ping /health)
-  final gpsReady = true.obs; // GPS พร้อม (permission + service) เมื่อเปิด location
-  final gpsCoords = RxnString(); // พิกัดล่าสุด "lat, long" (โชว์ใน sheet เหมือน UI เก่า)
-  final gpsAccuracyM = RxnDouble(); // ความคลาดของ fix ล่าสุด (เมตร) — โชว์ใน sheet
+  final gpsReady =
+      true.obs; // GPS พร้อม (permission + service) เมื่อเปิด location
+  final gpsCoords =
+      RxnString(); // พิกัดล่าสุด "lat, long" (โชว์ใน sheet เหมือน UI เก่า)
+  final gpsAccuracyM =
+      RxnDouble(); // ความคลาดของ fix ล่าสุด (เมตร) — โชว์ใน sheet
   final wifiName = RxnString();
   Timer? _readyTimer;
 
   // ---- ด่านตำแหน่งก่อนสแกน (บังคับ GPS + geofence) — นอกพื้นที่ = ห้ามสแกน ----
-  final locBlocked = false.obs; // true = อยู่นอกพื้นที่/หาตำแหน่งไม่ได้ → บล็อกสแกน
+  final locBlocked =
+      false.obs; // true = อยู่นอกพื้นที่/หาตำแหน่งไม่ได้ → บล็อกสแกน
   final locBlockMsg = ''.obs; // เหตุผล (นอกพื้นที่ + ระยะห่าง / เปิด location)
-  final locChecking = false.obs; // กำลังตรวจตำแหน่งรอบแรก (ยังไม่รู้ผล → ยังไม่ให้สแกน)
+  final locChecking =
+      false.obs; // กำลังตรวจตำแหน่งรอบแรก (ยังไม่รู้ผล → ยังไม่ให้สแกน)
   Timer? _locTimer;
-  StreamSubscription<Position>? _gpsSub; // fix สดจาก LocationService → sheet สถานะ
+  StreamSubscription<Position>?
+  _gpsSub; // fix สดจาก LocationService → sheet สถานะ
   bool _locBusy = false;
 
   /// in/out ที่ "ควรเป็นต่อไป" จากหน้า home (suggest) — เป็นค่าเริ่มต้นใน confirm popup
@@ -94,12 +112,15 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   CheckinService get _checkin => Get.find<CheckinService>();
 
   /// พร้อมลงเวลาไหม = ออนไลน์ + (GPS พร้อม หรือ ไม่ได้เปิด GPS)
-  bool get isReady => online.value && (gpsReady.value || !settings.isEnableLocationEnrolling.value);
+  bool get isReady =>
+      online.value &&
+      (gpsReady.value || !settings.isEnableLocationEnrolling.value);
 
   /// ป้ายบน chip — บอกเหตุที่ "ยังไม่พร้อม"
   String get readinessLabel {
     if (!online.value) return 'ออฟไลน์';
-    if (settings.isEnableLocationEnrolling.value && !gpsReady.value) return 'รอ GPS';
+    if (settings.isEnableLocationEnrolling.value && !gpsReady.value)
+      return 'รอ GPS';
     return 'พร้อม';
   }
 
@@ -116,12 +137,14 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   DateTime _lastLivenessCheck = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool _busy = false;
-  int _frameErrors = 0; // นับ error แปลงภาพ/ตรวจหน้าติดกัน → แจ้งผู้ใช้ ไม่เงียบ
+  int _frameErrors =
+      0; // นับ error แปลงภาพ/ตรวจหน้าติดกัน → แจ้งผู้ใช้ ไม่เงียบ
   // ---- smile-confirm / try-again (กล้องเปิดค้างตอน confirm) ----
   bool _confirmActive = false;
   bool _confirmBusy = false;
   int? _confirmDefaultShift;
-  int _confirmEnrollType = 2; // in/out ที่จะใช้ตอน smile-confirm (2=เข้า, 3=ออก)
+  int _confirmEnrollType =
+      2; // in/out ที่จะใช้ตอน smile-confirm (2=เข้า, 3=ออก)
   DateTime _lastConfirmCheck = DateTime.fromMillisecondsSinceEpoch(0);
 
   DateTime _lastAttempt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -138,7 +161,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     _detector = FaceDetector(
       options: FaceDetectorOptions(
         performanceMode: FaceDetectorMode.fast,
-        enableClassification: true, // จำเป็นสำหรับ blink/smile (eyeOpen/smiling prob)
+        enableClassification:
+            true, // จำเป็นสำหรับ blink/smile (eyeOpen/smiling prob)
         enableLandmarks: true,
         enableContours: true,
         minFaceSize: 0.15,
@@ -177,7 +201,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _restartStreamIfNeeded() async {
-    if (!kDemoBuild && (camera == null || !camera!.value.isInitialized || camera!.value.isStreamingImages)) {
+    if (!kDemoBuild &&
+        (camera == null ||
+            !camera!.value.isInitialized ||
+            camera!.value.isStreamingImages)) {
       return;
     }
     try {
@@ -192,7 +219,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   // ---- readiness: เช็ค online/GPS/wifi/แบต เป็นระยะ (ป้อน chip "พร้อม") ----
   void _initReadiness() {
     _refreshReadiness();
-    _readyTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshReadiness());
+    _readyTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshReadiness(),
+    );
   }
 
   /// ด่านตำแหน่ง: บังคับ GPS + อยู่นอกรัศมี = บล็อกสแกน (บอกก่อนสแกน ไม่ใช่หลังยืนยัน)
@@ -211,11 +241,13 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
       // รอบแรก/กดเช็คเอง = รอค่าที่นิ่งได้ ; รอบ timer = ใช้ค่าดีสุดที่มี ไม่รอ
       final pos = await _location.getCurrentPosition(waitForGood: showChecking);
       if (pos == null) {
-        locBlockMsg.value = 'ยังหาตำแหน่งไม่ได้ — เช็คว่าเปิด Location และ Wi-Fi แล้วกดตรวจอีกครั้ง';
+        locBlockMsg.value =
+            'ยังหาตำแหน่งไม่ได้ — เช็คว่าเปิด Location และ Wi-Fi แล้วกดตรวจอีกครั้ง';
         locBlocked.value = true;
         return;
       }
-      gpsCoords.value = '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+      gpsCoords.value =
+          '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
       gpsAccuracyM.value = pos.accuracy > 0 ? pos.accuracy : null;
       final g = _checkGeofence(pos.latitude, pos.longitude, pos.accuracy);
       gpsPlace.value = g.place ?? '';
@@ -238,7 +270,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
 
   /// fix ใหม่จาก stream → พิกัด/ความคลาดใน sheet สถานะอัปเดตสด
   void _onGpsUpdate(Position p) {
-    gpsCoords.value = '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}';
+    gpsCoords.value =
+        '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}';
     gpsAccuracyM.value = p.accuracy > 0 ? p.accuracy : null;
   }
 
@@ -257,7 +290,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
       try {
         final svc = await Geolocator.isLocationServiceEnabled();
         final perm = await Geolocator.checkPermission();
-        gpsReady.value = svc && (perm == LocationPermission.always || perm == LocationPermission.whileInUse);
+        gpsReady.value =
+            svc &&
+            (perm == LocationPermission.always ||
+                perm == LocationPermission.whileInUse);
         // พิกัดใน sheet ปกติ stream ป้อนสดอยู่แล้ว (_onGpsUpdate) — ยังไม่มีค่าเลยค่อยหยิบ last-known
         if (gpsReady.value && _location.latest == null) {
           try {
@@ -281,7 +317,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     _applyBrightness();
     if (settings.showBattery.value) {
       _updateBattery();
-      _batteryTimer = Timer.periodic(const Duration(seconds: 30), (_) => _updateBattery());
+      _batteryTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _updateBattery(),
+      );
     }
   }
 
@@ -340,14 +379,19 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     }
 
     final cams = await availableCameras();
-    final front = cams.firstWhere((c) => c.lensDirection == CameraLensDirection.front, orElse: () => cams.first);
+    final front = cams.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.front,
+      orElse: () => cams.first,
+    );
     // ล็อก "กลาง" — เปิดสแกนแค่ช่วงสั้นๆ บนมือถือส่วนตัว ไม่ต้องมีปุ่มปรับ (รูปโดนย่อก่อนส่งอยู่แล้ว)
     camera = CameraController(
       front,
       ResolutionPreset.medium,
       enableAudio: false,
       // Android: yuv420 → แปลงเป็น nv21 เอง / iOS: bgra8888 ส่งตรงให้ ML Kit
-      imageFormatGroup: isIOSDevice ? ImageFormatGroup.bgra8888 : ImageFormatGroup.yuv420,
+      imageFormatGroup: isIOSDevice
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.yuv420,
     );
     await camera!.initialize();
     // ปิดแฟลช — iPhone ไม่มีแฟลชหน้า เลยทำจอขาวจ้าแทน (Retina Flash) ตอนถ่าย
@@ -361,7 +405,10 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     // ด่านตำแหน่ง: บังคับ GPS แล้วอยู่นอกรัศมี = บล็อกสแกนตั้งแต่ต้น + เช็คซ้ำเรื่อยๆ
     if (settings.isEnableLocationEnrolling.value) {
       _refreshLocationGate(showChecking: true);
-      _locTimer = Timer.periodic(const Duration(seconds: 8), (_) => _refreshLocationGate());
+      _locTimer = Timer.periodic(
+        const Duration(seconds: 8),
+        (_) => _refreshLocationGate(),
+      );
     }
   }
 
@@ -374,7 +421,11 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cams.first,
       );
-      camera = CameraController(front, ResolutionPreset.medium, enableAudio: false);
+      camera = CameraController(
+        front,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
       await camera!.initialize();
     } catch (_) {
       camera = null; // ไม่มีเว็บแคม/ไม่ให้สิทธิ์ — เดโมยังกดผ่านได้
@@ -389,10 +440,15 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   /// (camera_web ไม่รองรับ startImageStream)
   Future<void> _startFrames() async {
     if (kDemoBuild) {
-      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      _demoTimer ??= Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => _onDemoTick(),
+      );
       return;
     }
-    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+    if (camera != null &&
+        camera!.value.isInitialized &&
+        !camera!.value.isStreamingImages) {
       await camera!.startImageStream(_onFrame);
     }
   }
@@ -401,7 +457,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     _demoTimer?.cancel();
     _demoTimer = null;
     if (kDemoBuild) return;
-    if (camera?.value.isStreamingImages ?? false) await camera!.stopImageStream();
+    if (camera?.value.isStreamingImages ?? false)
+      await camera!.stopImageStream();
   }
 
   /// เฟรมจำลองของเดโม — ส่งเข้าเส้นทางเดียวกับเฟรมจริง (สแกน หรือ ยืนยันด้วยรอยยิ้ม)
@@ -412,7 +469,9 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     }
     if (!_scanGateOpen()) return;
     _busy = true;
-    _handleScanFaces([demoFace(_demoFrame)], _demoFrame.width.toInt()).whenComplete(() => _busy = false);
+    _handleScanFaces([
+      demoFace(_demoFrame),
+    ], _demoFrame.width.toInt()).whenComplete(() => _busy = false);
   }
 
   Timer? _demoTimer;
@@ -446,11 +505,15 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   /// เงื่อนไข "รับเฟรมนี้ไหม" — ใช้ร่วมกันทั้งเฟรมจริงและเฟรมจำลองของเดโม
   /// (ผ่านแล้วถือว่าจองคิวประมวลผลรอบนี้ ผู้เรียกต้องตั้ง _busy ต่อทันที)
   bool _scanGateOpen() {
-    if (Get.currentRoute == Routes.enterPin) return false; // หน้า PIN บังอยู่ — ห้ามสแกนต่อ
-    if (locBlocked.value || locChecking.value) return false; // นอกพื้นที่/ยังตรวจตำแหน่งไม่เสร็จ
-    if (paused.value || _busy || phase.value != ScanPhase.scanning) return false;
+    if (Get.currentRoute == Routes.enterPin)
+      return false; // หน้า PIN บังอยู่ — ห้ามสแกนต่อ
+    if (locBlocked.value || locChecking.value)
+      return false; // นอกพื้นที่/ยังตรวจตำแหน่งไม่เสร็จ
+    if (paused.value || _busy || phase.value != ScanPhase.scanning)
+      return false;
     if (DateTime.now().difference(_lastAttempt) < cooldown) return false;
-    if (DateTime.now().difference(_lastFrameProcess) < Duration(milliseconds: settings.throttlerMs.value)) {
+    if (DateTime.now().difference(_lastFrameProcess) <
+        Duration(milliseconds: settings.throttlerMs.value)) {
       return false;
     }
     _lastFrameProcess = DateTime.now();
@@ -468,8 +531,11 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     } catch (e) {
       log('frame error: $e');
       // แปลงภาพ/ตรวจหน้าพังติดกันหลายเฟรม → บอกผู้ใช้
-      if (++_frameErrors >= 8 && phase.value == ScanPhase.scanning && !livenessActive.value) {
-        message.value = 'กล้องส่งภาพไม่ได้ — ลองปิด-เปิดแอป หรือรีสตาร์ทเครื่อง';
+      if (++_frameErrors >= 8 &&
+          phase.value == ScanPhase.scanning &&
+          !livenessActive.value) {
+        message.value =
+            'กล้องส่งภาพไม่ได้ — ลองปิด-เปิดแอป หรือรีสตาร์ทเครื่อง';
       }
     } finally {
       _busy = false;
@@ -484,7 +550,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
       if (livenessActive.value || _livenessPassed) {
         _resetLiveness(); // กำลังทำ liveness แล้วหน้าหลุดเฟรม → เริ่มใหม่
       } else if (phase.value == ScanPhase.scanning) {
-        message.value = 'ไม่พบใบหน้า — จัดหน้าให้อยู่ในกรอบ และเพิ่มแสงให้สว่าง';
+        message.value =
+            'ไม่พบใบหน้า — จัดหน้าให้อยู่ในกรอบ และเพิ่มแสงให้สว่าง';
       }
       return;
     }
@@ -493,7 +560,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     final widthRatio = face.boundingBox.width / frameWidth;
     if (widthRatio < settings.minFaceWidthRatio) {
       faceDetected.value = false;
-      if (!livenessActive.value) message.value = 'ขยับเข้าใกล้อีกนิด ให้ใบหน้าเต็มกรอบ';
+      if (!livenessActive.value)
+        message.value = 'ขยับเข้าใกล้อีกนิด ให้ใบหน้าเต็มกรอบ';
       return;
     }
     faceDetected.value = true; // เจอหน้า + ใหญ่พอ (กรอบจะเป็นสีเขียว)
@@ -515,7 +583,9 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
 
   InputImage? _toInputImage(CameraImage frame) {
     if (camera == null) return null;
-    final rotation = InputImageRotationValue.fromRawValue(camera!.description.sensorOrientation);
+    final rotation = InputImageRotationValue.fromRawValue(
+      camera!.description.sensorOrientation,
+    );
     if (rotation == null) return null;
     // iOS: BGRA8888 plane เดียว ส่งตรง (NV21 มีแค่ Android)
     if (isIOSDevice) {
@@ -586,7 +656,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
       final a = FaceLivenessAction.fromKey(type);
       _queue = [a ?? FaceLivenessAction.blink];
     } else {
-      final pool = List<FaceLivenessAction>.from(FaceLivenessAction.values)..shuffle();
+      final pool = List<FaceLivenessAction>.from(FaceLivenessAction.values)
+        ..shuffle();
       _queue = pool.take(count).toList();
     }
     _idx = 0;
@@ -606,7 +677,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   }
 
   void _validateLivenessFrame(Face face) {
-    if (DateTime.now().difference(_lastLivenessCheck) < livenessThrottle) return;
+    if (DateTime.now().difference(_lastLivenessCheck) < livenessThrottle)
+      return;
     final a = _queue[_idx];
     bool pass;
     if (a == FaceLivenessAction.blink) {
@@ -664,10 +736,15 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _startConfirmFrames() async {
     if (kDemoBuild) {
-      _demoTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _onDemoTick());
+      _demoTimer ??= Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => _onDemoTick(),
+      );
       return;
     }
-    if (camera != null && camera!.value.isInitialized && !camera!.value.isStreamingImages) {
+    if (camera != null &&
+        camera!.value.isInitialized &&
+        !camera!.value.isStreamingImages) {
       await camera!.startImageStream(_onConfirmFrame);
     }
   }
@@ -715,7 +792,11 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     if (Get.isBottomSheetOpen ?? false) {
       Get.back(
         result: confirmed
-            ? {'confirmed': true, 'emp_shift_id': _confirmDefaultShift, 'enroll_type': _confirmEnrollType}
+            ? {
+                'confirmed': true,
+                'emp_shift_id': _confirmDefaultShift,
+                'enroll_type': _confirmEnrollType,
+              }
             : null,
       );
     }
@@ -731,7 +812,9 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     try {
       final sw = Stopwatch()..start();
       // เดโมที่ไม่มีเว็บแคมก็ต้องเดินต่อได้ — ฝั่งเดโมไม่ได้อ่านรูปอยู่แล้ว
-      final shot = (kDemoBuild && camera == null) ? null : await camera!.takePicture();
+      final shot = (kDemoBuild && camera == null)
+          ? null
+          : await camera!.takePicture();
       final tShot = sw.elapsedMilliseconds;
       final raw = shot == null ? Uint8List(0) : await shot.readAsBytes();
       final tRead = sw.elapsedMilliseconds;
@@ -757,14 +840,17 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
         if (res.result!.empId.isEmpty) {
           resultKind.value = ScanResultKind.incomplete;
           phase.value = ScanPhase.notFound;
-          message.value = 'ข้อมูลใบหน้ายังไม่ผูกกับพนักงาน — ลงทะเบียนใหม่อีกครั้ง';
+          message.value =
+              'ข้อมูลใบหน้ายังไม่ผูกกับพนักงาน — ลงทะเบียนใหม่อีกครั้ง';
           matched.value = null;
           await _afterCycle();
           return;
         }
         // ตำแหน่งงานไว้โชว์ + ใส่ใน noti — best-effort ไม่บล็อก popup (มาถึงเมื่อไหร่ค่อยขึ้น)
         matchedPosition.value = '';
-        _api.getProfile(res.result!.empId).then((v) => matchedPosition.value = v);
+        _api
+            .getProfile(res.result!.empId)
+            .then((v) => matchedPosition.value = v);
 
         // confirm ก่อนลงเวลา (ถ้าเปิด)
         int? shiftId;
@@ -772,7 +858,14 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
         final suggest = _suggestAction; // 'in' | 'out' จาก home
         // เวรจาก cache ที่โหลดไว้ตอน login (แทบไม่เปลี่ยน — อยากได้ชุดใหม่ = logout/login)
         final shifts = _checkin.shifts
-            .map((s) => EmpShift(id: s.id, name: s.name, timeStart: s.timeStart, timeEnd: s.timeEnd))
+            .map(
+              (s) => EmpShift(
+                id: s.id,
+                name: s.name,
+                timeStart: s.timeStart,
+                timeEnd: s.timeEnd,
+              ),
+            )
             .toList();
         _confirmDefaultShift = shifts.isNotEmpty ? shifts.first.id : null;
         _confirmEnrollType = suggest == 'out' ? 3 : 2;
@@ -794,7 +887,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
           ),
           isDismissible: false,
           enableDrag: false,
-          isScrollControlled: true, // sheet สูงตามเนื้อหา (ไม่ล็อก 9/16 จอ) — เต็ม 90% ค่อยเลื่อน
+          isScrollControlled:
+              true, // sheet สูงตามเนื้อหา (ไม่ล็อก 9/16 จอ) — เต็ม 90% ค่อยเลื่อน
         );
         await _stopConfirmDetection();
         if (result == null || result['confirmed'] != true) {
@@ -811,20 +905,26 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
 
         // GPS ก่อนลงเวลา (logic ระบบเก่า) — เปิดแล้วต้องได้พิกัด ไม่งั้นบล็อก
         Position? position;
-        String? scanPlace; // ชื่อจุดที่พิกัดตอนลงเวลาจริงอยู่ในรัศมี — ส่งให้ backend เก็บคู่แถว
+        String?
+        scanPlace; // ชื่อจุดที่พิกัดตอนลงเวลาจริงอยู่ในรัศมี — ส่งให้ backend เก็บคู่แถว
         if (settings.isEnableLocationEnrolling.value) {
           message.value = 'กำลังระบุตำแหน่ง...';
           position = await _location.getCurrentPosition();
           if (position == null) {
             resultKind.value = ScanResultKind.gpsError;
             phase.value = ScanPhase.notFound;
-            message.value = 'ยังหาตำแหน่งไม่ได้ — เช็คว่าเปิด Location และ Wi-Fi แล้วลองใหม่';
+            message.value =
+                'ยังหาตำแหน่งไม่ได้ — เช็คว่าเปิด Location และ Wi-Fi แล้วลองใหม่';
             matched.value = null;
             await _afterCycle();
             return;
           }
           // geofence จาก policy กลาง — เช็ค "จุดที่ใกล้สุด" (โรงปักได้หลายจุด)
-          final g = _checkGeofence(position.latitude, position.longitude, position.accuracy);
+          final g = _checkGeofence(
+            position.latitude,
+            position.longitude,
+            position.accuracy,
+          );
           gpsPlace.value = g.place ?? '';
           scanPlace = g.place;
           final gpsErr = g.error;
@@ -853,7 +953,9 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
           // ถูกปฏิเสธจากด่านตรวจ (เช่น ลาออก / นอกเงื่อนไข) — ไม่ใช่สำเร็จ
           resultKind.value = ScanResultKind.rejected;
           phase.value = ScanPhase.notFound;
-          message.value = enroll.message.isNotEmpty ? enroll.message : 'ไม่ผ่านการตรวจสอบสิทธิ์';
+          message.value = enroll.message.isNotEmpty
+              ? enroll.message
+              : 'ไม่ผ่านการตรวจสอบสิทธิ์';
           matched.value = null;
         } else {
           inOutType.value = enroll.inOutType;
@@ -861,7 +963,11 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
           punchDiffMin.value = enroll.diffMinute ?? 0;
           phase.value = ScanPhase.success;
           HapticFeedback.mediumImpact(); // สั่นสั้นๆ ยืนยันสำเร็จ
-          message.value = _successMessage(res.result!, enroll.inOutType, enroll);
+          message.value = _successMessage(
+            res.result!,
+            enroll.inOutType,
+            enroll,
+          );
 
           // บันทึก session local (การ์ดวันนี้) ด้วยเวลา server (matched_at)
           // ควบเวร: เซิร์ฟเวอร์ปิดเวรก่อนหน้าให้แล้ว -> ปิด session เดิมในการ์ดวันนี้ตาม
@@ -879,7 +985,8 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
           );
 
           // แจ้งเตือน — ยิงทุกช่องทางที่เปิด (fire-and-forget ไม่ block การลงเวลา)
-          if (settings.bmsNotiEnabled.value && settings.notiToken.value.isNotEmpty) {
+          if (settings.bmsNotiEnabled.value &&
+              settings.notiToken.value.isNotEmpty) {
             _api.sendBmsNotification(
               name: res.result!.name ?? 'พนักงาน',
               position: matchedPosition.value,
@@ -926,12 +1033,19 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   /// เผื่อค่าความคลาดของ fix (accuracyM) ตามที่มือถือรายงาน — GPS ในตึกแกว่งได้หลายสิบเมตร
   /// ผลเช็ค geofence กับจุดลงเวลาของโรง: error = null คือผ่าน · place = ชื่อจุดที่อยู่ในรัศมี (อยู่นอกทุกจุด = ชื่อจุดใกล้สุด)
   /// ไม่ได้ตั้งจุดเลย = ผ่านและไม่มีชื่อ
-  ({String? error, String? place, double? distM}) _checkGeofence(double lat, double lng, double accuracyM) {
-    final slack = LocationService.slackFor(accuracyM); // หักได้ไม่เกิน maxSlackM
+  ({String? error, String? place, double? distM}) _checkGeofence(
+    double lat,
+    double lng,
+    double accuracyM,
+  ) {
+    final slack = LocationService.slackFor(
+      accuracyM,
+    ); // หักได้ไม่เกิน maxSlackM
     try {
       final locs = jsonDecode(settings.gpsLocationsJson.value) as List;
       final valid = locs.whereType<Map>().where((l) {
-        final la = (l['lat'] as num?)?.toDouble() ?? 0, ln = (l['lng'] as num?)?.toDouble() ?? 0;
+        final la = (l['lat'] as num?)?.toDouble() ?? 0,
+            ln = (l['lng'] as num?)?.toDouble() ?? 0;
         final r = (l['radius_m'] as num?)?.toDouble() ?? 0;
         return r > 0 && (la != 0 || ln != 0);
       }).toList();
@@ -941,7 +1055,12 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
         Map? inside, nearest;
         double insideD = double.infinity, nearestD = double.infinity;
         for (final l in valid) {
-          final d = Geolocator.distanceBetween((l['lat'] as num).toDouble(), (l['lng'] as num).toDouble(), lat, lng);
+          final d = Geolocator.distanceBetween(
+            (l['lat'] as num).toDouble(),
+            (l['lng'] as num).toDouble(),
+            lat,
+            lng,
+          );
           if (d - slack <= (l['radius_m'] as num).toDouble() && d < insideD) {
             inside = l;
             insideD = d;
@@ -951,15 +1070,21 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
             nearestD = d;
           }
         }
-        if (inside != null) return (error: null, place: _fenceName(inside), distM: insideD);
+        if (inside != null)
+          return (error: null, place: _fenceName(inside), distM: insideD);
         return (
-          error: 'อยู่นอกพื้นที่ที่กำหนด (ห่าง${_fenceName(nearest)} ${nearestD.round()} ม.)',
+          error:
+              'อยู่นอกพื้นที่ที่กำหนด (ห่าง${_fenceName(nearest)} ${nearestD.round()} ม.)',
           place: _fenceName(nearest),
           distM: nearestD,
         );
       }
     } catch (_) {}
-    return (error: null, place: null, distM: null); // ไม่มีจุด/ข้อมูลเพี้ยน = ไม่จำกัดพื้นที่
+    return (
+      error: null,
+      place: null,
+      distM: null,
+    ); // ไม่มีจุด/ข้อมูลเพี้ยน = ไม่จำกัดพื้นที่
   }
 
   static String _fenceName(Map? l) {
@@ -983,17 +1108,25 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  String _successMessage(MatchResult emp, String? type, DoorEnrollResponse enroll) {
+  String _successMessage(
+    MatchResult emp,
+    String? type,
+    DoorEnrollResponse enroll,
+  ) {
     final action = switch (type) {
       'I' => 'เข้างาน',
       'O' => 'ออกงาน',
       _ => 'บันทึกเวลา',
     };
     // ไม่โชว์ emp_id (อ่อนไหว)
-    final greet = (emp.name != null && emp.name!.isNotEmpty) ? 'สวัสดี ${emp.name}\n' : '';
+    final greet = (emp.name != null && emp.name!.isNotEmpty)
+        ? 'สวัสดี ${emp.name}\n'
+        : '';
     // สถานะจากเซิร์ฟเวอร์ (เทียบเวลาเวรแล้ว) — สาย/ออกก่อน โชว์จำนวนนาทีด้วย
     final d = enroll.diffMinute ?? 0;
-    final note = (enroll.isLate || enroll.isEarlyOut) && d > 0 ? '\n${enroll.statusName} $d นาที' : '';
+    final note = (enroll.isLate || enroll.isEarlyOut) && d > 0
+        ? '\n${enroll.statusName} $d นาที'
+        : '';
     // ควบเวร: บอกด้วยว่าระบบปิดเวรก่อนหน้าให้แล้ว
     final auto = enroll.autoOutTime != null
         ? '\nลงเวลาออกเวร${enroll.autoOutShiftName ?? ''} ${enroll.autoOutTime} ให้อัตโนมัติ'
@@ -1003,17 +1136,34 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
 
   /// บันทึกลง CheckinService (การ์ดวันนี้) — ใช้ inOutType จาก backend เป็นหลัก, fallback enrollType
   /// ปิด session เวรเก่าในการ์ดวันนี้ ตามที่เซิร์ฟเวอร์สแตมป์ให้ (ออกครบเวลา — ไม่ใช่ออกก่อน)
-  Future<void> _closeAutoOut(DoorEnrollResponse enroll, List<EmpShift> shifts, String? matchedAt) async {
+  Future<void> _closeAutoOut(
+    DoorEnrollResponse enroll,
+    List<EmpShift> shifts,
+    String? matchedAt,
+  ) async {
     Shift? old;
     for (final s in shifts) {
       if (s.id == enroll.autoOutShiftId) {
-        old = Shift(id: s.id, name: s.name, timeStart: s.timeStart, timeEnd: s.timeEnd);
+        old = Shift(
+          id: s.id,
+          name: s.name,
+          timeStart: s.timeStart,
+          timeEnd: s.timeEnd,
+        );
         break;
       }
     }
     // เวลาออก = เวลาเลิกเวรเก่า (วันเดียวกับที่สแกน) — ระบบลงให้ (autoOut)
-    final day = (matchedAt ?? DateTime.now().toIso8601String()).substring(0, 10);
-    await _checkin.recordOut(old, '${day}T${enroll.autoOutTime}:00', earlyMin: 0, autoOut: true);
+    final day = (matchedAt ?? DateTime.now().toIso8601String()).substring(
+      0,
+      10,
+    );
+    await _checkin.recordOut(
+      old,
+      '${day}T${enroll.autoOutTime}:00',
+      earlyMin: 0,
+      autoOut: true,
+    );
   }
 
   Future<void> _recordToday(
@@ -1028,7 +1178,12 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
     Shift? chosen;
     for (final s in shifts) {
       if (s.id == shiftId) {
-        chosen = Shift(id: s.id, name: s.name, timeStart: s.timeStart, timeEnd: s.timeEnd);
+        chosen = Shift(
+          id: s.id,
+          name: s.name,
+          timeStart: s.timeStart,
+          timeEnd: s.timeEnd,
+        );
         break;
       }
     }
@@ -1044,7 +1199,9 @@ class FaceScanController extends GetxController with WidgetsBindingObserver {
   Future<String> _compressToBase64(List<int> bytes) async {
     final decoded = img.decodeImage(Uint8List.fromList(bytes));
     if (decoded == null) return base64Encode(bytes);
-    final resized = decoded.width > 480 ? img.copyResize(decoded, width: 480) : decoded;
+    final resized = decoded.width > 480
+        ? img.copyResize(decoded, width: 480)
+        : decoded;
     return base64Encode(img.encodeJpg(resized, quality: 70));
   }
 

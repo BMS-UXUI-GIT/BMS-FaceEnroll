@@ -29,7 +29,11 @@ class _OutOfAreaDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           border: Border.all(color: Nexus.line2),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 36, offset: const Offset(0, 12)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 36,
+              offset: const Offset(0, 12),
+            ),
           ],
         ),
         child: Column(
@@ -39,16 +43,30 @@ class _OutOfAreaDialog extends StatelessWidget {
               width: 72,
               height: 72,
               padding: const EdgeInsets.all(1),
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.amber.withValues(alpha: 0.4)),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Nexus.amber.withValues(alpha: 0.4),
+              ),
               child: Container(
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.amber.withValues(alpha: 0.12)),
-                child: const Icon(PhosphorIconsRegular.mapPinArea, color: Nexus.amber, size: 40),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Nexus.amber.withValues(alpha: 0.12),
+                ),
+                child: const Icon(
+                  PhosphorIconsRegular.mapPinArea,
+                  color: Nexus.amber,
+                  size: 40,
+                ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'อยู่นอกพื้นที่ลงเวลา',
-              style: Nexus.tech(size: 19, weight: FontWeight.w700, color: Nexus.amber),
+              style: Nexus.tech(
+                size: 19,
+                weight: FontWeight.w700,
+                color: Nexus.amber,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
@@ -77,7 +95,11 @@ class _OutOfAreaDialog extends StatelessWidget {
                 ),
                 child: Text(
                   'ปิด',
-                  style: Nexus.tech(size: 15, weight: FontWeight.w700, color: Nexus.amber),
+                  style: Nexus.tech(
+                    size: 15,
+                    weight: FontWeight.w700,
+                    color: Nexus.amber,
+                  ),
                 ),
               ),
             ),

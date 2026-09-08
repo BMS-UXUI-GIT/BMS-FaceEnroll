@@ -13,7 +13,8 @@ class SettingsService extends GetxService {
 
   // ---- โรงพยาบาล ----
   final hcode = ''.obs;
-  final hospitalName = ''.obs; // ชื่อ รพ. ที่เลือก (เก็บไว้โชว์ในแอป — คู่กับ hcode)
+  final hospitalName =
+      ''.obs; // ชื่อ รพ. ที่เลือก (เก็บไว้โชว์ในแอป — คู่กับ hcode)
 
   // ---- session พนักงานที่ login (HOSxP) ----
   final isLoggedIn = false.obs;
@@ -56,7 +57,8 @@ class SettingsService extends GetxService {
   final pinMaxAttempts = 5.obs;
   final pinLockSeconds = 60.obs;
   final pinIdleMinutes = 5.obs;
-  final pinUnlockAt = ''.obs; // timestamp ล่าสุดที่ admin กดปลดล็อคจาก dashboard
+  final pinUnlockAt =
+      ''.obs; // timestamp ล่าสุดที่ admin กดปลดล็อคจาก dashboard
 
   // ---- แจ้งเตือน (แยกช่องทาง) ----
   final bmsNotiEnabled = false.obs;
@@ -88,7 +90,10 @@ class SettingsService extends GetxService {
     staffName.value = p.getString('staffName') ?? '';
     loginName.value = p.getString('loginName') ?? '';
     throttlerMs.value = p.getInt('throttlerMs') ?? 300;
-    minFaceWidthPercent.value = (p.getInt('minFaceWidthPercent') ?? 30).clamp(10, 90);
+    minFaceWidthPercent.value = (p.getInt('minFaceWidthPercent') ?? 30).clamp(
+      10,
+      90,
+    );
     requestTimeoutMs.value = (p.getInt('requestTimeoutMs') ?? 15000).clamp(
       10000,
       30000,
@@ -97,12 +102,19 @@ class SettingsService extends GetxService {
     showBattery.value = p.getBool('showBattery') ?? false;
     keepScreenOn.value = p.getBool('keepScreenOn') ?? true;
     fillLight.value = p.getBool('fillLight') ?? false;
-    isEnableLivenessDetection.value = p.getBool('isEnableLivenessDetection') ?? false;
-    livenessRandomCount.value = (p.getInt('livenessRandomCount') ?? 2).clamp(1, 5);
-    selectedLivenessType.value = p.getString('selectedLivenessType') ?? 'random';
+    isEnableLivenessDetection.value =
+        p.getBool('isEnableLivenessDetection') ?? false;
+    livenessRandomCount.value = (p.getInt('livenessRandomCount') ?? 2).clamp(
+      1,
+      5,
+    );
+    selectedLivenessType.value =
+        p.getString('selectedLivenessType') ?? 'random';
     isEnableConfirmPopup.value = p.getBool('isEnableConfirmPopup') ?? false;
-    isEnableSmileConfirmation.value = p.getBool('isEnableSmileConfirmation') ?? false;
-    isEnableLocationEnrolling.value = p.getBool('isEnableLocationEnrolling') ?? true;
+    isEnableSmileConfirmation.value =
+        p.getBool('isEnableSmileConfirmation') ?? false;
+    isEnableLocationEnrolling.value =
+        p.getBool('isEnableLocationEnrolling') ?? true;
     livenessYawDeg.value = p.getDouble('livenessYawDeg') ?? 20.0;
     livenessPitchDeg.value = p.getDouble('livenessPitchDeg') ?? 12.0;
     livenessEyeOpen.value = p.getDouble('livenessEyeOpen') ?? 0.8;
@@ -144,12 +156,21 @@ class SettingsService extends GetxService {
     await p.setBool('showBattery', showBattery.value);
     await p.setBool('keepScreenOn', keepScreenOn.value);
     await p.setBool('fillLight', fillLight.value);
-    await p.setBool('isEnableLivenessDetection', isEnableLivenessDetection.value);
+    await p.setBool(
+      'isEnableLivenessDetection',
+      isEnableLivenessDetection.value,
+    );
     await p.setInt('livenessRandomCount', livenessRandomCount.value);
     await p.setString('selectedLivenessType', selectedLivenessType.value);
     await p.setBool('isEnableConfirmPopup', isEnableConfirmPopup.value);
-    await p.setBool('isEnableSmileConfirmation', isEnableSmileConfirmation.value);
-    await p.setBool('isEnableLocationEnrolling', isEnableLocationEnrolling.value);
+    await p.setBool(
+      'isEnableSmileConfirmation',
+      isEnableSmileConfirmation.value,
+    );
+    await p.setBool(
+      'isEnableLocationEnrolling',
+      isEnableLocationEnrolling.value,
+    );
     await p.setBool('bmsNotiEnabled', bmsNotiEnabled.value);
     await p.setString('notiToken', notiToken.value.trim());
     await p.setBool('telegramNotiEnabled', telegramNotiEnabled.value);
@@ -167,19 +188,34 @@ class SettingsService extends GetxService {
     bool b(String k, bool def) => pol[k] as bool? ?? def;
     String s(String k, String def) => pol[k]?.toString() ?? def;
 
-    isEnableLivenessDetection.value = b('liveness_enabled', isEnableLivenessDetection.value);
-    livenessRandomCount.value = i('liveness_count', livenessRandomCount.value).clamp(1, 5);
+    isEnableLivenessDetection.value = b(
+      'liveness_enabled',
+      isEnableLivenessDetection.value,
+    );
+    livenessRandomCount.value = i(
+      'liveness_count',
+      livenessRandomCount.value,
+    ).clamp(1, 5);
     selectedLivenessType.value = s('liveness_type', selectedLivenessType.value);
     livenessYawDeg.value = d('liveness_yaw_deg', livenessYawDeg.value);
     livenessPitchDeg.value = d('liveness_pitch_deg', livenessPitchDeg.value);
     livenessEyeOpen.value = d('liveness_eye_open', livenessEyeOpen.value);
     livenessSmile.value = d('liveness_smile', livenessSmile.value);
-    isEnableLocationEnrolling.value = b('gps_required', isEnableLocationEnrolling.value);
+    isEnableLocationEnrolling.value = b(
+      'gps_required',
+      isEnableLocationEnrolling.value,
+    );
     final locs = pol['gps_locations'];
     if (locs is List) gpsLocationsJson.value = jsonEncode(locs);
-    isEnableSmileConfirmation.value = b('smile_confirm', isEnableSmileConfirmation.value);
+    isEnableSmileConfirmation.value = b(
+      'smile_confirm',
+      isEnableSmileConfirmation.value,
+    );
     isEnableConfirmPopup.value = b('confirm_popup', isEnableConfirmPopup.value);
-    minFaceWidthPercent.value = i('min_face_width', minFaceWidthPercent.value).clamp(10, 90);
+    minFaceWidthPercent.value = i(
+      'min_face_width',
+      minFaceWidthPercent.value,
+    ).clamp(10, 90);
     bmsNotiEnabled.value = b('bms_noti', bmsNotiEnabled.value);
     final tok = s('noti_token', '');
     if (tok.isNotEmpty) notiToken.value = tok;
@@ -209,7 +245,11 @@ class SettingsService extends GetxService {
   }
 
   /// บันทึก session หลัง login สำเร็จ
-  Future<void> setSession({required String empId, required String name, required String loginName}) async {
+  Future<void> setSession({
+    required String empId,
+    required String name,
+    required String loginName,
+  }) async {
     this.empId.value = empId;
     staffName.value = name;
     this.loginName.value = loginName;

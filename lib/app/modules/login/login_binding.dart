@@ -10,7 +10,10 @@ class LoginBinding extends Bindings {
   void dependencies() {
     // fenix: true = สร้างใหม่ถ้าโดน dispose (release lifecycle จัด dependency เข้มกว่า debug
     // — เดิมไม่มี fenix พอปิด bottom-sheet เลือกโรง ApiService โดนทิ้ง → login หาไม่เจอ)
-    Get.lazyPut<ApiService>(() => buildApiService(Get.find<SettingsService>()), fenix: true);
+    Get.lazyPut<ApiService>(
+      () => buildApiService(Get.find<SettingsService>()),
+      fenix: true,
+    );
     Get.lazyPut(() => LoginController());
   }
 }

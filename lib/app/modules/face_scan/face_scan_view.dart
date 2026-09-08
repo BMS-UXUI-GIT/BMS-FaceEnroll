@@ -14,7 +14,8 @@ class FaceScanView extends GetView<FaceScanController> {
   const FaceScanView({super.key});
 
   /// ขนาดกรอบวงรี — fix 80% ของความกว้างจอ (ไม่ผูกกับตั้งค่า dashboard)
-  double _ovalW(BuildContext context) => MediaQuery.of(context).size.width * 0.80;
+  double _ovalW(BuildContext context) =>
+      MediaQuery.of(context).size.width * 0.80;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,8 @@ class FaceScanView extends GetView<FaceScanController> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            if (controller.camera != null && controller.camera!.value.isInitialized)
+            if (controller.camera != null &&
+                controller.camera!.value.isInitialized)
               FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
@@ -52,7 +54,10 @@ class FaceScanView extends GetView<FaceScanController> {
                     Positioned.fill(
                       child: IgnorePointer(
                         child: CustomPaint(
-                          painter: _FillOverlayPainter(ovalW: _ovalW(context), ovalH: _ovalW(context) * 1.25),
+                          painter: _FillOverlayPainter(
+                            ovalW: _ovalW(context),
+                            ovalH: _ovalW(context) * 1.25,
+                          ),
                         ),
                       ),
                     ),
@@ -64,7 +69,10 @@ class FaceScanView extends GetView<FaceScanController> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _RoundIconButton(icon: PhosphorIconsRegular.arrowLeft, onTap: Get.back),
+                          _RoundIconButton(
+                            icon: PhosphorIconsRegular.arrowLeft,
+                            onTap: Get.back,
+                          ),
                           _ReadinessChip(controller: controller),
                         ],
                       ),
@@ -72,7 +80,9 @@ class FaceScanView extends GetView<FaceScanController> {
                   ),
 
                   if (scanReady &&
-                      (phase == ScanPhase.scanning || phase == ScanPhase.processing || controller.livenessActive.value))
+                      (phase == ScanPhase.scanning ||
+                          phase == ScanPhase.processing ||
+                          controller.livenessActive.value))
                     Align(
                       // วงรีใหญ่ขึ้น (80% ของจอ) — ป้ายสถานะขยับขึ้นไม่ให้ทับวง
                       alignment: const Alignment(0, -0.78),
@@ -99,45 +109,70 @@ class FaceScanView extends GetView<FaceScanController> {
                     ),
 
                   // นอกพื้นที่ลงเวลา — บล็อกสแกน โชว์การ์ดบอกเหตุ + ปุ่มตรวจใหม่
-                  if (locBlocked && phase == ScanPhase.scanning) Center(child: _OutOfAreaCard(controller: controller)),
+                  if (locBlocked && phase == ScanPhase.scanning)
+                    Center(child: _OutOfAreaCard(controller: controller)),
 
                   // กำลังตรวจตำแหน่งรอบแรก (ยังไม่รู้ว่าอยู่ในเขตไหม)
                   if (locChecking && !locBlocked && phase == ScanPhase.scanning)
-                    Align(alignment: const Alignment(0, -0.4), child: _CheckingLocationPill()),
+                    Align(
+                      alignment: const Alignment(0, -0.4),
+                      child: _CheckingLocationPill(),
+                    ),
 
                   if (controller.paused.value)
-                    const Center(child: Icon(PhosphorIconsRegular.pauseCircle, color: Colors.white70, size: 84)),
+                    const Center(
+                      child: Icon(
+                        PhosphorIconsRegular.pauseCircle,
+                        color: Colors.white70,
+                        size: 84,
+                      ),
+                    ),
 
                   if (phase == ScanPhase.processing)
                     Center(
                       child: SizedBox(
                         width: 60,
                         height: 60,
-                        child: CircularProgressIndicator(color: Nexus.cyan, strokeWidth: 3),
+                        child: CircularProgressIndicator(
+                          color: Nexus.cyan,
+                          strokeWidth: 3,
+                        ),
                       ),
                     ),
 
-                  if (phase == ScanPhase.success && controller.matched.value != null)
+                  if (phase == ScanPhase.success &&
+                      controller.matched.value != null)
                     Center(child: _SuccessCard(controller: controller)),
 
                   if (phase == ScanPhase.notFound || phase == ScanPhase.error)
                     Center(
-                      child: _ResultCard(kind: controller.resultKind.value, text: controller.message.value),
+                      child: _ResultCard(
+                        kind: controller.resultKind.value,
+                        text: controller.message.value,
+                      ),
                     ),
 
-                  if (scanReady && (phase == ScanPhase.scanning || controller.livenessActive.value))
+                  if (scanReady &&
+                      (phase == ScanPhase.scanning ||
+                          controller.livenessActive.value))
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                         child: Row(
                           children: [
-                            Expanded(child: _FillLightButton(controller: controller)),
+                            Expanded(
+                              child: _FillLightButton(controller: controller),
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: controller.paused.value
-                                  ? _ResumeScanButton(onTap: controller.resumeScan)
-                                  : _StopScanButton(onTap: controller.pauseScan),
+                                  ? _ResumeScanButton(
+                                      onTap: controller.resumeScan,
+                                    )
+                                  : _StopScanButton(
+                                      onTap: controller.pauseScan,
+                                    ),
                             ),
                           ],
                         ),
@@ -183,7 +218,9 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     if (text.isEmpty) return const SizedBox.shrink();
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.82,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         decoration: BoxDecoration(
@@ -194,7 +231,11 @@ class _StatusPill extends StatelessWidget {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: Nexus.body(size: 16, weight: FontWeight.w600, color: Nexus.ink),
+          style: Nexus.body(
+            size: 16,
+            weight: FontWeight.w600,
+            color: Nexus.ink,
+          ),
         ),
       ),
     );
@@ -217,16 +258,26 @@ class _FillLightButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: on ? const Color(0x33FFD86A) : const Color(0x73142840),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: on ? const Color(0xFFFFD86A) : Nexus.line),
+            border: Border.all(
+              color: on ? const Color(0xFFFFD86A) : Nexus.line,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(PhosphorIconsRegular.sunDim, size: 17, color: Color(0xFFFFD86A)),
+              const Icon(
+                PhosphorIconsRegular.sunDim,
+                size: 17,
+                color: Color(0xFFFFD86A),
+              ),
               const SizedBox(width: 7),
               Text(
                 on ? 'ปิดไฟ' : 'เพิ่มแสง',
-                style: Nexus.body(size: 13, weight: FontWeight.w600, color: Nexus.ink),
+                style: Nexus.body(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: Nexus.ink,
+                ),
               ),
             ],
           ),
@@ -246,8 +297,15 @@ class _FillOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     canvas.saveLayer(rect, Paint());
-    canvas.drawRect(rect, Paint()..color = const Color(0x6BFFFFFF)); // ขาว ~42% (มองทะลุได้นิดหน่อย)
-    final oval = Rect.fromCenter(center: rect.center, width: ovalW, height: ovalH);
+    canvas.drawRect(
+      rect,
+      Paint()..color = const Color(0x6BFFFFFF),
+    ); // ขาว ~42% (มองทะลุได้นิดหน่อย)
+    final oval = Rect.fromCenter(
+      center: rect.center,
+      width: ovalW,
+      height: ovalH,
+    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(oval, Radius.elliptical(ovalW / 2, ovalH / 2)),
       Paint()..blendMode = BlendMode.clear,
@@ -277,7 +335,10 @@ class _RoundIconButton extends StatelessWidget {
           decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.line),
           child: Container(
             padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0x80081420)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0x80081420),
+            ),
             child: Icon(icon, color: Nexus.sub, size: 22),
           ),
         ),
@@ -309,7 +370,11 @@ class _StopScanButton extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'หยุดสแกน',
-              style: Nexus.body(size: 13, weight: FontWeight.w600, color: Nexus.red),
+              style: Nexus.body(
+                size: 13,
+                weight: FontWeight.w600,
+                color: Nexus.red,
+              ),
             ),
           ],
         ),
@@ -341,7 +406,11 @@ class _ResumeScanButton extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'สแกนต่อ',
-              style: Nexus.tech(size: 14, weight: FontWeight.w700, color: Nexus.on),
+              style: Nexus.tech(
+                size: 14,
+                weight: FontWeight.w700,
+                color: Nexus.on,
+              ),
             ),
           ],
         ),
@@ -362,7 +431,9 @@ class _SuccessCard extends StatelessWidget {
       'O' => ('ออกงาน', Nexus.amber, PhosphorIconsRegular.signOut),
       _ => ('บันทึกเวลา', Nexus.cyan, PhosphorIconsRegular.clock),
     };
-    final subtitle = controller.matchedPosition.value.isNotEmpty ? controller.matchedPosition.value : 'พนักงาน';
+    final subtitle = controller.matchedPosition.value.isNotEmpty
+        ? controller.matchedPosition.value
+        : 'พนักงาน';
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 28),
       padding: const EdgeInsets.fromLTRB(28, 30, 28, 26),
@@ -379,17 +450,31 @@ class _SuccessCard extends StatelessWidget {
             width: 88,
             height: 88,
             padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Nexus.cyan,
+            ),
             child: Container(
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan.withValues(alpha: 0.12)),
-              child: Icon(PhosphorIconsRegular.check, color: Nexus.cyan, size: 50),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Nexus.cyan.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                PhosphorIconsRegular.check,
+                color: Nexus.cyan,
+                size: 50,
+              ),
             ),
           ),
           const SizedBox(height: 18),
           Text(
             emp.name ?? 'พนักงาน',
             textAlign: TextAlign.center,
-            style: Nexus.tech(size: 24, weight: FontWeight.w700, color: Nexus.ink),
+            style: Nexus.tech(
+              size: 24,
+              weight: FontWeight.w700,
+              color: Nexus.ink,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -414,7 +499,11 @@ class _SuccessCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   badge,
-                  style: Nexus.tech(size: 18, weight: FontWeight.w700, color: badgeColor),
+                  style: Nexus.tech(
+                    size: 18,
+                    weight: FontWeight.w700,
+                    color: badgeColor,
+                  ),
                 ),
               ],
             ),
@@ -427,7 +516,11 @@ class _SuccessCard extends StatelessWidget {
 
 /// กรอบวงรีกลางจอ — cyan, หนา+เขียวเมื่อจับหน้าได้ (ขนาดตาม "ความใกล้ตอนสแกน" ของโรง)
 class _FaceGuide extends StatelessWidget {
-  const _FaceGuide({this.detected = false, this.width = 240, this.height = 300});
+  const _FaceGuide({
+    this.detected = false,
+    this.width = 240,
+    this.height = 300,
+  });
   final bool detected;
   final double width;
   final double height;
@@ -449,14 +542,23 @@ class _FaceGuide extends StatelessWidget {
                   color: color.withValues(alpha: detected ? 1 : 0.7),
                   width: detected ? 5 : 3,
                 ),
-                borderRadius: BorderRadius.all(Radius.elliptical(width / 2, height / 2)),
+                borderRadius: BorderRadius.all(
+                  Radius.elliptical(width / 2, height / 2),
+                ),
                 boxShadow: detected
-                    ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 30)]
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.3),
+                          blurRadius: 30,
+                        ),
+                      ]
                     : Nexus.glow(0.2, 30),
               ),
             ),
             // กรอบมุม (corner brackets) ตามดีไซน์ NEXUS
-            Positioned.fill(child: CustomPaint(painter: _BracketPainter(color))),
+            Positioned.fill(
+              child: CustomPaint(painter: _BracketPainter(color)),
+            ),
           ],
         ),
       ),
@@ -520,13 +622,41 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (title, icon, color) = switch (kind) {
-      ScanResultKind.notFound => ('ไม่พบใบหน้านี้', PhosphorIconsRegular.magnifyingGlass, Nexus.red),
-      ScanResultKind.canceled => ('ยกเลิกแล้ว', PhosphorIconsRegular.minusCircle, Nexus.muted),
-      ScanResultKind.rejected => ('ลงเวลาไม่ได้', PhosphorIconsRegular.prohibit, Nexus.amber),
-      ScanResultKind.gpsError => ('หาตำแหน่งไม่ได้', PhosphorIconsRegular.gpsSlash, Nexus.amber),
-      ScanResultKind.incomplete => ('ข้อมูลไม่สมบูรณ์', PhosphorIconsRegular.userMinus, Nexus.amber),
-      ScanResultKind.connError => ('เชื่อมต่อไม่ได้', PhosphorIconsRegular.wifiSlash, Nexus.amber),
-      ScanResultKind.cameraError => ('กล้องมีปัญหา', PhosphorIconsRegular.videoCameraSlash, Nexus.red),
+      ScanResultKind.notFound => (
+        'ไม่พบใบหน้านี้',
+        PhosphorIconsRegular.magnifyingGlass,
+        Nexus.red,
+      ),
+      ScanResultKind.canceled => (
+        'ยกเลิกแล้ว',
+        PhosphorIconsRegular.minusCircle,
+        Nexus.muted,
+      ),
+      ScanResultKind.rejected => (
+        'ลงเวลาไม่ได้',
+        PhosphorIconsRegular.prohibit,
+        Nexus.amber,
+      ),
+      ScanResultKind.gpsError => (
+        'หาตำแหน่งไม่ได้',
+        PhosphorIconsRegular.gpsSlash,
+        Nexus.amber,
+      ),
+      ScanResultKind.incomplete => (
+        'ข้อมูลไม่สมบูรณ์',
+        PhosphorIconsRegular.userMinus,
+        Nexus.amber,
+      ),
+      ScanResultKind.connError => (
+        'เชื่อมต่อไม่ได้',
+        PhosphorIconsRegular.wifiSlash,
+        Nexus.amber,
+      ),
+      ScanResultKind.cameraError => (
+        'กล้องมีปัญหา',
+        PhosphorIconsRegular.videoCameraSlash,
+        Nexus.red,
+      ),
     };
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -535,7 +665,13 @@ class _ResultCard extends StatelessWidget {
         color: Nexus.sheet,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Nexus.line2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 36, offset: const Offset(0, 12))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 36,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -544,9 +680,15 @@ class _ResultCard extends StatelessWidget {
             width: 80,
             height: 80,
             padding: const EdgeInsets.all(1),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.4)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.4),
+            ),
             child: Container(
-              decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.12)),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.12),
+              ),
               child: Icon(icon, color: color, size: 44),
             ),
           ),
@@ -580,7 +722,13 @@ class _OutOfAreaCard extends StatelessWidget {
         color: Nexus.sheet,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Nexus.line2),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 36, offset: const Offset(0, 12))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 36,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -589,16 +737,30 @@ class _OutOfAreaCard extends StatelessWidget {
             width: 80,
             height: 80,
             padding: const EdgeInsets.all(1),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.amber.withValues(alpha: 0.4)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Nexus.amber.withValues(alpha: 0.4),
+            ),
             child: Container(
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.amber.withValues(alpha: 0.12)),
-              child: Icon(PhosphorIconsRegular.gpsSlash, color: Nexus.amber, size: 44),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Nexus.amber.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                PhosphorIconsRegular.gpsSlash,
+                color: Nexus.amber,
+                size: 44,
+              ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
             'อยู่นอกพื้นที่ลงเวลา',
-            style: Nexus.tech(size: 20, weight: FontWeight.w700, color: Nexus.amber),
+            style: Nexus.tech(
+              size: 20,
+              weight: FontWeight.w700,
+              color: Nexus.amber,
+            ),
           ),
           const SizedBox(height: 6),
           Obx(
@@ -633,14 +795,25 @@ class _OutOfAreaCard extends StatelessWidget {
                         ? SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Nexus.on),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Nexus.on,
+                            ),
                           )
-                        : Icon(PhosphorIconsRegular.gpsFix, size: 18, color: Nexus.on),
+                        : Icon(
+                            PhosphorIconsRegular.gpsFix,
+                            size: 18,
+                            color: Nexus.on,
+                          ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'ตรวจตำแหน่งอีกครั้ง',
-                    style: Nexus.tech(size: 14, weight: FontWeight.w700, color: Nexus.on),
+                    style: Nexus.tech(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: Nexus.on,
+                    ),
                   ),
                 ],
               ),
@@ -666,11 +839,19 @@ class _CheckingLocationPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Nexus.cyan)),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Nexus.cyan),
+          ),
           const SizedBox(width: 10),
           Text(
             'กำลังตรวจตำแหน่ง…',
-            style: Nexus.body(size: 14, weight: FontWeight.w600, color: Nexus.ink),
+            style: Nexus.body(
+              size: 14,
+              weight: FontWeight.w600,
+              color: Nexus.ink,
+            ),
           ),
         ],
       ),
@@ -708,15 +889,28 @@ class _ReadinessChip extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: dot,
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: dot.withValues(alpha: 0.6), blurRadius: 8)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: dot.withValues(alpha: 0.6),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 7),
                 Text(
                   controller.readinessLabel,
-                  style: Nexus.body(size: 13, weight: FontWeight.w700, color: Nexus.sub),
+                  style: Nexus.body(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: Nexus.sub,
+                  ),
                 ),
-                const Icon(PhosphorIconsRegular.caretDown, color: Nexus.muted, size: 18),
+                const Icon(
+                  PhosphorIconsRegular.caretDown,
+                  color: Nexus.muted,
+                  size: 18,
+                ),
               ],
             ),
           ),
@@ -745,12 +939,19 @@ class _ReadinessChip extends StatelessWidget {
                   width: 42,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(color: const Color(0xFF23415F), borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF23415F),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               Text(
                 'สถานะเครื่อง',
-                style: Nexus.tech(size: 18, weight: FontWeight.w700, color: Nexus.ink),
+                style: Nexus.tech(
+                  size: 18,
+                  weight: FontWeight.w700,
+                  color: Nexus.ink,
+                ),
               ),
               const SizedBox(height: 10),
               _StatusRow(
@@ -764,7 +965,9 @@ class _ReadinessChip extends StatelessWidget {
                 label: 'GPS',
                 value: !loc
                     ? 'ปิดอยู่'
-                    : (controller.gpsReady.value ? (controller.gpsCoords.value ?? 'กำลังหาตำแหน่ง...') : 'ไม่พร้อม'),
+                    : (controller.gpsReady.value
+                          ? (controller.gpsCoords.value ?? 'กำลังหาตำแหน่ง...')
+                          : 'ไม่พร้อม'),
                 ok: !loc ? null : controller.gpsReady.value,
               ),
               // ความคลาดของ fix ล่าสุด — ±X ม. (ยิ่งน้อยยิ่งแม่น) ; ใช้วินิจฉัยเคสนอกพื้นที่
@@ -773,13 +976,21 @@ class _ReadinessChip extends StatelessWidget {
                 label: 'Accuracy',
                 value: !loc
                     ? '—'
-                    : (controller.gpsAccuracyM.value != null ? '±${controller.gpsAccuracyM.value!.round()} ม.' : '—'),
+                    : (controller.gpsAccuracyM.value != null
+                          ? '±${controller.gpsAccuracyM.value!.round()} ม.'
+                          : '—'),
               ),
-              _StatusRow(icon: PhosphorIconsRegular.wifiHigh, label: 'Wi-Fi', value: controller.wifiName.value ?? '—'),
+              _StatusRow(
+                icon: PhosphorIconsRegular.wifiHigh,
+                label: 'Wi-Fi',
+                value: controller.wifiName.value ?? '—',
+              ),
               _StatusRow(
                 icon: PhosphorIconsRegular.batteryFull,
                 label: 'แบตเตอรี่',
-                value: controller.batteryLevel.value != null ? '${controller.batteryLevel.value}%' : '—',
+                value: controller.batteryLevel.value != null
+                    ? '${controller.batteryLevel.value}%'
+                    : '—',
               ),
             ],
           );
@@ -792,7 +1003,12 @@ class _ReadinessChip extends StatelessWidget {
 
 /// แถวสถานะใน sheet — ok: null=เทา / true=เขียว / false=แดง
 class _StatusRow extends StatelessWidget {
-  const _StatusRow({required this.icon, required this.label, required this.value, this.ok});
+  const _StatusRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.ok,
+  });
   final IconData icon;
   final String label;
   final String value;
@@ -813,7 +1029,11 @@ class _StatusRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: Nexus.tech(size: 14, weight: FontWeight.w700, color: color),
+              style: Nexus.tech(
+                size: 14,
+                weight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],

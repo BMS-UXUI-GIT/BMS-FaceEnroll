@@ -5,7 +5,12 @@ import '../../../theme/nexus.dart';
 
 /// ป้ายสั่งท่า liveness กลางจอ + จุดบอกความคืบหน้า (ธีม NEXUS)
 class LivenessOverlay extends StatelessWidget {
-  const LivenessOverlay({super.key, required this.instruction, required this.completed, required this.total});
+  const LivenessOverlay({
+    super.key,
+    required this.instruction,
+    required this.completed,
+    required this.total,
+  });
 
   final String instruction;
   final int completed;
@@ -31,7 +36,11 @@ class LivenessOverlay extends StatelessWidget {
             Text(
               instruction,
               textAlign: TextAlign.center,
-              style: Nexus.body(size: 25, weight: FontWeight.w700, color: Nexus.ink),
+              style: Nexus.body(
+                size: 25,
+                weight: FontWeight.w700,
+                color: Nexus.ink,
+              ),
             ),
             const SizedBox(height: 18),
             Row(
@@ -45,7 +54,14 @@ class LivenessOverlay extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: done ? Nexus.cyan : const Color(0xFF2A4D72),
-                    boxShadow: done ? [BoxShadow(color: Nexus.cyan.withValues(alpha: 0.6), blurRadius: 10)] : null,
+                    boxShadow: done
+                        ? [
+                            BoxShadow(
+                              color: Nexus.cyan.withValues(alpha: 0.6),
+                              blurRadius: 10,
+                            ),
+                          ]
+                        : null,
                   ),
                 );
               }),

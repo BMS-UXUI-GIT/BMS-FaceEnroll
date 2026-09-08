@@ -15,7 +15,8 @@ class SetPinController extends GetxController {
   final error = ''.obs;
 
   bool get confirming => firstPin.value != null;
-  String get title => confirming ? 'ยืนยัน PIN อีกครั้ง' : 'ตั้ง PIN ${pin.pinLength} หลัก';
+  String get title =>
+      confirming ? 'ยืนยัน PIN อีกครั้ง' : 'ตั้ง PIN ${pin.pinLength} หลัก';
 
   void onKey(String d) {
     if (entered.value.length >= pin.pinLength) return;
@@ -75,21 +76,40 @@ class SetPinView extends GetView<SetPinController> {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Nexus.pLine),
                     ),
-                    child: Icon(PhosphorIconsRegular.lock, size: 26, color: Nexus.pAccent),
+                    child: Icon(
+                      PhosphorIconsRegular.lock,
+                      size: 26,
+                      color: Nexus.pAccent,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Text(controller.title, style: Nexus.tech(size: 19, weight: FontWeight.w700)),
+                  Text(
+                    controller.title,
+                    style: Nexus.tech(size: 19, weight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 6),
-                  Text('ใช้ปลดล็อกแอปครั้งต่อไป', style: Nexus.body(size: 12, color: Nexus.pMuted)),
+                  Text(
+                    'ใช้ปลดล็อกแอปครั้งต่อไป',
+                    style: Nexus.body(size: 12, color: Nexus.pMuted),
+                  ),
                   const SizedBox(height: 28),
-                  PinDots(length: controller.pin.pinLength, filled: controller.entered.value.length),
+                  PinDots(
+                    length: controller.pin.pinLength,
+                    filled: controller.entered.value.length,
+                  ),
                   const SizedBox(height: 14),
                   SizedBox(
                     height: 22,
-                    child: Text(controller.error.value, style: Nexus.body(size: 13, color: Nexus.pBad)),
+                    child: Text(
+                      controller.error.value,
+                      style: Nexus.body(size: 13, color: Nexus.pBad),
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  PinKeypad(onKey: controller.onKey, onDelete: controller.backspace),
+                  PinKeypad(
+                    onKey: controller.onKey,
+                    onDelete: controller.backspace,
+                  ),
                   const Spacer(),
                   const SizedBox(height: 16),
                 ],

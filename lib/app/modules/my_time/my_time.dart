@@ -23,7 +23,8 @@ class MyTimeController extends GetxController {
   // เดือนที่กำลังดู (วันที่ 1 ของเดือน) — เริ่มที่เดือนปัจจุบัน
   final month = DateTime(DateTime.now().year, DateTime.now().month).obs;
 
-  String get _monthParam => '${month.value.year}-${month.value.month.toString().padLeft(2, '0')}';
+  String get _monthParam =>
+      '${month.value.year}-${month.value.month.toString().padLeft(2, '0')}';
 
   /// เดือนปัจจุบันไหม (ห้ามเลื่อนไปเดือนอนาคต)
   bool get isCurrentMonth {
@@ -62,7 +63,11 @@ class MyTimeController extends GetxController {
     try {
       final att = await _api.myAttendance(month: _monthParam);
       stat.value = (att['stat'] as Map?)?.cast<String, dynamic>();
-      rows.assignAll(((att['rows'] as List?) ?? []).whereType<Map>().map((e) => e.cast<String, dynamic>()));
+      rows.assignAll(
+        ((att['rows'] as List?) ?? []).whereType<Map>().map(
+          (e) => e.cast<String, dynamic>(),
+        ),
+      );
     } catch (e) {
       error.value = 'โหลดข้อมูลไม่ได้ — ตรวจเครือข่ายแล้วลองใหม่';
     } finally {
@@ -103,18 +108,28 @@ class MyTimeView extends GetView<MyTimeController> {
                 child: Row(
                   children: [
                     // เป็นแท็บในโครงหลักแล้ว — ไม่มีปุ่มย้อนกลับ
-                    Text('บันทึกเวลาของฉัน', style: Nexus.tech(size: 17, weight: FontWeight.w700)),
+                    Text(
+                      'บันทึกเวลาของฉัน',
+                      style: Nexus.tech(size: 17, weight: FontWeight.w700),
+                    ),
                     const Spacer(),
                     Obx(
                       () => controller.loading.value
                           ? SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Nexus.pAccent),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Nexus.pAccent,
+                              ),
                             )
                           : Tappable(
                               onTap: controller.refreshAll,
-                              child: Icon(PhosphorIconsRegular.arrowsClockwise, size: 20, color: Nexus.pAccent),
+                              child: Icon(
+                                PhosphorIconsRegular.arrowsClockwise,
+                                size: 20,
+                                color: Nexus.pAccent,
+                              ),
                             ),
                     ),
                   ],
@@ -125,7 +140,10 @@ class MyTimeView extends GetView<MyTimeController> {
                 child: Obx(() {
                   if (controller.error.value.isNotEmpty) {
                     return Center(
-                      child: Text(controller.error.value, style: Nexus.body(size: 13, color: Nexus.pBad)),
+                      child: Text(
+                        controller.error.value,
+                        style: Nexus.body(size: 13, color: Nexus.pBad),
+                      ),
                     );
                   }
                   return ListView(
@@ -138,7 +156,11 @@ class MyTimeView extends GetView<MyTimeController> {
                         padding: const EdgeInsets.only(bottom: 8, top: 4),
                         child: Text(
                           'ประวัติการลงเวลา',
-                          style: Nexus.tech(size: 13.5, weight: FontWeight.w700, color: Nexus.pSub),
+                          style: Nexus.tech(
+                            size: 13.5,
+                            weight: FontWeight.w700,
+                            color: Nexus.pSub,
+                          ),
                         ),
                       ),
                       ..._historyRows(),
@@ -239,22 +261,36 @@ class MyTimeView extends GetView<MyTimeController> {
             // แตะชื่อเดือน = เปิดปฏิทินเลือกเดือน/ปี (กระโดดไกลๆ ได้ ไม่ต้องกดลูกศรทีละเดือน)
             Expanded(
               child: Tappable(
-                onTap: () => Get.dialog(_MonthPickerDialog(selected: m, onPick: controller.setMonth)),
+                onTap: () => Get.dialog(
+                  _MonthPickerDialog(selected: m, onPick: controller.setMonth),
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       thaiMonthYear(m.year, m.month),
-                      style: Nexus.tech(size: 15, weight: FontWeight.w700, color: Nexus.pInk),
+                      style: Nexus.tech(
+                        size: 15,
+                        weight: FontWeight.w700,
+                        color: Nexus.pInk,
+                      ),
                     ),
                     const SizedBox(width: 3),
-                    Icon(PhosphorIconsRegular.caretDown, size: 22, color: Nexus.pSub),
+                    Icon(
+                      PhosphorIconsRegular.caretDown,
+                      size: 22,
+                      color: Nexus.pSub,
+                    ),
                   ],
                 ),
               ),
             ),
             // เดือนปัจจุบัน = จางปุ่มถัดไป (เลื่อนไปอนาคตไม่ได้)
-            arrow(PhosphorIconsRegular.caretRight, controller.nextMonth, !atCurrent),
+            arrow(
+              PhosphorIconsRegular.caretRight,
+              controller.nextMonth,
+              !atCurrent,
+            ),
           ],
         ),
       );
@@ -263,7 +299,12 @@ class MyTimeView extends GetView<MyTimeController> {
 
   List<Widget> _historyRows() {
     if (controller.rows.isEmpty) {
-      return [Text('ไม่มีการลงเวลาในเดือนที่เลือก', style: Nexus.body(size: 12, color: Nexus.pDim))];
+      return [
+        Text(
+          'ไม่มีการลงเวลาในเดือนที่เลือก',
+          style: Nexus.body(size: 12, color: Nexus.pDim),
+        ),
+      ];
     }
     return controller.rows.map((r) {
       final badges = <(String, Color)>[
@@ -284,18 +325,35 @@ class MyTimeView extends GetView<MyTimeController> {
           children: [
             SizedBox(
               width: 82,
-              child: Text(thaiShortDate(r['date'] as String?), style: Nexus.tech(size: 11.5, color: Nexus.pMuted)),
+              child: Text(
+                thaiShortDate(r['date'] as String?),
+                style: Nexus.tech(size: 11.5, color: Nexus.pMuted),
+              ),
             ),
-            Text('เข้า ${r['in']}', style: Nexus.tech(size: 12, color: Nexus.pOk)),
+            Text(
+              'เข้า ${r['in']}',
+              style: Nexus.tech(size: 12, color: Nexus.pOk),
+            ),
             const SizedBox(width: 10),
-            Text('ออก ${r['out']}', style: Nexus.tech(size: 12, color: (r['out'] == '—') ? Nexus.pDim : Nexus.pSub)),
+            Text(
+              'ออก ${r['out']}',
+              style: Nexus.tech(
+                size: 12,
+                color: (r['out'] == '—') ? Nexus.pDim : Nexus.pSub,
+              ),
+            ),
             const Spacer(),
             if (badges.isEmpty)
               Text('ปกติ', style: Nexus.body(size: 11, color: Nexus.pOk))
             else
               Wrap(
                 spacing: 4,
-                children: badges.map((b) => Text(b.$1, style: Nexus.body(size: 11, color: b.$2))).toList(),
+                children: badges
+                    .map(
+                      (b) =>
+                          Text(b.$1, style: Nexus.body(size: 11, color: b.$2)),
+                    )
+                    .toList(),
               ),
           ],
         ),
@@ -341,7 +399,8 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     return Dialog(
-      backgroundColor: Nexus.pSheet, // ทึบ — pPanel โปร่งทำให้ทะลุเห็นข้างหลัง (จาง)
+      backgroundColor:
+          Nexus.pSheet, // ทึบ — pPanel โปร่งทำให้ทะลุเห็นข้างหลัง (จาง)
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: Nexus.pLine),
@@ -355,15 +414,27 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _yearArrow(PhosphorIconsRegular.caretLeft, () => setState(() => _year--), true),
+                _yearArrow(
+                  PhosphorIconsRegular.caretLeft,
+                  () => setState(() => _year--),
+                  true,
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 22),
                   child: Text(
                     '${_year + 543}',
-                    style: Nexus.tech(size: 17, weight: FontWeight.w700, color: Nexus.pInk),
+                    style: Nexus.tech(
+                      size: 17,
+                      weight: FontWeight.w700,
+                      color: Nexus.pInk,
+                    ),
                   ),
                 ),
-                _yearArrow(PhosphorIconsRegular.caretRight, () => setState(() => _year++), _year < now.year),
+                _yearArrow(
+                  PhosphorIconsRegular.caretRight,
+                  () => setState(() => _year++),
+                  _year < now.year,
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -410,7 +481,9 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: sel ? Nexus.pAccent.withValues(alpha: 0.15) : Colors.transparent,
+          color: sel
+              ? Nexus.pAccent.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(11),
           border: Border.all(color: sel ? Nexus.pAccent : Nexus.pLine),
         ),

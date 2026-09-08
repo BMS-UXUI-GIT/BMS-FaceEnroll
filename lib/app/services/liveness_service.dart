@@ -15,8 +15,10 @@ import 'settings_service.dart';
 /// (หันซ้าย = บวก, หันขวา = ลบ ทุกเครื่อง) · pitch (เงยหน้า) ยังใช้ค่าตรงตามเดิม
 class LivenessService {
   SettingsService get _s => Get.find<SettingsService>();
-  double get _yawTurn => _s.livenessYawDeg.value; // หันซ้าย/ขวา (headEulerAngleY)
-  double get _pitchUp => _s.livenessPitchDeg.value; // เงยหน้า (headEulerAngleX) — calibrate
+  double get _yawTurn =>
+      _s.livenessYawDeg.value; // หันซ้าย/ขวา (headEulerAngleY)
+  double get _pitchUp =>
+      _s.livenessPitchDeg.value; // เงยหน้า (headEulerAngleX) — calibrate
   double get _eyeOpen => _s.livenessEyeOpen.value; // ตาเปิด
   static const double _eyeClosed = 0.3; // ตาปิด (คงที่ — คู่กับเกณฑ์ตาเปิด)
   double get _smile => _s.livenessSmile.value; // ยิ้ม

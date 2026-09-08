@@ -53,7 +53,16 @@ class LoginController extends GetxController {
       try {
         final sh = await _api.getShifts();
         await Get.find<CheckinService>().setShifts(
-          sh.map((e) => Shift(id: e.id, name: e.name, timeStart: e.timeStart, timeEnd: e.timeEnd)).toList(),
+          sh
+              .map(
+                (e) => Shift(
+                  id: e.id,
+                  name: e.name,
+                  timeStart: e.timeStart,
+                  timeEnd: e.timeEnd,
+                ),
+              )
+              .toList(),
         );
       } catch (_) {}
       // ยังไม่เคยตั้ง PIN → ตั้งก่อนเข้า home / มีแล้ว → เข้าเลย (เพิ่ง auth แล้ว ไม่ต้องใส่ PIN ซ้ำ)
@@ -71,7 +80,9 @@ class LoginController extends GetxController {
   Future<void> saveHcode(String h) async {
     settings.hcode.value = h.trim();
     await settings.save();
-    message.value = settings.hcode.value.isEmpty ? '' : 'ตั้งโรงพยาบาล ${settings.hcode.value} แล้ว';
+    message.value = settings.hcode.value.isEmpty
+        ? ''
+        : 'ตั้งโรงพยาบาล ${settings.hcode.value} แล้ว';
   }
 
   /// สลับ theme มืด/สว่าง จากหน้า login

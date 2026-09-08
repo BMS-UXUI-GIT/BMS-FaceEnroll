@@ -11,12 +11,14 @@ import 'settings_service.dart';
 ///   face-scan (Bearer apiKey): /match /register /health
 ///   attendance              : /{hcode}/login /{hcode}/?Data=DoorEnroll /shifts /profile
 class ApiService {
-  ApiService(this._settings, {http.Client? client}) : _client = client ?? http.Client();
+  ApiService(this._settings, {http.Client? client})
+    : _client = client ?? http.Client();
 
   final SettingsService _settings;
   final http.Client _client;
 
-  Duration get _timeout => Duration(milliseconds: _settings.requestTimeoutMs.value);
+  Duration get _timeout =>
+      Duration(milliseconds: _settings.requestTimeoutMs.value);
 
   Map<String, String> get _faceHeaders => {
     'Content-Type': 'application/json',
@@ -27,25 +29,40 @@ class ApiService {
   /// ค้นรายชื่อโรงพยาบาลจาก backend (q = เลข/ชื่อ contains) — global ไม่ต้องมี hcode
   Future<List<Hospital>> getHospitals(String q, {int limit = 300}) async {
     try {
-      final url = Uri.parse('${ApiConfig.attendanceUrl}/hospitals?q=${Uri.encodeQueryComponent(q)}&limit=$limit');
+      final url = Uri.parse(
+        '${ApiConfig.attendanceUrl}/hospitals?q=${Uri.encodeQueryComponent(q)}&limit=$limit',
+      );
       final res = await _client.get(url).timeout(_timeout);
       if (res.statusCode != 200) return [];
       final j = jsonDecode(res.body) as Map<String, dynamic>;
-      return (j['hospitals'] as List<dynamic>? ?? []).map((e) => Hospital.fromJson(e as Map<String, dynamic>)).toList();
+      return (j['hospitals'] as List<dynamic>? ?? [])
+          .map((e) => Hospital.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return []; // ค้นไม่ได้ = list ว่าง (ไม่ล้ม)
     }
   }
 
   // ---------- attendance: /{hcode}/login (พนักงาน login ด้วย HOSxP) ----------
-  Future<LoginResult> login(String hcode, String loginname, String password) async {
+  Future<LoginResult> login(
+    String hcode,
+    String loginname,
+    String password,
+  ) async {
     final url = Uri.parse('${ApiConfig.attendanceUrl}/$hcode/login');
     final body = {'loginname': loginname, 'password': password};
     final res = await _client
-        .post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
         .timeout(_timeout);
     if (res.statusCode != 200) {
-      return LoginResult(ok: false, message: 'เซิร์ฟเวอร์ตอบ ${res.statusCode}');
+      return LoginResult(
+        ok: false,
+        message: 'เซิร์ฟเวอร์ตอบ ${res.statusCode}',
+      );
     }
     return LoginResult.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
@@ -54,8 +71,11 @@ class ApiService {
   Future<MatchResponse> match(String base64Image) async {
     final url = Uri.parse(ApiConfig.faceScanUrl + ApiConfig.pathMatch);
     final body = {'hcode': _settings.hcode.value, 'base64': base64Image};
-    final res = await _client.post(url, headers: _faceHeaders, body: jsonEncode(body)).timeout(_timeout);
-    if (res.statusCode != 200) throw ApiException('face-scan ตอบ ${res.statusCode}');
+    final res = await _client
+        .post(url, headers: _faceHeaders, body: jsonEncode(body))
+        .timeout(_timeout);
+    if (res.statusCode != 200)
+      throw ApiException('face-scan ตอบ ${res.statusCode}');
     return MatchResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
@@ -74,46 +94,73 @@ class ApiService {
       if (subjectId != null) 'subject_id': subjectId,
       'save_image': saveImage,
     };
-    final res = await _client.post(url, headers: _faceHeaders, body: jsonEncode(body)).timeout(_timeout);
-    if (res.statusCode != 200) throw ApiException('register ตอบ ${res.statusCode}: ${res.body}');
-    return RegisterResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    final res = await _client
+        .post(url, headers: _faceHeaders, body: jsonEncode(body))
+        .timeout(_timeout);
+    if (res.statusCode != 200)
+      throw ApiException('register ตอบ ${res.statusCode}: ${res.body}');
+    return RegisterResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   // ---------- attendance: /{hcode}/?Data=DoorEnroll (ลงเวลา staff) ----------
   Future<DoorEnrollResponse> doorEnroll({
     required MatchResult person,
     int? empShiftId,
-    Position? position, // พิกัด GPS ตอนลงเวลา (logic ระบบเก่า) — null = ไม่ได้เปิด/ไม่ได้พิกัด
-    String? gpsPlace, // ชื่อจุดลงเวลาที่พิกัดอยู่ในรัศมี (จาก geofence ของแอป) — backend เก็บลง emp_in_out.gps_place
-    int enrollType = 1, // 1=legacy(auto) · 2=เข้างาน · 3=ออกงาน (ผู้ใช้เลือกจากหน้า home)
+    Position?
+    position, // พิกัด GPS ตอนลงเวลา (logic ระบบเก่า) — null = ไม่ได้เปิด/ไม่ได้พิกัด
+    String?
+    gpsPlace, // ชื่อจุดลงเวลาที่พิกัดอยู่ในรัศมี (จาก geofence ของแอป) — backend เก็บลง emp_in_out.gps_place
+    int enrollType =
+        1, // 1=legacy(auto) · 2=เข้างาน · 3=ออกงาน (ผู้ใช้เลือกจากหน้า home)
   }) async {
-    final url = Uri.parse('${ApiConfig.attendanceUrl}/${_settings.hcode.value}${ApiConfig.pathDoorEnroll}');
+    final url = Uri.parse(
+      '${ApiConfig.attendanceUrl}/${_settings.hcode.value}${ApiConfig.pathDoorEnroll}',
+    );
     final body = <String, dynamic>{
-      'EmployeeID': person.empId, // emp_id ที่ฝากใน metadata ตอนลงทะเบียน (pharm คีย์ด้วยตัวนี้)
+      'EmployeeID': person
+          .empId, // emp_id ที่ฝากใน metadata ตอนลงทะเบียน (pharm คีย์ด้วยตัวนี้)
       'EnrollDoorID': 1, // เลิกใช้ระบบจุดสแกนแล้ว — ส่งค่าคงที่ตามโครง pharm
       'EnrollTypeID': enrollType,
       if (position != null) 'EnrollDoorLatitude': '${position.latitude}',
       if (position != null) 'EnrollDoorLongitude': '${position.longitude}',
       // ความคลาดพิกัด (เมตร) — backend เก็บลง emp_in_out.gps_accuracy ให้ dashboard เผื่อ slack
-      if (position != null && position.accuracy.isFinite && position.accuracy > 0)
+      if (position != null &&
+          position.accuracy.isFinite &&
+          position.accuracy > 0)
         'gps_accuracy': position.accuracy.round(),
-      if (position != null && gpsPlace != null && gpsPlace.isNotEmpty) 'gps_place': gpsPlace,
+      if (position != null && gpsPlace != null && gpsPlace.isNotEmpty)
+        'gps_place': gpsPlace,
       if (empShiftId != null) 'emp_shift_id': empShiftId, // เวรที่เลือก
-      if (person.subjectId.isNotEmpty) 'subject_id': person.subjectId, // echo เป็น audit
+      if (person.subjectId.isNotEmpty)
+        'subject_id': person.subjectId, // echo เป็น audit
     };
     final res = await _client
-        .post(url, headers: {'Content-Type': 'application/json'}, body: jsonEncode(body))
+        .post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
         .timeout(_timeout);
-    if (res.statusCode != 200) throw ApiException('attendance ตอบ ${res.statusCode}');
-    return DoorEnrollResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+    if (res.statusCode != 200)
+      throw ApiException('attendance ตอบ ${res.statusCode}');
+    return DoorEnrollResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
   }
 
   // ---------- attendance: ประวัติของฉัน ----------
   /// ประวัติ+สถิติของตัวเอง — เลือกเดือน (month="YYYY-MM") หรือย้อนหลัง N วัน
-  Future<Map<String, dynamic>> myAttendance({int days = 30, String? month}) async {
+  Future<Map<String, dynamic>> myAttendance({
+    int days = 30,
+    String? month,
+  }) async {
     final emp = Uri.encodeComponent(_settings.empId.value);
     final range = month != null ? 'month=$month' : 'days=$days';
-    final url = Uri.parse('${ApiConfig.attendanceUrl}/${_settings.hcode.value}/my-attendance?emp_id=$emp&$range');
+    final url = Uri.parse(
+      '${ApiConfig.attendanceUrl}/${_settings.hcode.value}/my-attendance?emp_id=$emp&$range',
+    );
     final res = await _client.get(url).timeout(const Duration(seconds: 60));
     if (res.statusCode != 200) throw ApiException('โหลดประวัติไม่สำเร็จ');
     return jsonDecode(res.body) as Map<String, dynamic>;
@@ -124,7 +171,9 @@ class ApiService {
   Future<Map<String, dynamic>?> getPolicy() async {
     try {
       final emp = Uri.encodeComponent(_settings.empId.value);
-      final url = Uri.parse('${ApiConfig.attendanceUrl}/${_settings.hcode.value}/policy?emp_id=$emp');
+      final url = Uri.parse(
+        '${ApiConfig.attendanceUrl}/${_settings.hcode.value}/policy?emp_id=$emp',
+      );
       final res = await _client.get(url).timeout(_timeout);
       if (res.statusCode != 200) return null;
       final j = jsonDecode(res.body) as Map<String, dynamic>;
@@ -138,11 +187,15 @@ class ApiService {
   // ---------- attendance: /{hcode}/shifts (ดึงเวรให้เลือกตอน confirm) ----------
   Future<List<EmpShift>> getShifts() async {
     try {
-      final url = Uri.parse('${ApiConfig.attendanceUrl}/${_settings.hcode.value}/shifts');
+      final url = Uri.parse(
+        '${ApiConfig.attendanceUrl}/${_settings.hcode.value}/shifts',
+      );
       final res = await _client.get(url).timeout(_timeout);
       if (res.statusCode != 200) return [];
       final j = jsonDecode(res.body) as Map<String, dynamic>;
-      return (j['shifts'] as List<dynamic>? ?? []).map((e) => EmpShift.fromJson(e as Map<String, dynamic>)).toList();
+      return (j['shifts'] as List<dynamic>? ?? [])
+          .map((e) => EmpShift.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return []; // ดึงเวรไม่ได้ = ไม่บล็อกการลงเวลา
     }
@@ -151,7 +204,9 @@ class ApiService {
   // ---------- attendance: /{hcode}/profile (ตำแหน่งงาน ไว้โชว์บนจอ) ----------
   Future<String> getProfile(String empId) async {
     try {
-      final url = Uri.parse('${ApiConfig.attendanceUrl}/${_settings.hcode.value}/profile?person_id=$empId');
+      final url = Uri.parse(
+        '${ApiConfig.attendanceUrl}/${_settings.hcode.value}/profile?person_id=$empId',
+      );
       final res = await _client.get(url).timeout(_timeout);
       if (res.statusCode != 200) return '';
       final j = jsonDecode(res.body) as Map<String, dynamic>;
@@ -162,7 +217,11 @@ class ApiService {
   }
 
   // ---------- BMS push notification (เด้งแจ้งตอนเช็คอิน) — fire-and-forget ----------
-  Future<void> sendBmsNotification({required String name, String position = '', required String token}) async {
+  Future<void> sendBmsNotification({
+    required String name,
+    String position = '',
+    required String token,
+  }) async {
     if (token.isEmpty) return;
     final now = DateTime.now();
     final ts =
@@ -219,22 +278,29 @@ class ApiService {
       '?emp_id=${Uri.encodeQueryComponent(empId)}&hcode=${_settings.hcode.value}',
     );
     final res = await _client.get(url, headers: _faceHeaders).timeout(_timeout);
-    if (res.statusCode != 200) throw ApiException('ค้น subject ตอบ ${res.statusCode}');
+    if (res.statusCode != 200)
+      throw ApiException('ค้น subject ตอบ ${res.statusCode}');
     final j = jsonDecode(res.body) as Map<String, dynamic>;
-    return (j['subjects'] as List<dynamic>? ?? []).map((e) => (e as Map)['subject_id'].toString()).toList();
+    return (j['subjects'] as List<dynamic>? ?? [])
+        .map((e) => (e as Map)['subject_id'].toString())
+        .toList();
   }
 
   /// ลบ subject (ตอน "ลงทะเบียนใหม่")
   Future<bool> deleteSubject(String subjectId) async {
     final url = Uri.parse('${ApiConfig.faceScanUrl}/subject/$subjectId');
-    final res = await _client.delete(url, headers: _faceHeaders).timeout(_timeout);
+    final res = await _client
+        .delete(url, headers: _faceHeaders)
+        .timeout(_timeout);
     return res.statusCode == 200;
   }
 
   // ---------- face-scan /health (ตรวจการเชื่อมต่อ) ----------
   Future<bool> checkStatus() async {
     try {
-      final res = await _client.get(Uri.parse(ApiConfig.faceScanUrl + ApiConfig.pathHealth)).timeout(_timeout);
+      final res = await _client
+          .get(Uri.parse(ApiConfig.faceScanUrl + ApiConfig.pathHealth))
+          .timeout(_timeout);
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -257,6 +323,8 @@ class Hospital {
   final String hcode;
   final String name;
 
-  factory Hospital.fromJson(Map<String, dynamic> j) =>
-      Hospital(hcode: j['hcode']?.toString() ?? '', name: j['name']?.toString() ?? '');
+  factory Hospital.fromJson(Map<String, dynamic> j) => Hospital(
+    hcode: j['hcode']?.toString() ?? '',
+    name: j['name']?.toString() ?? '',
+  );
 }

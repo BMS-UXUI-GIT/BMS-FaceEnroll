@@ -46,13 +46,23 @@ class RegistrationView extends GetView<RegistrationController> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(PhosphorIconsRegular.wifiSlash, size: 56, color: Nexus.muted),
+                    const Icon(
+                      PhosphorIconsRegular.wifiSlash,
+                      size: 56,
+                      color: Nexus.muted,
+                    ),
                     const SizedBox(height: 14),
-                    Text('เช็คข้อมูลไม่ได้ — ตรวจการเชื่อมต่อ', style: Nexus.body(size: 15, color: Nexus.sub)),
+                    Text(
+                      'เช็คข้อมูลไม่ได้ — ตรวจการเชื่อมต่อ',
+                      style: Nexus.body(size: 15, color: Nexus.sub),
+                    ),
                     const SizedBox(height: 20),
                     SizedBox(
                       width: 200,
-                      child: NexusButton(label: 'ลองใหม่', onTap: controller.checkExisting),
+                      child: NexusButton(
+                        label: 'ลองใหม่',
+                        onTap: controller.checkExisting,
+                      ),
                     ),
                   ],
                 ),
@@ -75,7 +85,11 @@ class RegistrationView extends GetView<RegistrationController> {
               const SizedBox(width: 10),
               Text(
                 'ลงทะเบียนใบหน้า',
-                style: Nexus.tech(size: 16, weight: FontWeight.w700, color: Nexus.ink),
+                style: Nexus.tech(
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: Nexus.ink,
+                ),
               ),
             ],
           ),
@@ -85,11 +99,21 @@ class RegistrationView extends GetView<RegistrationController> {
               width: 84,
               height: 84,
               padding: const EdgeInsets.all(1),
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Nexus.cyan,
+              ),
               child: Container(
                 alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan.withValues(alpha: 0.12)),
-                child: Icon(PhosphorIconsRegular.userFocus, size: 44, color: Nexus.cyan),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Nexus.cyan.withValues(alpha: 0.12),
+                ),
+                child: Icon(
+                  PhosphorIconsRegular.userFocus,
+                  size: 44,
+                  color: Nexus.cyan,
+                ),
               ),
             ),
           ),
@@ -97,16 +121,26 @@ class RegistrationView extends GetView<RegistrationController> {
           Center(
             child: Text(
               'คุณลงทะเบียนใบหน้าไว้แล้ว',
-              style: Nexus.tech(size: 20, weight: FontWeight.w700, color: Nexus.ink),
+              style: Nexus.tech(
+                size: 20,
+                weight: FontWeight.w700,
+                color: Nexus.ink,
+              ),
             ),
           ),
           const SizedBox(height: 4),
           Center(
-            child: Text('ต้องการทำอะไรต่อ?', style: Nexus.body(size: 13, color: Nexus.muted)),
+            child: Text(
+              'ต้องการทำอะไรต่อ?',
+              style: Nexus.body(size: 13, color: Nexus.muted),
+            ),
           ),
           const Spacer(),
           // ปิดปุ่ม "เพิ่มมุม" ไปก่อน (ตามที่สั่ง) — เหลือแค่ลงทะเบียนใหม่ สี cyan
-          NexusButton(label: 'ลงทะเบียนใหม่ (ลบของเดิม)', onTap: () => _confirmRedo(context)),
+          NexusButton(
+            label: 'ลงทะเบียนใหม่ (ลบของเดิม)',
+            onTap: () => _confirmRedo(context),
+          ),
         ],
       ),
     );
@@ -118,7 +152,11 @@ class RegistrationView extends GetView<RegistrationController> {
         backgroundColor: Nexus.sheet,
         title: Text(
           'ลงทะเบียนใหม่?',
-          style: Nexus.tech(size: 17, weight: FontWeight.w700, color: Nexus.ink),
+          style: Nexus.tech(
+            size: 17,
+            weight: FontWeight.w700,
+            color: Nexus.ink,
+          ),
         ),
         content: Text(
           'จะลบใบหน้าเดิมทั้งหมดออกก่อน แล้วถ่ายใหม่ — ยืนยันไหม?',
@@ -127,7 +165,10 @@ class RegistrationView extends GetView<RegistrationController> {
         actions: [
           TextButton(
             onPressed: Get.back,
-            child: Text('ยกเลิก', style: Nexus.body(size: 14, color: Nexus.muted)),
+            child: Text(
+              'ยกเลิก',
+              style: Nexus.body(size: 14, color: Nexus.muted),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -136,7 +177,11 @@ class RegistrationView extends GetView<RegistrationController> {
             },
             child: Text(
               'ลบแล้วลงใหม่',
-              style: Nexus.body(size: 14, weight: FontWeight.w700, color: Nexus.red),
+              style: Nexus.body(
+                size: 14,
+                weight: FontWeight.w700,
+                color: Nexus.red,
+              ),
             ),
           ),
         ],
@@ -152,7 +197,9 @@ class RegistrationView extends GetView<RegistrationController> {
         GetBuilder<RegistrationController>(
           builder: (c) {
             if (c.camera == null || !c.camera!.value.isInitialized) {
-              return Center(child: CircularProgressIndicator(color: Nexus.cyan));
+              return Center(
+                child: CircularProgressIndicator(color: Nexus.cyan),
+              );
             }
             return FittedBox(
               fit: BoxFit.cover,
@@ -181,17 +228,27 @@ class RegistrationView extends GetView<RegistrationController> {
                           const SizedBox(width: 10),
                           Text(
                             'ลงทะเบียนใบหน้า',
-                            style: Nexus.tech(size: 16, weight: FontWeight.w700, color: Nexus.ink),
+                            style: Nexus.tech(
+                              size: 16,
+                              weight: FontWeight.w700,
+                              color: Nexus.ink,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 14),
-                      Obx(() => _StatusPill(text: controller.instruction.value)),
+                      Obx(
+                        () => _StatusPill(text: controller.instruction.value),
+                      ),
                     ],
                   ),
                 ),
               ),
-              Center(child: Obx(() => _ScanOval(detected: controller.faceInZone.value))),
+              Center(
+                child: Obx(
+                  () => _ScanOval(detected: controller.faceInZone.value),
+                ),
+              ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
@@ -202,15 +259,27 @@ class RegistrationView extends GetView<RegistrationController> {
                       Obx(
                         () => Text(
                           controller.angleLabel,
-                          style: Nexus.tech(size: 16, weight: FontWeight.w600, color: Nexus.cyan, spacing: 1),
+                          style: Nexus.tech(
+                            size: 16,
+                            weight: FontWeight.w600,
+                            color: Nexus.cyan,
+                            spacing: 1,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Obx(() => _dots(controller.poseIndex.value, controller.totalPoses)),
+                      Obx(
+                        () => _dots(
+                          controller.poseIndex.value,
+                          controller.totalPoses,
+                        ),
+                      ),
                       const SizedBox(height: 14),
                       Obx(
                         () => Text(
-                          controller.busy.value ? 'กำลังบันทึก…' : 'ระบบจะจับภาพเองเมื่อหน้านิ่ง',
+                          controller.busy.value
+                              ? 'กำลังบันทึก…'
+                              : 'ระบบจะจับภาพเองเมื่อหน้านิ่ง',
                           style: Nexus.body(size: 12.5, color: Nexus.muted),
                         ),
                       ),
@@ -238,10 +307,20 @@ class RegistrationView extends GetView<RegistrationController> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: on ? Nexus.cyan : const Color(0xFF2A4D72),
-            boxShadow: on ? [BoxShadow(color: Nexus.cyan.withValues(alpha: 0.6), blurRadius: 10)] : null,
+            boxShadow: on
+                ? [
+                    BoxShadow(
+                      color: Nexus.cyan.withValues(alpha: 0.6),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
           ),
           child: Container(
-            decoration: BoxDecoration(shape: BoxShape.circle, color: on ? Nexus.cyan : Colors.transparent),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: on ? Nexus.cyan : Colors.transparent,
+            ),
           ),
         );
       }),
@@ -259,17 +338,32 @@ class RegistrationView extends GetView<RegistrationController> {
             width: 96,
             height: 96,
             padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan, boxShadow: Nexus.glow(0.4, 40)),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Nexus.cyan,
+              boxShadow: Nexus.glow(0.4, 40),
+            ),
             child: Container(
               alignment: Alignment.center,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.cyan.withValues(alpha: 0.12)),
-              child: Icon(PhosphorIconsRegular.check, size: 50, color: Nexus.cyan),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Nexus.cyan.withValues(alpha: 0.12),
+              ),
+              child: Icon(
+                PhosphorIconsRegular.check,
+                size: 50,
+                color: Nexus.cyan,
+              ),
             ),
           ),
           const SizedBox(height: 22),
           Text(
             'ลงทะเบียนสำเร็จ',
-            style: Nexus.tech(size: 22, weight: FontWeight.w700, color: Nexus.ink),
+            style: Nexus.tech(
+              size: 22,
+              weight: FontWeight.w700,
+              color: Nexus.ink,
+            ),
           ),
           Obx(
             () => Padding(
@@ -284,12 +378,18 @@ class RegistrationView extends GetView<RegistrationController> {
           const SizedBox(height: 28),
           SizedBox(
             width: double.infinity,
-            child: NexusButton(label: 'เสร็จสิ้น · Done', onTap: () => Get.back<void>()),
+            child: NexusButton(
+              label: 'เสร็จสิ้น · Done',
+              onTap: () => Get.back<void>(),
+            ),
           ),
           const SizedBox(height: 6),
           TextButton(
             onPressed: controller.reset,
-            child: Text('ถ่ายเพิ่ม', style: Nexus.body(size: 14, color: Nexus.sub)),
+            child: Text(
+              'ถ่ายเพิ่ม',
+              style: Nexus.body(size: 14, color: Nexus.sub),
+            ),
           ),
         ],
       ),
@@ -307,8 +407,15 @@ class RegistrationView extends GetView<RegistrationController> {
       decoration: BoxDecoration(shape: BoxShape.circle, color: Nexus.line),
       child: Container(
         alignment: Alignment.center,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0x80081420)),
-        child: const Icon(PhosphorIconsRegular.arrowLeft, size: 18, color: Nexus.sub),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0x80081420),
+        ),
+        child: const Icon(
+          PhosphorIconsRegular.arrowLeft,
+          size: 18,
+          color: Nexus.sub,
+        ),
       ),
     ),
   );
@@ -343,7 +450,9 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     if (text.isEmpty) return const SizedBox.shrink();
     return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.86),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.86,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
         decoration: BoxDecoration(
@@ -354,7 +463,11 @@ class _StatusPill extends StatelessWidget {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: Nexus.body(size: 15, weight: FontWeight.w600, color: Nexus.ink),
+          style: Nexus.body(
+            size: 15,
+            weight: FontWeight.w600,
+            color: Nexus.ink,
+          ),
         ),
       ),
     );
@@ -369,9 +482,12 @@ class _ScanOval extends StatefulWidget {
   State<_ScanOval> createState() => _ScanOvalState();
 }
 
-class _ScanOvalState extends State<_ScanOval> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))
-    ..repeat(reverse: true);
+class _ScanOvalState extends State<_ScanOval>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2000),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -394,7 +510,9 @@ class _ScanOvalState extends State<_ScanOval> with SingleTickerProviderStateMixi
                 width: widget.detected ? 4 : 2.5,
               ),
               borderRadius: const BorderRadius.all(Radius.elliptical(120, 150)),
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 30)],
+              boxShadow: [
+                BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 30),
+              ],
             ),
           ),
           AnimatedBuilder(
@@ -406,7 +524,9 @@ class _ScanOvalState extends State<_ScanOval> with SingleTickerProviderStateMixi
               child: Container(
                 height: 3,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Colors.transparent, color, Colors.transparent]),
+                  gradient: LinearGradient(
+                    colors: [Colors.transparent, color, Colors.transparent],
+                  ),
                   boxShadow: [BoxShadow(color: color, blurRadius: 12)],
                 ),
               ),
