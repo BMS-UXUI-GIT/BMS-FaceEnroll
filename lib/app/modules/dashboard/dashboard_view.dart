@@ -876,7 +876,7 @@ class DashboardView extends GetView<DashboardController> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'ตรวจพบเวลาเข้า - ออกงาน',
+                      'รายการแจ้งปรับปรุงเวลา',
                       style: Dash.body(
                         size: 12.5,
                         weight: FontWeight.w600,
@@ -897,7 +897,7 @@ class DashboardView extends GetView<DashboardController> {
                             ),
                           ),
                           TextSpan(
-                            text: ' วันที่ต้องตรวจสอบ',
+                            text: ' รายการ รอตรวจสอบ',
                             style: Dash.body(
                               size: 12.5,
                               weight: FontWeight.w600,
