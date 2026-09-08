@@ -38,6 +38,9 @@ dependencies:
   # jpeg resize/compress before upload
   image: ^4.5.4
 
+  # แนบรูปประกอบตอนขอแก้ไขเวลา (ถ่ายใหม่/เลือกจากคลัง)
+  image_picker: ^1.1.2
+
   # runtime camera permission
   permission_handler: ^12.0.1
 
@@ -56,11 +59,16 @@ dependencies:
 
   # เลข version แอป (โชว์หน้า login/home) — อ่านจาก pubspec ตอน runtime
   package_info_plus: ^9.0.1
+  lottie: ^3.3.3
+  flutter_svg: ^2.3.0
 
 # screen_brightness_ios 2.1.3+ ใช้ FlutterSceneLifeCycleDelegate (UIScene) ซึ่งต้องการ
 # Flutter ใหม่กว่าที่เครื่อง build ใช้ — pin ไว้ที่ 2.1.2 จนกว่าจะอัป Flutter ทั้งสองฝั่ง
 dependency_overrides:
   screen_brightness_ios: 2.1.2
+  # 0.8.13+17 ลาก androidx รุ่นใหม่ที่ต้องใช้ AGP 8.9.1+ — เครื่อง build ยังอยู่ 8.7.3
+  # ตรึงไว้รุ่นก่อนหน้า ได้ photo picker เหมือนกัน ไม่ต้องยกเครื่อง toolchain ทั้งชุด
+  image_picker_android: 0.8.12+23
 
 dev_dependencies:
   flutter_test:
@@ -80,3 +88,4 @@ flutter:
   assets:
     - assets/audios/
     - assets/images/
+    - assets/anim/
