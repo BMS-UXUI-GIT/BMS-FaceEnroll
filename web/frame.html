@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FaceCheck · prototype บนเดสก์ท็อป</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root{
+    --bg:#0e1420;
+    --panel:#151d2c;
+    --line:#26314a;
+    --text:#e8ecf4;
+    --dim:#93a1bb;
+    --accent:#3382e7;
+    --bezel:#0a0f18;
+    /* พื้นจอ = สีพื้นแอป (Dash.bg) ทั้งสองโหมด — แถบสถานะโปร่ง เลยต้องตรงกัน */
+    --screen-bg:#f0f6fd;
+    --sb-ink:#111827;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--screen-bg:#161a23;--sb-ink:#e8ebf0}
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:radial-gradient(1200px 800px at 50% -10%,#1b2740,var(--bg));
+    color:var(--text);
+    font:14px/1.5 "Noto Sans Thai UI","Noto Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  header{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line);
+    background:rgba(10,15,24,.6);
+    backdrop-filter:blur(8px);
+    position:sticky;
+    top:0;
+    z-index:5;
+  }
+  .brand{font-weight:700;letter-spacing:.2px}
+  .brand small{display:block;font-weight:400;color:var(--dim);font-size:11.5px}
+  .spacer{flex:1}
+  .ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  label{color:var(--dim);font-size:12px}
+  select,button{
+    font:inherit;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:6px 10px;
+    cursor:pointer;
+  }
+  button:hover,select:hover{border-color:var(--accent)}
+  main{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px 20px 40px;
+  }
+  /* กรอบเครื่อง: ขอบดำหนา มุมโค้ง เงาลอย — ขนาดมาจาก JS ตามรุ่นที่เลือก */
+  .device{
+    position:relative;
+    background:var(--bezel);
+    border-radius:44px;
+    padding:12px;
+    box-shadow:0 40px 80px rgba(0,0,0,.55),0 0 0 1px #2b3550 inset;
+    transition:width .2s ease,height .2s ease;
+  }
+  .screen{
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius:34px;
+    overflow:hidden;
+    background:var(--screen-bg);
+  }
+  .screen iframe{
+    width:100%;
+    height:100%;
+    border:0;
+    display:block;
+  }
+  /* ติ่งกล้องหน้าของ iPhone — แค่ตกแต่ง ไม่บังพื้นที่แอป · Android ใช้รูเจาะแทน */
+  .notch{
+    position:absolute;
+    top:0;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--bezel);
+    pointer-events:none;
+    z-index:4;
+  }
+  .home{
+    position:absolute;
+    bottom:7px;
+    left:50%;
+    transform:translateX(-50%);
+    width:36%;
+    height:4px;
+    border-radius:99px;
+    background:rgba(0,0,0,.35);
+    pointer-events:none;
+    z-index:2;
+  }
+  /* แถบสถานะจำลอง — กินพื้นที่จริงเหนือ iframe เหมือน safe area บนเครื่อง
+     พื้นโปร่ง ตัวหนังสือสีหมึกตามโหมดสว่าง/มืดของเครื่องที่เปิดดู */
+  .status{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    z-index:3;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 22px;
+    /* โปร่งสนิท เห็น UI ของแอปทะลุขึ้นมา — ตัวหนังสือสลับดำ/ขาวตามธีมที่แอปใช้อยู่ */
+    background:transparent;
+    color:var(--sb-ink);
+    transition:color .15s linear;
+    font-weight:600;
+    letter-spacing:.2px;
+    user-select:none;
+  }
+  .status .time{font-variant-numeric:tabular-nums}
+  .status .glyphs{display:flex;align-items:center;gap:6px}
+  .status svg{display:block}
+  /* Android: รูเจาะกล้องกลางบน ไม่มีติ่ง */
+  .punch{
+    position:absolute;
+    top:9px;
+    left:50%;
+    transform:translateX(-50%);
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    background:var(--bezel);
+    pointer-events:none;
+    z-index:2;
+  }
+  .hint{color:var(--dim);font-size:12px;margin-top:14px;text-align:center}
+  .hint code{background:var(--panel);padding:2px 6px;border-radius:6px}
+  .stage{display:flex;flex-direction:column;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">FaceCheck prototype
+    <small>ต้นแบบ UI — ไม่ต่อระบบจริง ข้อมูลเป็นชุดจำลอง</small>
+  </div>
+  <div class="spacer"></div>
+  <div class="ctl">
+    <label for="device">เครื่อง</label>
+    <select id="device">
+      <option value="390x844:ios" selected>iPhone 13/14 · 390×844</option>
+      <option value="393x852:ios">iPhone 15 Pro · 393×852</option>
+      <option value="360x800:android">Android ทั่วไป · 360×800</option>
+      <option value="412x915:android">Pixel 7 · 412×915</option>
+      <option value="320x568:plain">จอเล็ก · 320×568</option>
+    </select>
+    <label for="zoom">ย่อ/ขยาย</label>
+    <select id="zoom">
+      <option value="0.75">75%</option>
+      <option value="0.9">90%</option>
+      <option value="1" selected>100%</option>
+      <option value="fit">พอดีจอ</option>
+    </select>
+    <button id="reload" title="โหลดแอปใหม่">รีโหลด</button>
+    <button id="full" title="เปิดเต็มหน้าต่าง">เปิดเต็มจอ</button>
+  </div>
+</header>
+<main>
+  <div class="stage">
+    <div class="device" id="device-frame">
+      <div class="screen">
+        <div class="notch" id="notch"></div>
+        <div class="punch" id="punch"></div>
+        <div class="status" id="status">
+          <span class="time" id="clock">9:41</span>
+          <span class="glyphs" id="glyphs"></span>
+        </div>
+        <iframe id="app" src="index.html" title="FaceCheck" allow="camera; geolocation; autoplay"></iframe>
+        <div class="home" id="home"></div>
+      </div>
+    </div>
+    <div class="hint">เปิดเข้าแดชบอร์ดเลย ไม่ต้อง login · กล้อง/GPS บนเว็บใช้ไม่ได้ครบเหมือนบนมือถือ</div>
+  </div>
+</main>
+<script>
+  const frame = document.getElementById('device-frame');
+  const deviceSel = document.getElementById('device');
+  const zoomSel = document.getElementById('zoom');
+  const app = document.getElementById('app');
+  const BEZEL = 24; // padding ซ้าย+ขวา ของกรอบเครื่อง
+
+  const home = document.getElementById('home');
+  const status = document.getElementById('status');
+  const notch = document.getElementById('notch');
+  const punch = document.getElementById('punch');
+  const glyphs = document.getElementById('glyphs');
+  const clock = document.getElementById('clock');
+
+  // ความสูงแถบสถานะตามระบบ (dp เท่าของจริง: iOS 44 · Android 24)
+  const STATUS_H = {ios: 44, android: 24, plain: 0};
+
+  const IOS_GLYPHS =
+    '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor">' +
+    '<rect x="0" y="7.5" width="3" height="3.5" rx="1"/>' +
+    '<rect x="4.5" y="5.5" width="3" height="5.5" rx="1"/>' +
+    '<rect x="9" y="3" width="3" height="8" rx="1"/>' +
+    '<rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>' +
+    '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
+    '<path d="M1 3.4A11 11 0 0 1 15 3.4"/><path d="M3.7 6.2a7 7 0 0 1 8.6 0"/>' +
+    '<path d="M6.4 8.9a3 3 0 0 1 3.2 0"/></svg>' +
+    '<svg width="25" height="12" viewBox="0 0 25 12" fill="none">' +
+    '<rect x="0.6" y="0.6" width="20" height="10.8" rx="3" stroke="currentColor" stroke-opacity=".5"/>' +
+    '<rect x="2.2" y="2.2" width="16.8" height="7.6" rx="1.8" fill="currentColor"/>' +
+    '<path d="M22.4 4.2v3.6a2 2 0 0 0 0-3.6z" fill="currentColor" fill-opacity=".5"/></svg>';
+
+  // Android เรียงกลับด้าน (สัญญาณ→wifi→แบต) และแบตเป็นทรงตั้ง
+  const ANDROID_GLYPHS =
+    '<svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor">' +
+    '<path d="M12 0.6v8.8H9.8V0.6zM8.2 2.6v6.8H6V2.6zM4.4 4.8v4.6H2.2V4.8z"/></svg>' +
+    '<svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">' +
+    '<path d="M7 9.6 0.4 2.6A9.6 9.6 0 0 1 13.6 2.6z"/></svg>' +
+    '<svg width="8" height="12" viewBox="0 0 8 12" fill="none">' +
+    '<rect x="2.6" y="0.4" width="2.8" height="1.2" rx="0.6" fill="currentColor"/>' +
+    '<rect x="0.6" y="1.6" width="6.8" height="9.8" rx="1.6" stroke="currentColor" stroke-opacity=".55"/>' +
+    '<rect x="1.9" y="3.4" width="4.2" height="6.7" rx="1" fill="currentColor"/></svg>';
+
+  // แอปเก็บธีมไว้ที่ shared_preferences → localStorage ของ iframe (same-origin อ่านได้)
+  // ธีมมืด = ตัวหนังสือขาว · ธีมสว่าง = ตัวหนังสือดำ ไม่ใช่ blend ที่ได้สีเพี้ยน
+  function syncInk() {
+    let dark = matchMedia('(prefers-color-scheme:dark)').matches;
+    try {
+      // ค่าเก็บเป็นสตริง 'dark'/'light' (บาง build ห่อ JSON) — เช็กแบบหยาบพอ
+      const v = app.contentWindow.localStorage.getItem('flutter.themeMode');
+      if (v) dark = !String(v).includes('light');
+    } catch (e) { /* iframe ยังโหลดไม่เสร็จ ใช้ค่าของระบบไปก่อน */ }
+    status.style.setProperty('--sb-ink', dark ? '#ffffff' : '#000000');
+  }
+  setInterval(syncInk, 1000);
+  app.addEventListener('load', syncInk);
+
+  function tick() {
+    const now = new Date();
+    // iOS โชว์เวลาแบบ 12 ชม. ไม่มี AM/PM · Android โชว์ 24 ชม.
+    const ios = deviceSel.value.endsWith(':ios');
+    clock.textContent = ios
+      ? ((now.getHours() % 12) || 12) + ':' + String(now.getMinutes()).padStart(2, '0')
+      : now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  }
+  setInterval(tick, 10000);
+
+  function apply() {
+    const [size, kind] = deviceSel.value.split(':');
+    const [w, h] = size.split('x').map(Number);
+    home.style.display = kind === 'plain' ? 'none' : 'block';
+    const statusH = STATUS_H[kind] || 0;
+    // แถบสถานะวัดเป็น "พิกเซลของเครื่อง" แล้วย่อด้วยสเกลเดียวกับ iframe
+    // ทุกชิ้น (เวลา ไอคอน ระยะขอบ) จึงโตเท่ากับที่เห็นบนเครื่องรุ่นนั้นจริง ๆ
+    status.style.width = w + 'px';
+    status.style.height = statusH + 'px';
+    status.style.display = statusH ? 'flex' : 'none';
+    status.style.fontSize = (kind === 'ios' ? 15 : 12) + 'px';
+    status.style.padding = '0 ' + (kind === 'ios' ? 22 : 14) + 'px';
+    // iPhone มีติ่งคร่อมกลางแถบ เวลาเลยต้องเลื่อนออกจากกลาง — จัดชิดซ้ายพอ
+    glyphs.innerHTML = kind === 'ios' ? IOS_GLYPHS : kind === 'android' ? ANDROID_GLYPHS : '';
+    tick();
+    syncInk();
+    // มุมเครื่อง: iPhone โค้งกว่า Android
+    frame.style.borderRadius = (kind === 'ios' ? 44 : kind === 'android' ? 36 : 26) + 'px';
+    frame.querySelector('.screen').style.borderRadius =
+      (kind === 'ios' ? 34 : kind === 'android' ? 26 : 16) + 'px';
+    let scale = zoomSel.value;
+    if (scale === 'fit') {
+      // เหลือที่ให้แถบหัวและคำอธิบายด้านล่าง แล้วค่อยคิดสเกล
+      const avail = window.innerHeight - 200;
+      scale = Math.min(1, avail / (h + BEZEL));
+    }
+    scale = Number(scale) || 1;
+    frame.style.width = (w * scale + BEZEL) + 'px';
+    frame.style.height = (h * scale + BEZEL) + 'px';
+    // ย่อทั้งกรอบด้วย zoom ของ CSS — iframe ยังรายงานขนาดจริงของเครื่องให้แอป
+    frame.style.setProperty('--scale', scale);
+    // ติ่ง iPhone / รูเจาะ Android — ขนาดคูณสเกลเอง จะได้พอดีกับเครื่องที่ย่อไว้
+    notch.style.display = kind === 'ios' ? 'block' : 'none';
+    notch.style.width = 160 * scale + 'px';
+    notch.style.height = 30 * scale + 'px';
+    notch.style.borderRadius = '0 0 ' + 18 * scale + 'px ' + 18 * scale + 'px';
+    punch.style.display = kind === 'android' ? 'block' : 'none';
+    punch.style.width = punch.style.height = 9 * scale + 'px';
+    punch.style.top = 8 * scale + 'px';
+    // แถบสถานะย่อด้วยสเกลเดียวกับ iframe — ต้องทำหลังคำนวณ scale เสร็จ
+    status.style.transform = 'scale(' + scale + ')';
+    status.style.transformOrigin = 'top left';
+    app.style.width = w + 'px';
+    app.style.height = h + 'px';
+    // แอปกันพื้นที่แถบสถานะ/แถบ home เองผ่าน query — พื้นตรงนั้นเลยเป็นสีของแอปเอง
+    const homeH = kind === 'plain' ? 0 : kind === 'ios' ? 34 : 20;
+    const want = 'index.html?safeTop=' + statusH + '&safeBottom=' + homeH;
+    if (app.getAttribute('src') !== want) app.setAttribute('src', want);
+    app.style.transform = 'scale(' + scale + ')';
+    app.style.transformOrigin = 'top left';
+    localStorage.setItem('fc-frame', JSON.stringify({d: deviceSel.value, z: zoomSel.value}));
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('fc-frame') || '{}');
+    if (saved.d) deviceSel.value = saved.d;
+    if (saved.z) zoomSel.value = saved.z;
+  } catch (e) { /* ค่าเสีย ใช้ค่าเริ่มต้น */ }
+
+  // ส่งลิงก์ให้คนอื่นเปิดที่เครื่องรุ่นเดียวกันได้: ?device=360x800:android&zoom=fit
+  // ค่าที่ไม่มีในรายการให้ตกไปใช้ค่าเดิม — ไม่งั้น select เป็นค่าว่างแล้วสเกลกลายเป็น 0
+  const q = new URLSearchParams(location.search);
+  const pick = (sel, v) => {
+    if (v && [...sel.options].some((o) => o.value === v)) sel.value = v;
+  };
+  pick(deviceSel, q.get('device'));
+  pick(zoomSel, q.get('zoom'));
+
+  deviceSel.addEventListener('change', apply);
+  zoomSel.addEventListener('change', apply);
+  window.addEventListener('resize', () => { if (zoomSel.value === 'fit') apply(); });
+  document.getElementById('reload').addEventListener('click', () => {
+    app.src = app.getAttribute('src');
+  });
+  document.getElementById('full').addEventListener('click', () => {
+    window.open('index.html', '_blank');
+  });
+  apply();
+</script>
+</body>
+</html>
