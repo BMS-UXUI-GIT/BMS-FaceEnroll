@@ -82,18 +82,23 @@ class Dash {
     colors: [Color(0xFF8CBFEE), Color(0xFF5D9BDD), Color(0xFF2E6CB3)],
     stops: [0, 0.48, 1],
   );
-  // semantic
-  static Color get ok => const Color(0xFF34C759); // colors/green จาก Figma
+  // semantic — โหมดมืดใช้เฉดที่สว่างกว่าเล็กน้อย สีเดิมบางตัว (ม่วง/แดง) จมไปกับพื้นเข้ม
+  static Color get ok =>
+      dark ? const Color(0xFF3DDC77) : const Color(0xFF34C759); // colors/green
   static Color get hairline => dark
       ? const Color(0x1AFFFFFF)
       : const Color(0x1A000000); // border การ์ด rgba(0,0,0,.1)
   /// พื้นการ์ดย่อย — ทึบ 100% ไม่ใช่สีโปร่ง เพราะภาพประกอบที่วางหลังการ์ดจะทะลุขึ้นมาเห็น
   static Color get rowBg =>
       dark ? const Color(0xFF262B36) : const Color(0xFFF4F6F9);
-  static Color get warn => const Color(0xFFFC9709);
-  static Color get bad => const Color(0xFFEB5757);
+  static Color get warn =>
+      dark ? const Color(0xFFFFAA33) : const Color(0xFFFC9709);
+  static Color get bad =>
+      dark ? const Color(0xFFFF6B6B) : const Color(0xFFEB5757);
+
+  /// ออกก่อนเวลา = ม่วง (ตามเว็บ)
   static Color get info =>
-      const Color(0xFF8D58D3); // ออกก่อนเวลา = ม่วง (ตามเว็บ)
+      dark ? const Color(0xFFA97BE8) : const Color(0xFF8D58D3);
   // badge (bg, text) ตาม --badge-*
   static (Color, Color) get bLate => dark
       ? (const Color(0x2EFC9709), const Color(0xFFFFC46B))
