@@ -17,6 +17,19 @@ Color dayMarkColor(DayMark m) => switch (m) {
   DayMark.bad => Dash.bad,
 };
 
+/// ชิป legend หนึ่งตัวคุมหนึ่งสถานะ — แปลงกลับให้วงกลม/ปฏิทินใช้ตัวกรองเดียวกับกราฟแท่ง
+Series seriesOf(DayMark m) => switch (m) {
+  DayMark.ok => Series.ok,
+  DayMark.late => Series.late,
+  DayMark.early => Series.early,
+  DayMark.bad => Series.bad,
+};
+
+/// เวรนี้ยื่นคำขอแก้ไขได้ไหม — เกณฑ์เดียวกันทุกที่ในโฟลว์
+/// (มาสาย/ออกก่อนไม่นับ เพราะเวลาที่เครื่องบันทึกถูกต้องอยู่แล้ว)
+bool rowNeedsFix(Map<String, dynamic> r) =>
+    rowNoIn(r) || rowNoOut(r) || r['out_area'] == true;
+
 /// วันนี้ไม่มีเวลาเข้า — เกิดตอนลืมสแกนเข้า (มีแต่สแกนออก) ระบบเลยได้ครึ่งเดียว
 bool rowNoIn(Map<String, dynamic> r) =>
     r['no_in'] == true || '${r['in'] ?? ''}'.isEmpty;

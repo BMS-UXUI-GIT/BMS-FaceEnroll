@@ -37,3 +37,22 @@ double appearAt(double t, int i, int n, {double window = 0.55}) {
   final delta = (1 - window) / (n - 1);
   return ((t - i * delta) / window).clamp(0.0, 1.0);
 }
+
+/// ชิ้นเดียวของการไล่โผล่ — ขยายจาก 88% พร้อมจางเข้า
+/// เด้งเล็กน้อยตอนจบ (easeOutBack) ให้รู้สึกว่าข้อมูล "วางลง" ไม่ใช่แค่จางมา
+class PopIn extends StatelessWidget {
+  const PopIn({super.key, required this.t, required this.child});
+
+  /// ความคืบหน้าของชิ้นนี้ 0..1 — ได้มาจาก [appearAt]
+  final double t;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    opacity: t,
+    child: Transform.scale(
+      scale: 0.88 + 0.12 * Curves.easeOutBack.transform(t),
+      child: child,
+    ),
+  );
+}
