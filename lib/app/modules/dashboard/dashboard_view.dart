@@ -27,7 +27,6 @@ class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
 
   /// ระยะจากขอบบนการ์ดสถานะถึงขอบบนแผ่นขาว (การ์ดจึงคร่อมรอยต่อ) — ค่าเดียวกับ Figma (215-143)
-  static const double _sheetOverlap = 72;
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +46,8 @@ class DashboardView extends GetView<DashboardController> {
               _appBar(context),
               // การ์ดวันนี้มี PageView ปัดได้ — กันการวาดซ้ำไม่ให้ลามไปทั้งหน้า
               SliverToBoxAdapter(child: RepaintBoundary(child: _hero(context))),
-              // แผ่นขาวคั่นการ์ดวันนี้กับแผงน้ำเงิน (ต่อจากที่โผล่มาใต้การ์ด — ไร้รอยต่อ)
-              // ห้ามครอบแผงน้ำเงินไว้ข้างใน: พื้นขาวจะถูกระบายเต็มจอทุกเฟรมแล้วโดนน้ำเงินทับทิ้ง
-              DecoratedSliver(
-                decoration: BoxDecoration(color: Dash.card),
-                sliver: const SliverToBoxAdapter(child: SizedBox(height: 14)),
-              ),
+              // ช่องไฟก่อนแผงน้ำเงิน — พื้นหน้าปกติ ไม่มีแผ่นการ์ดคั่นแล้ว
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
               // แผงน้ำเงินคลุมส่วนล่างทั้งหมด: ภาพรวม + รายวัน (Figma 593:12419)
               DecoratedSliver(
                 decoration: BoxDecoration(
@@ -133,32 +128,14 @@ class DashboardView extends GetView<DashboardController> {
               children: [
                 SafeArea(bottom: false, child: _heroTitle()),
                 const SizedBox(height: 12),
-                Stack(
-                  children: [
-                    Positioned(
-                      top: _sheetOverlap,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Dash.card,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _skelTodayCard(),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _skelTodayCard(),
                 ),
               ],
             ),
           ),
-          Container(color: Dash.card, height: 24),
+          const SizedBox(height: 24),
           Container(
             decoration: BoxDecoration(
               color: Dash.panel,
@@ -300,39 +277,10 @@ class DashboardView extends GetView<DashboardController> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 12),
-          // Stack กำหนดขนาดตามการ์ด แล้วให้แผ่นขาวเริ่มที่ _sheetOverlap ลงไปจนสุดการ์ด
-          Stack(
-            children: [
-              Positioned(
-                top: _sheetOverlap,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Dash.card,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    // โหมดสว่างเงาจางที่ 4% แทบมองไม่เห็น แต่ต้องเบลอเต็มความกว้างทุกเฟรม
-                    // ตัดทิ้งไปเลย เหลือเฉพาะโหมดมืดที่เห็นผลจริง
-                    boxShadow: Dash.dark
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.30),
-                              blurRadius: 12,
-                              offset: const Offset(0, -4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Obx(() => TodayCard(shifts: controller.todayShifts)),
-              ),
-            ],
+          // การ์ดวางบนพื้นหน้าโดยตรง — ไม่มีแผ่นการ์ดรองข้างใต้แล้ว
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Obx(() => TodayCard(shifts: controller.todayShifts)),
           ),
         ],
       ),
@@ -1568,7 +1516,9 @@ class DashboardView extends GetView<DashboardController> {
     final t = ((mins - 240) / 360).clamp(0.0, 1.0);
     final on = key == sel;
     final isToday = key == today;
-    final a = 0.3 + 0.7 * t;
+    // โหมดมืด: สีเต็มความเข้มบนพื้นเข้มแสบตาและกลายเป็นสีเลือดหมูตอน alpha กลาง ๆ
+    // จึงจำกัดช่วงไว้ให้เป็นสีย้อมบาง ๆ แทน ส่วนโหมดสว่างไล่ได้เต็มช่วงเหมือนเดิม
+    final a = Dash.dark ? 0.14 + 0.20 * t : 0.3 + 0.7 * t;
     final bg = mark == null
         ? (blank ? Colors.transparent : Dash.rowBg)
         : dayMarkColor(mark).withValues(alpha: a);
@@ -1622,9 +1572,14 @@ class DashboardView extends GetView<DashboardController> {
                       size: 11,
                       weight: FontWeight.w700,
                       // พื้นเข้มแล้วตัวเลขต้องขาว ไม่งั้นอ่านไม่ออก
+                      // โหมดมืดพื้นเป็นสีย้อมบาง ๆ ตลอด ใช้สีตัวอักษรปกติได้เลย
+                      // โหมดมืด: พื้นเป็นสีย้อมบาง ๆ ตัวเลขจึงเป็นสีของสถานะ
+                      // (แบบเดียวกับป้าย badge) อ่านง่ายและไม่แสบตาเหมือนพื้นทึบ
                       color: mark == null
                           ? Dash.faint
-                          : (t > 0.4 ? Dash.on : Dash.sub),
+                          : (Dash.dark
+                                ? dayMarkColor(mark)
+                                : (t > 0.4 ? Dash.on : Dash.sub)),
                     ),
                   ),
                 ),
