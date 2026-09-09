@@ -181,52 +181,25 @@ class _ScanTileState extends State<_ScanTile>
     ),
   );
 
-  /// ภาพประกอบมุมขวาล่างของช่อง — โหมดมืดเร่งความสว่างขึ้นเล็กน้อย
-  /// ต้นฉบับวาดมาสำหรับพื้นสว่าง เส้นขอบเข้ม ๆ เลยจมไปกับการ์ดสีเทาเข้ม
-  Widget _art() {
-    final img = Image.asset(
-      widget.art,
-      width: Dash.sp(56),
-      height: Dash.sp(62),
-      fit: BoxFit.contain,
-      alignment: Alignment.bottomRight,
-      cacheWidth: (Dash.sp(56) * Dash.dpr).round(),
-      cacheHeight: (Dash.sp(62) * Dash.dpr).round(),
-    );
-    if (!Dash.dark) return img;
-    return ColorFiltered(
-      // คูณความสว่าง 1.18 + ยกพื้น 10 — สีคงเดิม แค่สว่างขึ้นทั้งภาพ
-      colorFilter: const ColorFilter.matrix(<double>[
-        1.18,
-        0,
-        0,
-        0,
-        10,
-        0,
-        1.18,
-        0,
-        0,
-        10,
-        0,
-        0,
-        1.18,
-        0,
-        10,
-        0,
-        0,
-        0,
-        1,
-        0,
-      ]),
-      child: img,
-    );
-  }
+  /// ภาพประกอบมุมขวาล่างของช่อง — สีของภาพไม่แตะ ให้พื้นช่องสว่างขึ้นแทน
+  /// (เคยลองเร่งความสว่างของภาพในโหมดมืด สีอิ่มเกินจนดูฉูดฉาด)
+  Widget _art() => Image.asset(
+    widget.art,
+    width: Dash.sp(56),
+    height: Dash.sp(62),
+    fit: BoxFit.contain,
+    alignment: Alignment.bottomRight,
+    cacheWidth: (Dash.sp(56) * Dash.dpr).round(),
+    cacheHeight: (Dash.sp(62) * Dash.dpr).round(),
+  );
 
   Widget _skelBox() => Skel(height: ScanTiles.tileH, radius: 16);
 
   Widget _box(Widget child) => DecoratedBox(
     decoration: BoxDecoration(
-      color: Dash.rowBg,
+      // โหมดมืดยกพื้นช่องให้สว่างกว่าการ์ดนิดหนึ่ง — ภาพประกอบที่มีเส้นขอบเข้ม
+      // จะได้ไม่จมหายไปกับพื้น โดยไม่ต้องไปแตะสีของภาพเอง
+      color: Dash.dark ? const Color(0xFF303748) : Dash.rowBg,
       borderRadius: BorderRadius.circular(16),
     ),
     child: child,
