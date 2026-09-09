@@ -306,7 +306,11 @@
     app.style.height = h + 'px';
     // แอปกันพื้นที่แถบสถานะ/แถบ home เองผ่าน query — พื้นตรงนั้นเลยเป็นสีของแอปเอง
     const homeH = kind === 'plain' ? 0 : kind === 'ios' ? 34 : 20;
-    const want = 'index.html?safeTop=' + statusH + '&safeBottom=' + homeH;
+    // ส่งธีมต่อให้แอปด้วยถ้ามีมากับลิงก์ (?theme=dark) — ใช้ทำภาพเทียบสองโหมด
+    const theme = q.get('theme');
+    const want =
+      'index.html?safeTop=' + statusH + '&safeBottom=' + homeH +
+      (theme ? '&theme=' + encodeURIComponent(theme) : '');
     if (app.getAttribute('src') !== want) app.setAttribute('src', want);
     app.style.transform = 'scale(' + scale + ')';
     app.style.transformOrigin = 'top left';

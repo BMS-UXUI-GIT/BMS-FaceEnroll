@@ -41,6 +41,12 @@ Future<void> main() async {
   if (settings.keepScreenOn.value) await WakelockPlus.enable();
   // เว็บ prototype: ข้าม login/PIN เข้าหน้าแดชบอร์ดเลย — คนที่เปิดลิงก์มาดู UI ไม่มีบัญชีจริงให้กรอก
   if (kDemoBuild) {
+    // ส่งลิงก์ให้ดูโหมดที่ต้องการได้: ...?theme=dark (ไม่ใส่ = ค่าที่ผู้ใช้เลือกไว้)
+    final wanted = Uri.base.queryParameters['theme'];
+    if (wanted == 'dark' || wanted == 'light') {
+      settings.themeMode.value = wanted!;
+      Nexus.applyMode(wanted == 'dark');
+    }
     if (!settings.isLoggedIn.value) {
       await settings.setSession(
         empId: '3926',
