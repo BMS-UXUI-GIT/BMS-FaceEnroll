@@ -12,6 +12,7 @@
 |---|---|
 | 🖥️ **Live Demo** (ข้อมูลตัวอย่าง) | https://bms-uxui-git.github.io/BMS-FaceEnroll/ |
 | 🎬 **Presentation** (สไลด์นำเสนอ เล่นอัตโนมัติพร้อมเสียงบรรยาย) | https://bms-uxui-git.github.io/BMS-FaceEnroll/present/ |
+| 📱 **Mobile App** (ต้นแบบแอปพนักงาน เปิดในเบราว์เซอร์ได้เลย) | https://bms-uxui-git.github.io/BMS-FaceEnroll/mobile/frame.html |
 
 ---
 
@@ -399,6 +400,55 @@ Help
 
 ---
 
+## 📱 Mobile App — FaceCheck
+
+นอกจาก Web Application สำหรับผู้ดูแลระบบแล้ว ระบบยังมี **แอปมือถือสำหรับบุคลากร** ที่พนักงานติดตั้งบนเครื่องตัวเอง
+
+ซอร์สโค้ดอยู่ใน branch [`mobile-app`](https://github.com/BMS-UXUI-GIT/BMS-FaceEnroll/tree/mobile-app) ของ repository เดียวกัน
+
+### ขอบเขตการใช้งาน
+
+| | Web Application | Mobile App |
+|---|---|---|
+| ผู้ใช้งาน | ผู้ดูแลระบบโรงพยาบาล / ส่วนกลาง | บุคลากรที่ลงเวลาปฏิบัติงาน |
+| อุปกรณ์ | Desktop / Tablet | มือถือของพนักงานเอง |
+| หน้าที่หลัก | จัดการข้อมูล ตรวจสอบ และออกรายงาน | ลงทะเบียนใบหน้า สแกนลงเวลา ดูสถิติของตัวเอง |
+
+### ความสามารถหลัก
+
+- **เข้าสู่ระบบ** ด้วยบัญชี HOSxP พร้อมล็อกแอปด้วย PIN
+- **ลงทะเบียนใบหน้า** ด้วยกล้องหน้าของเครื่องตัวเอง
+- **สแกนลงเวลา** เข้า/ออก พร้อมตรวจ Liveness และตำแหน่ง GPS
+- **แดชบอร์ดส่วนตัว** สรุปการมาทำงานรายสัปดาห์ / เดือน / ปี
+- **ขอแก้ไขเวลา** สำหรับวันที่ลงเวลาไม่ครบหรือสแกนนอกพื้นที่ พร้อมแนบสาเหตุและรูปประกอบ
+
+### Tech Stack
+
+- **Flutter** (Dart) — รองรับทั้ง Android และ iOS
+- **GetX** — Routing และ State Management
+- **Google ML Kit** — ตรวจจับใบหน้าและ Liveness
+- **fl_chart** — กราฟสรุปสถิติ
+
+### Design System
+
+แอปมือถือมี Design System ของตัวเองที่ใช้ Design Token ชุดเดียวกับ Web Application (สี ป้ายสถานะ และป้ายเวร แปลงมาจาก `theme.css`)
+เพื่อให้ผู้ใช้งานที่ใช้ทั้งสองระบบเห็นสีเดียวกันแล้วเข้าใจว่าหมายถึงเรื่องเดียวกัน
+
+รายละเอียดทั้งหมด — Token, Typography, Spacing, Motion, UX Principles และสารบัญ Component — อยู่ใน
+[`DESIGN.md`](https://github.com/BMS-UXUI-GIT/BMS-FaceEnroll/blob/mobile-app/DESIGN.md) ของ branch `mobile-app`
+
+### Demo Mode
+
+เว็บต้นแบบตามลิงก์ด้านบนทำงานด้วย **ข้อมูลตัวอย่างทั้งหมด** ไม่เชื่อมต่อ Backend และไม่มีข้อมูลจริงของโรงพยาบาลใด ๆ
+
+- เปิดบนเดสก์ท็อปผ่าน `frame.html` — มีกรอบมือถือจำลอง เลือกรุ่นเครื่อง ขนาด และธีมได้
+- เปิดบนมือถือจริงผ่าน `/mobile/` ได้โดยตรง รองรับ Add to Home Screen
+- ต่อท้าย URL ด้วย `?theme=dark` เพื่อดูโหมดมืด
+
+> ฟังก์ชันขอแก้ไขเวลาในต้นแบบยังไม่ส่งข้อมูลออกนอกเครื่อง เนื่องจากยังไม่มี Endpoint รองรับ
+
+---
+
 ## 🌐 Deployment
 
 ระบบถูกออกแบบให้สามารถ deploy เป็น Web Application ได้ โดย Vite จะสร้าง production assets ผ่าน
@@ -410,6 +460,14 @@ npm run build
 Build output สามารถนำไป deploy บน Static Hosting หรือ Web Server ที่รองรับ SPA ได้
 
 สำหรับ GitHub Pages จำเป็นต้องรองรับ SPA routing และกำหนด base path ให้สอดคล้องกับ repository
+
+Workflow `deploy-pages.yml` จะ build ทั้งสามส่วนขึ้น GitHub Pages ในครั้งเดียว
+
+| Path | เนื้อหา |
+|---|---|
+| `/` | Web Application (โหมด Demo) |
+| `/present/` | สไลด์นำเสนอ |
+| `/mobile/` | แอปมือถือ (Flutter Web โหมด Demo · build จาก branch `mobile-app`) |
 
 ---
 
