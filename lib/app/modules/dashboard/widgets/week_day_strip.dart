@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../../widgets/tappable.dart';
 import '../attendance_row.dart';
@@ -17,7 +18,7 @@ class WeekDayStrip extends StatelessWidget {
   final DashboardController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() {
     final mon = controller.weekMonday;
     final map = controller.dayShifts;
     final sel = controller.touchedDay.value;
@@ -51,7 +52,7 @@ class WeekDayStrip extends StatelessWidget {
         DayDetailSwitcher(dayKey: sel, shifts: map),
       ],
     );
-  }
+  });
 }
 
 /// วงกลมหนึ่งวันในแถบรายสัปดาห์
@@ -74,13 +75,14 @@ class DayDot extends StatelessWidget {
   final String today;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() {
     final key = DashboardController.ymd(date);
     final rows = shifts[key] ?? const <Map<String, dynamic>>[];
     final isToday = key == today;
     final on = key == selected;
     final size = Dash.box(38);
-    final hidden = controller.hiddenSeries;
+    // สำเนาออกมาเป็น Set ธรรมดา — การอ่านค่าจริงคือสิ่งที่บอก Obx ว่าต้องฟังตัวนี้
+    final hidden = {...controller.hiddenSeries};
     // เวรของวันนั้นที่ยังไม่ถูกปิดจาก legend (อ่าน Rx ตรงนี้ = วาดใหม่เมื่อกดชิป)
     final marks = [
       for (final r in rows)
@@ -152,7 +154,7 @@ class DayDot extends StatelessWidget {
         ),
       ),
     );
-  }
+  });
 }
 
 /// กล่องรายละเอียดใต้แถบวัน — สูงไม่เท่ากันตามจำนวนเวร

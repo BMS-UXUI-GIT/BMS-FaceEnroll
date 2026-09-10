@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../dash_theme.dart';
 import '../dashboard_controller.dart';
@@ -34,7 +35,7 @@ class WorkBarChart extends StatelessWidget {
   static const double _target = 8;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() {
     // ต้องอ่าน Rx ตรงนี้ ไม่ใช่ใน LayoutBuilder ด้านล่าง — builder ของ LayoutBuilder ทำงานตอน layout
     // ซึ่งอยู่นอก closure ของ Obx แล้ว GetX จึงไม่เห็นว่าใครพึ่งค่าไหน กด legend/แท่งแล้วกราฟไม่ขยับ
     final hidden = {...controller.hiddenSeries};
@@ -152,7 +153,7 @@ class WorkBarChart extends StatelessWidget {
         );
       },
     );
-  }
+  });
 
   /// แท่งเดียวซ้อนหลายสี: ตรงเวลา → สาย · ลืมออกเวรไม่มีชั่วโมงจึงใส่ขีดแดงเตี้ยๆ ให้วันนั้นไม่หายไป
   BarChartGroupData _group(

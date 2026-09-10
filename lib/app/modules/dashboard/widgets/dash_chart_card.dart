@@ -51,31 +51,35 @@ class DashChartCard extends StatelessWidget {
     );
   }
 
-  Widget _body(int maxMin, bool empty) => Container(
-    // 16 ข้าง เท่าการ์ดสรุปด้านบน — เดิม 12 แท่งแรกเลยล้ำออกไปกว่าแถบสัดส่วน 4dp
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-    decoration: BoxDecoration(
-      color: Dash.card,
-      // มนเฉพาะบน — ล่างเป็นแถบ legend ที่มนต่อให้แล้ว
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PeriodHeader(controller: controller),
-        const SizedBox(height: 16),
-        // ปุ่มเลื่อนอยู่บนหัวการ์ด — ตอนโหลดต้องคงหัวไว้ ให้กดต่อได้ทันที
-        if (controller.rangeLoading.value)
-          Shimmer(child: Skel(height: Dash.sp(160), radius: 16))
-        else if (empty)
-          const _EmptyChart()
-        else
-          ChartRangeBody(
-            controller: controller,
-            card: card,
-            maxMinutes: maxMin,
-          ),
-      ],
+  // Obx อยู่ตรงนี้ ไม่ใช่ที่หน้าแม่ — build ของวิดเจ็ตลูกทำงานนอก closure ของ Obx ที่ครอบมัน
+  // ค่า .obs ที่อ่านในนี้จึงต้องมี Obx ของตัวเองถึงจะวาดใหม่ตอนค่าเปลี่ยน
+  Widget _body(int maxMin, bool empty) => Obx(
+    () => Container(
+      // 16 ข้าง เท่าการ์ดสรุปด้านบน — เดิม 12 แท่งแรกเลยล้ำออกไปกว่าแถบสัดส่วน 4dp
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+        color: Dash.card,
+        // มนเฉพาะบน — ล่างเป็นแถบ legend ที่มนต่อให้แล้ว
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PeriodHeader(controller: controller),
+          const SizedBox(height: 16),
+          // ปุ่มเลื่อนอยู่บนหัวการ์ด — ตอนโหลดต้องคงหัวไว้ ให้กดต่อได้ทันที
+          if (controller.rangeLoading.value)
+            Shimmer(child: Skel(height: Dash.sp(160), radius: 16))
+          else if (empty)
+            const _EmptyChart()
+          else
+            ChartRangeBody(
+              controller: controller,
+              card: card,
+              maxMinutes: maxMin,
+            ),
+        ],
+      ),
     ),
   );
 }
@@ -115,7 +119,7 @@ class ChartRangeBody extends StatelessWidget {
   final int maxMinutes;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Obx(() {
     final range = controller.range.value;
     final body = switch (range) {
       DashRange.week => WeekDayStrip(controller: controller),
@@ -154,7 +158,7 @@ class ChartRangeBody extends StatelessWidget {
         child: KeyedSubtree(key: ValueKey(range), child: body),
       ),
     );
-  }
+  });
 }
 
 /// หัวการ์ดกราฟ — ช่วงย่อยที่การ์ดนี้แสดง + ปุ่มเลื่อนสัปดาห์ (เฉพาะรายสัปดาห์)
