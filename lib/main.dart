@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'app/config/demo_mode.dart';
+import 'app/modules/dashboard/attendance_row.dart';
+import 'app/modules/dashboard/dashboard_controller.dart';
 import 'app/routes/app_pages.dart';
 import 'app/services/checkin_service.dart';
 import 'app/services/pin_service.dart';
@@ -55,6 +57,7 @@ Future<void> main() async {
       );
     }
     runApp(const BmsFaceScanApp(initialRoute: Routes.home));
+    _openDemoDeepLink();
     return;
   }
   // ยังไม่ login -> login / login แล้วแต่ยังไม่ตั้ง PIN -> ตั้ง PIN / มี PIN -> ใส่ PIN ปลดล็อก (#1 cold start)
@@ -67,6 +70,41 @@ Future<void> main() async {
     start = Routes.enterPin;
   }
   runApp(BmsFaceScanApp(initialRoute: start));
+}
+
+/// เว็บ prototype: ?open=fix|form|review เปิดหน้าในโฟลว์ขอแก้ไขเวลาให้เลย
+///
+/// ใช้ส่งลิงก์ให้คนอื่นดูเฉพาะหน้าที่ต้องการ และใช้เก็บภาพหน้าจอโดยไม่ต้องไล่กดเอง
+/// รอให้แดชบอร์ดโหลดข้อมูลจำลองเสร็จก่อน เพราะหน้าปลายทางกินรายการค้างจากตัวควบคุมนั้น
+void _openDemoDeepLink() {
+  final what = Uri.base.queryParameters['open'];
+  if (what == null || what.isEmpty) return;
+  Future<void>.delayed(const Duration(milliseconds: 1400), () {
+    if (!Get.isRegistered<DashboardController>()) return;
+    final rows = Get.find<DashboardController>().pendingFixes;
+    if (rows.isEmpty) return;
+    switch (what) {
+      case 'fix':
+        Get.toNamed<Object?>(Routes.fixRequest, arguments: {'rows': rows});
+      case 'form':
+        Get.toNamed<Object?>(Routes.fixRequestForm, arguments: rows.first);
+      case 'review':
+        final r = rows.first;
+        Get.toNamed<Object?>(
+          Routes.fixRequestReview,
+          arguments: {
+            'row': r,
+            'shift': shiftOfRow(r),
+            'in': '${r['in'] ?? ''}'.isEmpty ? '08:00' : '${r['in']}',
+            'out': '${r['out'] ?? ''}'.isEmpty ? '16:30' : '${r['out']}',
+            'reasons': const ['ลืมสแกนออก'],
+            'note': 'เครื่องสแกนที่ประตูหอผู้ป่วยขัดข้อง',
+            'photos': const [],
+            'summary': 'ตัวอย่างสำหรับดูหน้าจอ',
+          },
+        );
+    }
+  });
 }
 
 class BmsFaceScanApp extends StatelessWidget {
