@@ -4,8 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../config/demo_mode.dart';
 import '../../routes/app_pages.dart';
 import 'attendance_row.dart';
+import 'dash_theme.dart';
 import 'widgets/compare_table.dart';
 import 'widgets/dash_buttons.dart';
 import 'widgets/dash_page.dart';
@@ -120,6 +122,16 @@ class _FixRequestReviewViewState extends State<FixRequestReviewView> {
                         children: [
                           SectionLabel('เปรียบเทียบ'),
                           const SizedBox(height: 10),
+                          // คำขอที่ไม่ได้เปลี่ยนค่าอะไรเลยมีจริง — สแกนนอกพื้นที่
+                          // เวลาถูกอยู่แล้ว ขอแค่ให้รับรอง ตารางที่ทุกช่องเขียนว่า
+                          // "เท่าเดิม" อ่านเหมือนคำขอเปล่าที่กรอกไม่ครบ จึงต้องมี
+                          // ประโยคบอกว่ากำลังขออะไร ก่อนจะให้ตารางไปยืนยันรายละเอียด
+                          if (shiftOld == shiftNew &&
+                              inOld == inNew &&
+                              outOld == outNew) ...[
+                            _UnchangedNote(outArea: outArea),
+                            const SizedBox(height: 10),
+                          ],
                           CompareTable(
                             rows: [
                               CompareItem('เวร', shiftOld, shiftNew),
@@ -151,9 +163,15 @@ class _FixRequestReviewViewState extends State<FixRequestReviewView> {
                             photos: photos,
                           ),
                           const SizedBox(height: 18),
-                          const InfoNote(
-                            'โปรดตรวจสอบความถูกต้องก่อนยืนยัน '
-                            'คำขอจะถูกส่งให้หัวหน้าเวรพิจารณา และแก้ไขภายหลังไม่ได้',
+                          // ต้นแบบยังไม่ต่อ API — เขียนว่า "ส่งแล้วแก้ไม่ได้" ทั้งที่
+                          // ไม่มีอะไรถูกส่ง ทำให้คนที่มาลองใช้เชื่อว่ายื่นเรื่องแล้ว
+                          // แล้วไม่ไปแจ้งทางอื่น · feedback ที่ได้ก็ตั้งอยู่บนเรื่องที่ไม่จริง
+                          InfoNote(
+                            kDemoBuild
+                                ? 'ต้นแบบสำหรับดูหน้าจอ — กดยืนยันแล้ว '
+                                      'คำขอยังไม่ถูกส่งเข้าระบบจริง'
+                                : 'โปรดตรวจสอบความถูกต้องก่อนยืนยัน '
+                                      'คำขอจะถูกส่งให้หัวหน้าเวรพิจารณา และแก้ไขภายหลังไม่ได้',
                           ),
                         ],
                       ),
@@ -197,4 +215,28 @@ class _FixRequestReviewViewState extends State<FixRequestReviewView> {
       ),
     );
   }
+}
+
+/// ประโยคนำหน้าตารางเทียบ สำหรับคำขอที่ไม่ได้เปลี่ยนค่าอะไรเลย
+class _UnchangedNote extends StatelessWidget {
+  const _UnchangedNote({required this.outArea});
+
+  /// สแกนอยู่นอกพื้นที่ที่กำหนด — เวลาที่บันทึกไว้ถูกแล้ว ขอแค่ให้รับรอง
+  final bool outArea;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    decoration: BoxDecoration(
+      color: Dash.accent.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      outArea
+          ? 'คำขอนี้ไม่ได้แก้เวลา — ขอให้รับรองว่าเวลาที่ระบบบันทึกไว้ถูกต้อง '
+                'แม้จะสแกนนอกพื้นที่ที่กำหนด'
+          : 'คำขอนี้ไม่ได้แก้ค่าใด — ขอให้รับรองว่าข้อมูลที่ระบบบันทึกไว้ถูกต้องแล้ว',
+      style: Dash.body(size: 12.5, color: Dash.sub).copyWith(height: 1.5),
+    ),
+  );
 }

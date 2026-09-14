@@ -251,7 +251,14 @@ class DashboardController extends GetxController {
     if (loading.value || rangeLoading.value) return 'กำลังอัปเดตข้อมูล…';
     final t = lastSync.value;
     if (t == null) return 'ยังไม่ได้โหลดข้อมูล';
-    return 'อัปเดตล่าสุด ${_hhmm(t.hour, t.minute)} น.';
+    final now = DateTime.now();
+    final sameDay =
+        t.year == now.year && t.month == now.month && t.day == now.day;
+    // ข้ามวันแล้วยังบอกแค่ "อัปเดตล่าสุด 09:12 น." อ่านเหมือนเพิ่งอัปเดตเมื่อเช้านี้
+    // ทั้งที่อาจค้างมาหลายวัน — พอไม่ใช่วันนี้ต้องมีวันที่กำกับเสมอ
+    if (sameDay) return 'อัปเดตล่าสุด ${_hhmm(t.hour, t.minute)} น.';
+    return 'อัปเดตล่าสุด ${thaiShortDate(t.toIso8601String())} '
+        '${_hhmm(t.hour, t.minute)} น.';
   }
 
   /// เลือกเดือน/ปีตรง ๆ จากตัวเลือกแบบเลื่อน — หนีบไม่ให้ทะลุเดือนปัจจุบัน

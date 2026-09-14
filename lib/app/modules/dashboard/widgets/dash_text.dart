@@ -18,12 +18,15 @@ class SectionLabel extends StatelessWidget {
 
 /// หัวคอลัมน์ตาราง — ตัวเล็ก เทา เว้นตัวอักษรนิดหน่อย ใช้ทั้งตารางรายวัน รายการขอแก้ และตารางเทียบ
 class TableHeadCell extends StatelessWidget {
-  const TableHeadCell(this.text, {super.key, this.end = false});
+  const TableHeadCell(this.text, {super.key, this.end = false, this.color});
 
   final String text;
 
   /// ชิดขวา — คอลัมน์ท้ายสุด
   final bool end;
+
+  /// ทับสีเริ่มต้น — ใช้กับหัวคอลัมน์ที่กดได้ ให้ต่างจากหัวที่เป็นข้อความเฉย ๆ
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => Text(
@@ -32,7 +35,7 @@ class TableHeadCell extends StatelessWidget {
     style: Dash.tech(
       size: 10.5,
       weight: FontWeight.w600,
-      color: Dash.muted,
+      color: color ?? Dash.muted,
       spacing: 0.3,
     ),
   );

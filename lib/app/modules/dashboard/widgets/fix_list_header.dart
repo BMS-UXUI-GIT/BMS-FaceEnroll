@@ -119,13 +119,17 @@ class _SortableDateHead extends StatelessWidget {
       // พื้นที่กดกินเต็มความกว้างคอลัมน์ และสูงขึ้นไปข้างบน _headHit
       // ตัวหนังสือยังชิดล่างเหมือนเดิม ขนาดที่กดได้จริงจึงโตขึ้นเงียบๆ
       padding: const EdgeInsets.fromLTRB(4, _headHit + 2, 4, 2),
+      // หัวคอลัมน์อีกสองอันเป็นข้อความเทาเฉย ๆ อันนี้กดได้ ต้องดูไม่เหมือนกัน
+      // เคยลองใส่กล่องพื้นจางครอบไว้ แต่ Tappable ส่ง constraint แบบ passthrough
+      // กล่องเลยถูกยืดเต็มความกว้างคอลัมน์ อ่านเป็นช่องกรอกที่กดไม่ได้แทน
+      // สีตัวอักษรทำหน้าที่นี้ได้โดยไม่กินที่และไม่ดันเส้นฐานให้เหลื่อมกับหัวอื่น
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TableHeadCell('วันที่'),
-          const SizedBox(width: 2),
+          TableHeadCell('วันที่', color: Dash.accentActive),
+          const SizedBox(width: 3),
           Icon(
-            desc ? PhosphorIconsBold.caretDown : PhosphorIconsBold.caretUp,
+            desc ? PhosphorIconsBold.arrowDown : PhosphorIconsBold.arrowUp,
             size: Dash.sp(11),
             color: Dash.accentActive,
           ),
