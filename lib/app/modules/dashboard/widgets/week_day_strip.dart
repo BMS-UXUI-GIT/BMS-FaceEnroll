@@ -74,6 +74,9 @@ class DayDot extends StatelessWidget {
   final String selected;
   final String today;
 
+  /// จังหวะที่วงวันเปลี่ยนหน้าตาตอนกรอง — เท่ากับของช่องปฏิทินเดือน
+  static const _morph = Duration(milliseconds: 240);
+
   @override
   Widget build(BuildContext context) => Obx(() {
     final key = DashboardController.ymd(date);
@@ -113,7 +116,11 @@ class DayDot extends StatelessWidget {
             SizedBox(
               width: size,
               height: size,
-              child: Container(
+              // กดชิป legend แล้ววงนี้เปลี่ยนสี/หายไป ถ้าสลับทันทีทั้งเจ็ดวงกระพริบพร้อมกัน
+              // อ่านเป็นจอกระตุก ไล่ให้แทนแล้วมันเล่าเรื่องว่า "เวรนี้ถูกซ่อนไป"
+              child: AnimatedContainer(
+                duration: _morph,
+                curve: Curves.easeOut,
                 width: size,
                 height: size,
                 alignment: Alignment.center,
@@ -121,7 +128,7 @@ class DayDot extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: marks.isEmpty
                       ? (blank ? Colors.transparent : Dash.rowBg)
-                      : null,
+                      : Colors.transparent,
                   // วงเลือก/วันนี้เป็นขอบ ไม่ใช่สี — สีในวงถูกใช้บอกสถานะไปแล้ว
                   border: on || isToday
                       ? Border.all(
@@ -130,15 +137,30 @@ class DayDot extends StatelessWidget {
                         )
                       : null,
                 ),
-                child: marks.isEmpty
-                    ? null
-                    : CustomPaint(
-                        size: Size.square(size - (on ? 7 : 4)),
-                        painter: SplitDot(
-                          dayMarkColor(marks.first),
-                          dayMarkColor(marks.last),
+                // สีในวงวาดด้วย CustomPaint ซึ่ง AnimatedContainer ไล่ให้ไม่ได้
+                // จึงครอสเฟดตัวเก่า-ใหม่แทน คีย์คือคู่สีที่กำลังวาดอยู่
+                child: AnimatedSwitcher(
+                  duration: _morph,
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.78, end: 1).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: marks.isEmpty
+                      ? const SizedBox.shrink(key: ValueKey('empty'))
+                      : CustomPaint(
+                          key: ValueKey('${marks.first}|${marks.last}|$on'),
+                          size: Size.square(size - (on ? 7 : 4)),
+                          painter: SplitDot(
+                            dayMarkColor(marks.first),
+                            dayMarkColor(marks.last),
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
             const SizedBox(height: 6),

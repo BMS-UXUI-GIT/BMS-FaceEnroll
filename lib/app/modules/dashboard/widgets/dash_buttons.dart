@@ -73,17 +73,32 @@ class DashCircleButton extends StatelessWidget {
   final double size;
   final double iconSize;
 
+  /// จังหวะเปลี่ยนสีตอนปุ่มสลับระหว่างกดได้/กดไม่ได้
+  /// สั้นกว่านี้ตาไม่ทันว่ามันเปลี่ยน ยาวกว่านี้กดรัวแล้วสีตามไม่ทัน
+  static const _swap = Duration(milliseconds: 220);
+
   @override
   Widget build(BuildContext context) => Tappable(
     onTap: onTap,
     circle: true,
     splash: splash,
-    child: Container(
+    // ปุ่มเลื่อนสัปดาห์เปลี่ยนสีตอนถึงหัว-ท้ายช่วง ถ้าสลับทันทีมันกระพริบ
+    // ไล่สีให้แทน คนจึงเห็นว่า "ปุ่มนี้เพิ่งหมดทาง" ไม่ใช่ "จอกระตุก"
+    child: AnimatedContainer(
+      duration: _swap,
+      curve: Curves.easeOut,
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-      child: Icon(icon, size: iconSize, color: iconColor),
+      // สีไอคอนอยู่คนละที่กับ decoration จึงต้องไล่เอง AnimatedContainer ไม่ครอบให้
+      child: TweenAnimationBuilder<Color?>(
+        tween: ColorTween(end: iconColor),
+        duration: _swap,
+        curve: Curves.easeOut,
+        builder: (context, c, _) =>
+            Icon(icon, size: iconSize, color: c ?? iconColor),
+      ),
     ),
   );
 }

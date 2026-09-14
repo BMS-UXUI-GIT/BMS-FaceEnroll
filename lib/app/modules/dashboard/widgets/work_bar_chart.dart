@@ -146,8 +146,13 @@ class WorkBarChart extends StatelessWidget {
                     ),
                 ],
               ),
-              // ไม่ให้ fl_chart tween ซ้อนกับการไล่โผล่ของเราเอง — คุมความสูงเองทั้งหมด
-              duration: Duration.zero,
+              // ระหว่างแท่งไล่งอกตอนเข้าหน้า เราคุมความสูงเองทุกเฟรม ห้าม fl_chart
+              // tween ซ้อนเข้ามา · พองอกครบแล้ว (t >= 1) ค่อยปล่อยให้มันไล่ค่าเอง
+              // ตอนกดชิป legend แท่งจะได้ยุบ/ยืดแทนที่จะกระโดดไปค่าใหม่ทันที
+              duration: t >= 1
+                  ? const Duration(milliseconds: 260)
+                  : Duration.zero,
+              curve: Curves.easeOutCubic,
             ),
           ),
         );
