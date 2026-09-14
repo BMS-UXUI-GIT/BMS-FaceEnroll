@@ -70,6 +70,10 @@ class DashChartCard extends StatelessWidget {
           // ปุ่มเลื่อนอยู่บนหัวการ์ด — ตอนโหลดต้องคงหัวไว้ ให้กดต่อได้ทันที
           if (controller.rangeLoading.value)
             Shimmer(child: Skel(height: Dash.sp(160), radius: 16))
+          // ปิดชิป legend ครบทุกตัว = กราฟไม่เหลืออะไรให้วาด ต้องบอกว่าเป็นเพราะตัวกรอง
+          // ไม่ใช่เพราะไม่มีข้อมูล ไม่งั้นคนอ่านว่า "เดือนนี้ไม่ได้ลงเวลาเลย" ซึ่งไม่จริง
+          else if (controller.hiddenSeries.length == Series.values.length)
+            _AllFiltersOff(controller: controller)
           else if (empty)
             const _EmptyChart()
           else
@@ -98,6 +102,54 @@ class _EmptyChart extends StatelessWidget {
         Text(
           'ยังไม่มีข้อมูลในช่วงนี้',
           style: Dash.body(size: 12, color: Dash.muted),
+        ),
+      ],
+    ),
+  );
+}
+
+/// ปิดชิป legend ไว้ครบทุกตัว — ไม่ใช่ว่าไม่มีข้อมูล แค่ซ่อนไว้หมด
+/// มีปุ่มเปิดกลับในตัว ไม่ต้องไล่แตะชิปทีละอันห้าครั้ง
+class _AllFiltersOff extends StatelessWidget {
+  const _AllFiltersOff({required this.controller});
+
+  final DashboardController controller;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Column(
+      children: [
+        Icon(PhosphorIconsRegular.funnelX, size: 26, color: Dash.faint),
+        const SizedBox(height: 8),
+        Text(
+          'ปิดตัวกรองไว้ทั้งหมด',
+          style: Dash.body(size: 12.5, color: Dash.sub),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'ข้อมูลยังอยู่ครบ แค่ถูกซ่อนจากกราฟ',
+          style: Dash.body(size: 11.5, color: Dash.muted),
+        ),
+        const SizedBox(height: 12),
+        Tappable(
+          onTap: controller.hiddenSeries.clear,
+          borderRadius: BorderRadius.circular(100),
+          splash: Dash.accent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Dash.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              'เปิดทั้งหมด',
+              style: Dash.body(
+                size: 12.5,
+                color: Dash.accentActive,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
         ),
       ],
     ),
@@ -162,53 +214,88 @@ class ChartRangeBody extends StatelessWidget {
 }
 
 /// หัวการ์ดกราฟ — ช่วงย่อยที่การ์ดนี้แสดง + ปุ่มเลื่อนสัปดาห์ (เฉพาะรายสัปดาห์)
+/// + ปุ่มล้างตัวกรองที่มุมขวาสุด ซึ่งโผล่มาเฉพาะตอนที่มีชิป legend ถูกปิดอยู่
 class PeriodHeader extends StatelessWidget {
   const PeriodHeader({super.key, required this.controller});
 
   final DashboardController controller;
 
   @override
-  Widget build(BuildContext context) => Obx(
-    () => Row(
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                controller.cardTitle,
-                style: Dash.tech(
-                  size: 16,
-                  weight: FontWeight.w700,
-                  color: Dash.ink,
+  Widget build(BuildContext context) => Obx(() {
+    // สำเนาออกมาเป็น Set ธรรมดา — การอ่านค่าจริงคือสิ่งที่บอก Obx ว่าต้องฟังตัวนี้
+    // (แค่ให้ชื่อตัวแปรชี้ไป RxSet เฉย ๆ ไม่นับเป็นการอ่าน)
+    final filtered = {...controller.hiddenSeries}.isNotEmpty;
+    final week = controller.range.value == DashRange.week;
+    // ความกว้างแถวเปลี่ยนตอนปุ่มรีเซ็ตโผล่/หาย — ให้ค่อย ๆ ขยับ ไม่ใช่กระตุกทีเดียว
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.centerRight,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  controller.cardTitle,
+                  style: Dash.tech(
+                    size: 16,
+                    weight: FontWeight.w700,
+                    color: Dash.ink,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                controller.cardSub,
-                style: Dash.body(size: 12, color: Dash.muted),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  controller.cardSub,
+                  style: Dash.body(size: 12, color: Dash.muted),
+                ),
+              ],
+            ),
           ),
-        ),
-        // เลื่อนได้เฉพาะรายสัปดาห์ — เดือน/ปีเปลี่ยนที่ปุ่มเดือนมุมขวาบน
-        if (controller.range.value == DashRange.week) ...[
-          DashNavButton(
-            icon: PhosphorIconsRegular.caretLeft,
-            onTap: controller.goPrev,
-            enabled: controller.canGoPrev,
-          ),
-          const SizedBox(width: 12),
-          DashNavButton(
-            icon: PhosphorIconsRegular.caretRight,
-            onTap: controller.goNext,
-            enabled: controller.canGoNext,
+          // เลื่อนได้เฉพาะรายสัปดาห์ — เดือน/ปีเปลี่ยนที่ปุ่มเดือนบนหัวแผงน้ำเงิน
+          if (week) ...[
+            DashNavButton(
+              icon: PhosphorIconsRegular.caretLeft,
+              onTap: controller.goPrev,
+              enabled: controller.canGoPrev,
+            ),
+            const SizedBox(width: 12),
+            DashNavButton(
+              icon: PhosphorIconsRegular.caretRight,
+              onTap: controller.goNext,
+              enabled: controller.canGoNext,
+            ),
+          ],
+          // ปิดชิป legend ไว้บ้าง = สิ่งที่เห็นในกราฟไม่ใช่ข้อมูลทั้งหมด
+          // ปุ่มนี้จึงโผล่มาเฉพาะตอนนั้น ทำหน้าที่สองอย่างพร้อมกัน: เป็นป้ายบอกว่า
+          // กำลังกรองอยู่ และเป็นทางกลับที่กดครั้งเดียวจบ ไม่ต้องไล่แตะชิปทีละอัน
+          // โผล่มาแบบผุดขึ้น ไม่ใช่ปรากฏทันที — ปุ่มที่เด้งมาเฉย ๆ ตรงมุมจอ
+          // คนมักไม่ทันเห็นว่ามันเพิ่งมา จังหวะย่อ-ขยายทำให้สายตาจับได้ว่ามีของใหม่
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 240),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(scale: anim, child: child),
+            ),
+            child: filtered
+                ? Padding(
+                    key: const ValueKey(true),
+                    padding: EdgeInsets.only(left: week ? 8 : 0),
+                    child: DashIconButton(
+                      icon: PhosphorIconsRegular.arrowCounterClockwise,
+                      onTap: controller.hiddenSeries.clear,
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey(false)),
           ),
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  });
 }
 
 /// แถบเข้มท้ายการ์ด — ชิปบอกความหมายของสีแท่ง
@@ -216,7 +303,7 @@ class PeriodHeader extends StatelessWidget {
 /// ห้ามครอบ Obx ที่ตัวแถบ: ในนี้ไม่ได้อ่านค่า .obs สักตัว (อ่านที่ชิปแต่ละตัวแทน)
 /// GetX จะมองว่าใช้ผิดแล้วโยน error ออกมาเป็น ErrorWidget ซึ่งใน release build
 /// คือกล่องเทาที่ยืดเต็มพื้นที่ที่เหลือ (การ์ดกราฟอยู่ใน SliverToBoxAdapter = ความสูงไม่จำกัด)
-class ChartLegendBar extends StatelessWidget {
+class ChartLegendBar extends StatefulWidget {
   const ChartLegendBar({super.key, required this.controller});
 
   final DashboardController controller;
@@ -239,6 +326,72 @@ class ChartLegendBar extends StatelessWidget {
   };
 
   @override
+  State<ChartLegendBar> createState() => _ChartLegendBarState();
+}
+
+class _ChartLegendBarState extends State<ChartLegendBar> {
+  /// ครั้งเดียวต่อการเปิดแอป — ไม่ใช่ต่อการเข้าแดชบอร์ดแต่ละรอบ
+  /// คำใบ้ที่เล่นซ้ำทุกครั้งที่กลับมาหน้านี้กลายเป็นของกวนใจ ไม่ใช่คำใบ้อีกต่อไป
+  static bool _nudged = false;
+
+  /// ระยะที่ชิปค่อย ๆ จางหายเข้าไปในขอบ — สั้นกว่านี้อ่านเป็นชิปโดนตัด ไม่ใช่จาง
+  static const double _fade = 34;
+
+  /// เพดานระยะที่แง้มออกไป — ปกติแถบนี้ล้นไม่ถึงเท่านี้ จึงได้เลื่อนไปสุดทางพอดี
+  /// คือเห็นชิปตัวที่ซ่อนอยู่เต็มตัว ไม่ใช่แค่โผล่มุม เห็นเต็มตัวครั้งเดียวจำได้เลย
+  /// ว่ายังมีอะไรอยู่ตรงนั้น ดีกว่ากระตุกสั้น ๆ หลายรอบให้เดาเอง
+  static const double _peekMax = 96;
+
+  final _scroll = ScrollController();
+
+  /// คนลากแถบเองแล้ว — คำใบ้หมดหน้าที่ ต้องหยุดกลางคันทันที ไม่แย่งมือ
+  bool _taken = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // รอให้การ์ดกราฟวาดเสร็จและแอนิเมชันตอนเข้าหน้าจบก่อน ไม่งั้นขยับพร้อมกันจนดูรวน
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 900), _nudge);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// แง้มแถบออกไปให้เห็นของที่ซ่อนอยู่ แล้วค่อย ๆ พากลับ — รอบเดียวจบ
+  ///
+  /// ไป-ค้าง-กลับ ใช้ easeInOutCubic ทั้งขาไปและขากลับ ออกตัวนุ่มและจอดนุ่ม
+  /// ไม่มีจังหวะไหนที่ความเร็วกระโดด · ช่วงค้างยาวพอให้ตาอ่านชิปที่เพิ่งโผล่มาได้จริง
+  /// ไม่ใช่แค่เห็นว่ามีอะไรวาบไป
+  Future<void> _nudge() async {
+    if (_nudged || !mounted || !_scroll.hasClients) return;
+    final max = _scroll.position.maxScrollExtent;
+    if (max <= 0) return; // จอกว้างพอ ไม่มีอะไรให้ใบ้
+    // เครื่องที่ตั้งลดการเคลื่อนไหวไว้ — นับว่าใบ้ไปแล้ว จะได้ไม่ค้างรอเล่นทีหลัง
+    _nudged = true;
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return;
+
+    Future<bool> glide(double to, int ms) async {
+      if (_taken || !mounted || !_scroll.hasClients) return false;
+      await _scroll.animateTo(
+        to,
+        duration: Duration(milliseconds: ms),
+        curve: Curves.easeInOutCubic,
+      );
+      return !_taken && mounted;
+    }
+
+    if (!await glide(max < _peekMax ? max : _peekMax, 780)) return;
+    await Future<void>.delayed(const Duration(milliseconds: 620));
+    // ขากลับช้ากว่าขาไปเล็กน้อย — จบแบบวางลง ไม่ใช่ดีดกลับ
+    await glide(0, 840);
+  }
+
+  @override
   Widget build(BuildContext context) {
     // บังคับความสูงไว้ด้วย — การ์ดกราฟอยู่ใน SliverToBoxAdapter (ความสูงไม่จำกัด)
     // แถวเลื่อนแนวนอนที่ไม่มีความสูงบังคับจะยืดไปเท่าที่พื้นที่เหลือให้
@@ -246,21 +399,72 @@ class ChartLegendBar extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8, bottom: 12),
       child: SizedBox(
         height: Dash.box(34), // ชิป: ตัวอักษร 12 + padding 8 บน-ล่าง
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              for (var i = 0; i < _items.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                LegendChip(
-                  controller: controller,
-                  series: _items[i].$1,
-                  color: _colorOf(_items[i].$1),
-                  label: _items[i].$2,
-                ),
-              ],
-            ],
+        // ชิปทั้งห้ากว้างเกินจอ ตัวสุดท้ายเลยอยู่นอกสายตาแบบไม่มีอะไรบอกว่ายังมีต่อ
+        // ขอบจางทำให้ชิปที่ค้างตรงขอบดูเหมือนถูกตัดกลางคัน ซึ่งตาอ่านออกเองว่ายังไม่หมด
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            // ขนาดแถบเปลี่ยน (หมุนจอ ตัวอักษรใหญ่ขึ้น) — ต้องวาดใหม่เพื่ออ่านค่าขอบเขตใหม่
+            if (n is ScrollMetricsNotification) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
+            }
+            // dragDetails มีค่าเฉพาะตอนนิ้วลากจริง — การเลื่อนที่ _nudge สั่งเองไม่มี
+            // จึงแยกออกจากกันได้ว่าใครเป็นคนขยับแถบนี้
+            if (n is ScrollStartNotification && n.dragDetails != null) {
+              _taken = true;
+            }
+            return false;
+          },
+          // ฟังตัวคุมสกรอลล์ตรง ๆ ความเข้มของขอบจึงไหลตามตำแหน่งจริงทุกเฟรม
+          // ถ้าใช้ค่าจริง/เท็จแล้ว setState ขอบจะกระพริบเป็นขั้นตอนที่เลื่อนถึงหัว-ท้าย
+          child: AnimatedBuilder(
+            animation: _scroll,
+            builder: (context, child) {
+              final p = _scroll.hasClients ? _scroll.position : null;
+              final l = p == null ? 0.0 : (p.pixels / _fade).clamp(0.0, 1.0);
+              final r = p == null
+                  ? 0.0
+                  : ((p.maxScrollExtent - p.pixels) / _fade).clamp(0.0, 1.0);
+              return ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (rect) {
+                  final f = (_fade / rect.width).clamp(0.0, 0.35);
+                  return LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 1 - l),
+                      Colors.white,
+                      Colors.white,
+                      Colors.white.withValues(alpha: 1 - r),
+                    ],
+                    stops: [0, f, 1 - f, 1],
+                  ).createShader(rect);
+                },
+                child: child,
+              );
+            },
+            child: SingleChildScrollView(
+              controller: _scroll,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  for (var i = 0; i < ChartLegendBar._items.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    LegendChip(
+                      controller: widget.controller,
+                      series: ChartLegendBar._items[i].$1,
+                      color: ChartLegendBar._colorOf(
+                        ChartLegendBar._items[i].$1,
+                      ),
+                      label: ChartLegendBar._items[i].$2,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
