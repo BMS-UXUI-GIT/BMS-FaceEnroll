@@ -74,11 +74,89 @@ class MonthHeatmap extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 10),
+        const HeatScaleLegend(),
         const SizedBox(height: 12),
         DayDetailSwitcher(dayKey: sel, shifts: map),
       ],
     );
   });
+}
+
+/// คำอธิบายสองอย่างที่ปฏิทินใช้สื่อสารแต่ไม่เคยบอกไว้ที่ไหน
+///
+/// แถบ legend ท้ายการ์ดบอกได้แค่ว่าสีไหนคือสถานะอะไร แต่ปฏิทินเดือนเข้ารหัส
+/// เพิ่มอีกสองชั้นที่คนดูเดาเองไม่ได้ — ความเข้มของสี กับช่องที่ถูกผ่าครึ่งทแยง
+class HeatScaleLegend extends StatelessWidget {
+  const HeatScaleLegend({super.key});
+
+  /// สี่ขั้นที่ตรงกับสูตรไล่เฉดใน [HeatCell] (4 → 10 ชม.)
+  static const List<double> _steps = [0, 0.33, 0.67, 1];
+
+  @override
+  Widget build(BuildContext context) {
+    // ไล่เฉดด้วยสีเดียวกับ "ปกติ" เพราะเป็นสถานะที่คนเห็นบ่อยสุด
+    Color shade(double t) =>
+        Dash.ok.withValues(alpha: Dash.dark ? 0.14 + 0.20 * t : 0.3 + 0.7 * t);
+    final cap = Dash.body(size: 10.5, color: Dash.muted);
+    return Wrap(
+      spacing: 14,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('4 ชม.', style: cap),
+            const SizedBox(width: 6),
+            for (final t in _steps) ...[
+              if (t != _steps.first) const SizedBox(width: 3),
+              _Swatch(color: shade(t)),
+            ],
+            const SizedBox(width: 6),
+            Text('10 ชม.', style: cap),
+          ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ช่องตัวอย่างที่ผ่าครึ่งจริง ๆ ด้วยตัววาดเดียวกับในปฏิทิน
+            _Swatch(
+              painter: SplitBox(
+                Dash.ok.withValues(alpha: Dash.dark ? 0.3 : 0.6),
+                Dash.warn.withValues(alpha: Dash.dark ? 0.3 : 0.6),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text('วันที่มีสองเวรคนละสถานะ', style: cap),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// ช่องสี่เหลี่ยมเล็กในคำอธิบาย — ขนาดเท่ากันทั้งแบบทึบและแบบผ่าครึ่ง
+class _Swatch extends StatelessWidget {
+  const _Swatch({this.color, this.painter});
+
+  final Color? color;
+  final CustomPainter? painter;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = Dash.box(12);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: painter != null
+            ? CustomPaint(painter: painter)
+            : ColoredBox(color: color!),
+      ),
+    );
+  }
 }
 
 /// หนึ่งช่องปฏิทิน — พื้นคือสถานะ+ความเข้มชั่วโมง ตัวเลขคือวันที่
@@ -101,6 +179,9 @@ class HeatCell extends StatelessWidget {
   final Map<String, List<Map<String, dynamic>>> shifts;
   final String selected;
   final String today;
+
+  /// จังหวะที่ช่องเปลี่ยนหน้าตาตอนกรอง — เท่ากับวงวันในแถบรายสัปดาห์
+  static const _morph = Duration(milliseconds: 240);
 
   @override
   Widget build(BuildContext context) {
@@ -161,10 +242,14 @@ class HeatCell extends StatelessWidget {
                 : () => controller.touchedDay.value = on ? '' : key,
             borderRadius: BorderRadius.circular(8),
             splash: Dash.on,
-            child: Container(
+            // กดชิป legend แล้วทั้งเดือนเปลี่ยนพร้อมกันสามสิบช่อง ถ้าสลับทันทีอ่านเป็นจอกระพริบ
+            // ไล่ให้แทนแล้วมันเล่าเรื่องว่าเวรที่ถูกซ่อนค่อย ๆ จางหายไปจากปฏิทิน
+            child: AnimatedContainer(
+              duration: _morph,
+              curve: Curves.easeOut,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: split == null ? bg : null,
+                color: split == null ? bg : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: on || isToday
                     ? Border.all(
@@ -179,18 +264,25 @@ class HeatCell extends StatelessWidget {
                 fit: StackFit.expand,
                 alignment: Alignment.center,
                 children: [
-                  if (split != null)
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CustomPaint(
-                          painter: SplitBox(split.$1, split.$2),
-                        ),
-                      ),
+                  // ช่องผ่าครึ่งวาดด้วย CustomPaint ซึ่ง AnimatedContainer ไล่ให้ไม่ได้
+                  Positioned.fill(
+                    child: AnimatedSwitcher(
+                      duration: _morph,
+                      child: split == null
+                          ? const SizedBox.shrink(key: ValueKey('flat'))
+                          : ClipRRect(
+                              key: ValueKey('${split.$1}|${split.$2}'),
+                              borderRadius: BorderRadius.circular(8),
+                              child: CustomPaint(
+                                painter: SplitBox(split.$1, split.$2),
+                              ),
+                            ),
                     ),
+                  ),
                   Center(
-                    child: Text(
-                      '${date.day}',
+                    child: AnimatedDefaultTextStyle(
+                      duration: _morph,
+                      curve: Curves.easeOut,
                       style: Dash.num(
                         size: 11,
                         weight: FontWeight.w700,
@@ -203,6 +295,7 @@ class HeatCell extends StatelessWidget {
                                   ? dayMarkColor(mark)
                                   : (t > 0.4 ? Dash.on : Dash.sub)),
                       ),
+                      child: Text('${date.day}'),
                     ),
                   ),
                 ],
