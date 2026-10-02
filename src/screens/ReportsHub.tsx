@@ -11,6 +11,7 @@ import { SectionPanel } from '../components/layout/SectionPanel'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { StatCard } from '../components/data-display/StatCard'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Pagination } from '../components/data-display/Pagination'
@@ -256,29 +257,6 @@ export function ReportsHub() {
               icon={<Icon name="recon" size={20} style={loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรช
             </Button>
-            {/* รายงานประจำเดือนเลือกเป็นเดือน ที่เหลือเลือกเป็นช่วงวัน */}
-            {active === 'monthly' ? (
-              <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
-                <MonthPicker bare value={month} max={thisMonth()} onChange={setMonth} />
-              </FilterChip>
-            ) : (
-              <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
-                {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
-                <DateRangePicker bare from={from} to={to} max={localISO()}
-                  onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
-                  onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
-              </FilterChip>
-            )}
-            <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
-              <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])} clearLabel="เลือกทุกเวร"
-                options={shiftOpts}
-                placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
-            </FilterChip>
-            <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก"
-                options={deptOpts}
-                placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
-            </FilterChip>
           </span>
         </>}
       >
@@ -289,6 +267,33 @@ export function ReportsHub() {
             value={nf(REPORTS.length)} />
         </div>
       </PageHeader>
+
+      {/* ตัวกรองค้างใต้แถบบนตอนเลื่อน — เห็นตลอดว่ารายงานที่ดูอยู่ใช้ช่วงวัน/เวร/แผนกอะไร */}
+      <FilterBar activeCount={(fShifts.length > 0 ? 1 : 0) + (fDepts.length > 0 ? 1 : 0)}>
+        {/* รายงานประจำเดือนเลือกเป็นเดือน ที่เหลือเลือกเป็นช่วงวัน */}
+        {active === 'monthly' ? (
+          <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
+            <MonthPicker bare value={month} max={thisMonth()} onChange={setMonth} />
+          </FilterChip>
+        ) : (
+          <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+            {/* backend รับช่วงยาวสุด 31 วัน — ล็อกขอบให้เลือกเกินไม่ได้ */}
+            <DateRangePicker bare from={from} to={to} max={localISO()}
+              onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
+              onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+          </FilterChip>
+        )}
+        <FilterChip icon={<Icon name="calendar-time" size={24} width={1.8} />} label="เลือกเวร">
+          <SearchSelect bare hideCaret multi values={fShifts} onToggle={(v) => setFShifts(toggle(fShifts, v))} onClear={() => setFShifts([])} clearLabel="เลือกทุกเวร"
+            options={shiftOpts}
+            placeholder="ทั้งหมด" searchPlaceholder="ค้นเวร…" maxTriggerWidth={120} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
+          <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก"
+            options={deptOpts}
+            placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
+        </FilterChip>
+      </FilterBar>
 
       {/* ---------- เทมเพลต + ตัวอย่างรายงาน ---------- */}
       <SectionPanel

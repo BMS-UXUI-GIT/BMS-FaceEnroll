@@ -11,7 +11,7 @@ export type ShiftKind = 'morning' | 'afternoon' | 'night'
 const LABEL: Record<ShiftKind, string> = { morning: 'เช้า', afternoon: 'บ่าย', night: 'ดึก' }
 
 // เช้า = haze, บ่าย = sun-high, ดึก = moon-stars (ตาม Figma)
-const ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
+export const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
 
 /** เดาเวรจากชื่อที่ backend ส่งมา (เช่น "เช้า (08:00-16:00)") — ไม่รู้จัก = เช้า */
 export function shiftKindOf(name: string): ShiftKind {
@@ -37,7 +37,7 @@ export function ShiftBadge({ shift, label }: { shift: ShiftKind; label?: string 
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         background: `var(--shift-${shift}-icon)`, color: 'var(--bg)',
       }}>
-        <Icon name={ICON[shift]} size={14} width={2} />
+        <Icon name={SHIFT_ICON[shift]} size={14} width={2} />
       </span>
       {label ?? LABEL[shift]}
     </span>

@@ -51,6 +51,8 @@
   --shift-morning-bg: #D7E8F6; --shift-morning-icon: #A0AFDF; --shift-morning-text: #404D8C;
   --shift-afternoon-bg: #FFF0D9; --shift-afternoon-icon: #FFCF69; --shift-afternoon-text: #8C591A;
   --shift-night-bg: #D4DDE9;   --shift-night-icon: #476CB8;   --shift-night-text: #263873;
+  /* เวร 12 ชม. (Day/Night) — บาง รพ. จัดแทนเช้า/บ่าย/ดึก · ใช้เป็นไอคอนจิ๋วในตารางลงเวลารายวัน */
+  --shift-day-icon: #E8A33A;   --shift-dnight-icon: #6A5BB5;
 
   /* === Surface Tints === */
   --surface-blue: #EBF1FD;
@@ -728,6 +730,15 @@ input, button, select { font-family: var(--sans); }
 .sort-in { animation: sort-in .32s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .sort-in { animation: none; } }
 
+/* วงสถานะรายวัน (ตารางลงเวลารายวัน) — สเปกเดียวกับ DayDot ในแอปมือถือ: 240ms easeOut จาง + ขยายจาก 0.78
+   เล่นตอนวงถูกสร้างใหม่ (เปลี่ยนสถานะ/กรอง legend) — สลับทันทีทั้งตารางอ่านเป็นจอกระพริบ */
+@keyframes dot-pop {
+  from { opacity: 0; transform: scale(.78); }
+  to { opacity: 1; transform: none; }
+}
+.dot-pop { animation: dot-pop .24s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .dot-pop { animation: none; } }
+
 /* กราฟแท่ง: ความจางตอนชี้/ล็อก legend ค่อย ๆ ไล่ · ป้ายตัวเลข/ป้ายใต้แท่งเฟดตาม
    (ความสูงของแท่งเป็นหน้าที่ของอนิเมชัน recharts — BAR_ANIM ใน charts.tsx) */
 .bar-anim path,
@@ -739,7 +750,8 @@ input, button, select { font-family: var(--sans); }
    margin ติดลบ = ดันแถบออกไปชนขอบ padding ของ main พื้นหลังจะได้บังเนื้อหาที่ลอดข้างหลังจนสุดขอบ */
 .filter-sticky {
   position: sticky;
-  top: calc(var(--topbar-h) + var(--sp-1));
+  /* ชนขอบล่าง Topbar พอดี — เดิมเว้น sp-1 ไว้ เนื้อหาที่เลื่อนลอดเลยโผล่เป็นเส้นระหว่างสองแถบ */
+  top: var(--topbar-h);
   z-index: 20;
   margin-inline: calc(var(--sp-6) * -1);
   padding: var(--sp-2) var(--sp-6);

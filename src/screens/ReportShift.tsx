@@ -10,6 +10,7 @@ import { SectionPanel } from '../components/layout/SectionPanel'
 import { EmptyState, ErrorBox } from '../components/feedback/Message'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { StatCard } from '../components/data-display/StatCard'
 import { ShiftBadge, shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
 import { DataTable, type Column } from '../components/data-display/DataTable'
@@ -214,9 +215,6 @@ export function ReportShift() {
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
-            <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
-              <MonthPicker bare value={month} onChange={setMonth} max={localISO().slice(0, 7)} />
-            </FilterChip>
           </span>
         </>}
       >
@@ -235,6 +233,13 @@ export function ReportShift() {
           )}
         </div>
       </PageHeader>
+
+      {/* ตัวกรองค้างใต้แถบบนตอนเลื่อน — เห็นตลอดว่าข้อมูลรายเวรที่ดูอยู่เป็นของเดือนไหน */}
+      <FilterBar>
+        <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="เลือกเดือน">
+          <MonthPicker bare value={month} onChange={setMonth} max={localISO().slice(0, 7)} />
+        </FilterChip>
+      </FilterBar>
 
       {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 

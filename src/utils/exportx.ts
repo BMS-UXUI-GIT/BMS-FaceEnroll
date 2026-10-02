@@ -40,6 +40,29 @@ export async function exportXLSX(t: Table, filename?: string) {
   XLSX.writeFile(wb, filename || `${t.title}-${stamp()}.xlsx`)
 }
 
+/** ส่งออก Excel แบบจัดหน้าเอง — มีแถวหัวเรื่อง/คำอธิบายเหนือตาราง + รวมเซลล์ได้
+    (exportXLSX ข้างบนรับแค่หัวคอลัมน์ 1 แถว ไม่พอสำหรับตารางเวรที่หัวมี 2 ชั้น)
+    ⚠️ xlsx รุ่น community เขียนสีพื้นเซลล์ไม่ได้ — สถานะจึงต้องอยู่ในข้อความของเซลล์เอง */
+export async function exportSheet(opts: {
+  sheet: string
+  aoa: (string | number)[][]
+  cols?: number[]
+  merges?: { r: number; c: number; rows?: number; cols?: number }[]
+  filename: string
+}) {
+  const XLSX = await import('xlsx')
+  const ws = XLSX.utils.aoa_to_sheet(opts.aoa)
+  if (opts.cols) ws['!cols'] = opts.cols.map((wch) => ({ wch }))
+  if (opts.merges) {
+    ws['!merges'] = opts.merges.map((m) => ({
+      s: { r: m.r, c: m.c }, e: { r: m.r + (m.rows ?? 1) - 1, c: m.c + (m.cols ?? 1) - 1 },
+    }))
+  }
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, opts.sheet.slice(0, 31) || 'Sheet1')
+  XLSX.writeFile(wb, opts.filename)
+}
+
 /** สร้างหน้ารายงาน HTML สำหรับ Print/PDF — ตารางสีอ่านง่ายบนกระดาษ */
 function reportHTML(t: Table, sub: string): string {
   const th = t.headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')

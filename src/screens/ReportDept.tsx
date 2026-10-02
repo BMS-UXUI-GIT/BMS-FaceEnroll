@@ -13,6 +13,7 @@ import { EmptyState, ErrorBox } from '../components/feedback/Message'
 import { SearchSelect } from '../components/SearchSelect'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
+import { FilterBar } from '../components/inputs/FilterBar'
 import { StatCard, type StatItem } from '../components/data-display/StatCard'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Pagination } from '../components/data-display/Pagination'
@@ -21,6 +22,7 @@ import { Icon } from '../icons'
 import { TEXT } from '../typography'
 import { useApp } from '../state'
 import { asset } from '../assets'
+import { DutyRoster } from './dept/DutyRoster'
 
 // รายแผนก — Figma node 114:28921
 //   การ์ดหัวเรื่อง (พื้นไล่สีฟ้า + ภาพประกอบทีมแพทย์) + การ์ดสรุป 5 ใบ + ปุ่มรีเฟรช/เลือกแผนก
@@ -150,16 +152,6 @@ export function ReportDept() {
               icon={<Icon name="recon" size={20} style={anaF.loading ? { animation: 'spin .7s linear infinite' } : undefined} />}>
               รีเฟรชข้อมูลล่าสุด
             </Button>
-            {/* ตัวเลือกช่วงวัน — เดิมหน้านี้ล็อก 7 วันล่าสุดโดยไม่มีที่ให้เปลี่ยน (backend รับช่วงยาวสุด 31 วัน) */}
-            <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
-              <DateRangePicker bare from={from} to={to} max={localISO()}
-                onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
-                onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
-            </FilterChip>
-            <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
-              <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก" options={deptOpts}
-                placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
-            </FilterChip>
           </span>
         </>}
       >
@@ -173,6 +165,20 @@ export function ReportDept() {
           ))}
         </div>
       </PageHeader>
+
+      {/* ตัวกรองแยกออกมาจากการ์ดหัวเรื่อง — ค้างใต้แถบบนตอนเลื่อน เห็นตลอดว่ากราฟ/ตารางถูกกรองด้วยอะไร */}
+      <FilterBar activeCount={fDepts.length > 0 ? 1 : 0}>
+        {/* ตัวเลือกช่วงวัน — backend รับช่วงยาวสุด 31 วัน */}
+        <FilterChip icon={<Icon name="calendar-week" size={24} width={1.8} />} label="ช่วงวันที่">
+          <DateRangePicker bare from={from} to={to} max={localISO()}
+            onFrom={(v) => setFrom(v < isoAddDays(to, -30) ? isoAddDays(to, -30) : v)}
+            onTo={(v) => { setTo(v); if (from < isoAddDays(v, -30)) setFrom(isoAddDays(v, -30)) }} />
+        </FilterChip>
+        <FilterChip icon={<Icon name="briefcase" size={24} width={1.8} />} label="เลือกแผนก">
+          <SearchSelect bare hideCaret multi values={fDepts} onToggle={(v) => setFDepts(toggle(fDepts, v))} onClear={() => setFDepts([])} clearLabel="เลือกทุกแผนก" options={deptOpts}
+            placeholder="ทั้งหมด" searchPlaceholder="ค้นแผนก…" maxTriggerWidth={120} />
+        </FilterChip>
+      </FilterBar>
 
       {anaF.err && <ErrorBox>ผิดพลาด: {anaF.err}</ErrorBox>}
 
@@ -222,6 +228,10 @@ export function ReportDept() {
           โรงพยาบาลที่ยังไม่กรอกแผนกใน HOSxP จะรวมอยู่ใน "ไม่ระบุแผนก"
         </p>
       </SectionPanel>
+
+      {/* ---------- ตารางลงเวลารายวัน (คน × วัน) แบบตารางเวร + ส่งออก Excel ---------- */}
+      <DutyRoster hcode={hcode} from={from} to={to} depts={fDepts} reload={reload} deptName={deptName}
+        deptLabel={selLabel(deptOpts, fDepts, 'ทุกแผนก', 'แผนก')} />
     </div>
   )
 }
