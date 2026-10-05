@@ -17,7 +17,7 @@ import { Avatar } from '../components/data-display/Avatar'
 import { StatCard, type StatItem } from '../components/data-display/StatCard'
 import { StatusBadge } from '../components/data-display/StatusBadge'
 import { DataTable } from '../components/data-display/DataTable'
-import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
+import { shiftKindOf, type ShiftKind, SHIFT_ICON } from '../components/data-display/ShiftBadge'
 import { PlatformPanels, PlatformStats, usePlatformOverview } from './PlatformOverview'
 import { HealthSummary, useHealth } from './Health'
 import { Info } from '../components/Info'
@@ -53,7 +53,6 @@ type TenantStatus = { registered: boolean; request_type?: string; demo_expires_a
 
 const deptName = (d?: string) => (d && d.trim() !== '' ? d : 'ไม่ระบุแผนก')
 
-const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
 const shiftColor = (k: ShiftKind) => `var(--shift-${k}-icon)`
 const shortShift = (s: string) => s.replace(/\s*\(.*\)\s*$/, '')
 

@@ -13,7 +13,7 @@ import { FilterBar } from '../components/inputs/FilterBar'
 import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { Avatar } from '../components/data-display/Avatar'
-import { shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
+import { shiftKindOf, type ShiftKind, SHIFT_ICON } from '../components/data-display/ShiftBadge'
 import { StatCard } from '../components/data-display/StatCard'
 import { Pagination } from '../components/data-display/Pagination'
 import { PAGE_SIZE } from '../components/Pager'
@@ -54,7 +54,6 @@ const TOPBAR = 80
 const deptName = (d?: string) => (d && d.trim() !== '' ? d : 'ไม่ระบุแผนก')
 
 // ป้ายเวรมุมขวาล่างของรูป — ไอคอนเดียวกับ ShiftBadge (เช้า/บ่าย/ดึก)
-const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
 
 function AvatarWithShift({ name, seed, shift, size = 40 }: { name: string; seed: string; shift: string; size?: number }) {
   const kind = shiftKindOf(shift)

@@ -739,6 +739,11 @@ input, button, select { font-family: var(--sans); }
 .dot-pop { animation: dot-pop .24s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .dot-pop { animation: none; } }
 
+/* ช่องในตารางลงเวลารายวัน — ชี้แล้วยกขึ้น + เงา บอกว่าชี้/แตะดูรายละเอียดได้
+   (ไม่ใช้ขอบสี — เส้นขอบของช่องใช้บอกสถานะอยู่แล้ว) */
+.roster-cell > span { transition: transform .12s ease, box-shadow .12s ease; }
+.roster-cell:hover > span { transform: translateY(-1px); box-shadow: 0 4px 10px rgb(0 0 0 / .14); }
+
 /* กราฟแท่ง: ความจางตอนชี้/ล็อก legend ค่อย ๆ ไล่ · ป้ายตัวเลข/ป้ายใต้แท่งเฟดตาม
    (ความสูงของแท่งเป็นหน้าที่ของอนิเมชัน recharts — BAR_ANIM ใน charts.tsx) */
 .bar-anim path,

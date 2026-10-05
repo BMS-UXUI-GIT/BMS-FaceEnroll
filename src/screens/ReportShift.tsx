@@ -12,7 +12,7 @@ import { Button } from '../components/inputs/Button'
 import { FilterChip } from '../components/inputs/FilterChip'
 import { FilterBar } from '../components/inputs/FilterBar'
 import { StatCard } from '../components/data-display/StatCard'
-import { ShiftBadge, shiftKindOf, type ShiftKind } from '../components/data-display/ShiftBadge'
+import { ShiftBadge, shiftKindOf, type ShiftKind, SHIFT_ICON } from '../components/data-display/ShiftBadge'
 import { DataTable, type Column } from '../components/data-display/DataTable'
 import { Icon } from '../icons'
 import { TEXT } from '../typography'
@@ -40,7 +40,6 @@ const shiftName = (s: string) => (s.trim() === '' ? 'ไม่ระบุเว
 /** ชื่อสั้นสำหรับป้าย/แกน — ตัดวงเล็บเวลาออก เช่น "เช้า (08:00-16:00)" -> "เช้า" */
 const shortName = (s: string) => shiftName(s).replace(/\s*\(.*\)\s*$/, '')
 const colorOf = (k: ShiftKind) => `var(--shift-${k}-icon)`
-const ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
 
 /** "HH:MM" -> นาทีตั้งแต่เที่ยงคืน (ค่าพัง = null) */
 const toMinutes = (t: string): number | null => {
@@ -223,7 +222,7 @@ export function ReportShift() {
         <div className="relative mt-4 flex gap-2 flex-wrap stat-grid">
           {shifts.map((s) => (
             <StatCard key={s.name} label={`เวร${shortName(s.name)}`} color={colorOf(kindOf(s))}
-              icon={<Icon name={ICON[kindOf(s)]} size={24} color="currentColor" />}
+              icon={<Icon name={SHIFT_ICON[kindOf(s)]} size={24} color="currentColor" />}
               value={nf(s.persons)} unit={`คน (${pct(s.persons).toFixed(0)}%)`} />
           ))}
           {shifts.length === 0 && (

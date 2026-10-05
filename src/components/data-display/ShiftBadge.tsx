@@ -10,8 +10,8 @@ export type ShiftKind = 'morning' | 'afternoon' | 'night'
 
 const LABEL: Record<ShiftKind, string> = { morning: 'เช้า', afternoon: 'บ่าย', night: 'ดึก' }
 
-// เช้า = haze, บ่าย = sun-high, ดึก = moon-stars (ตาม Figma)
-export const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon' }
+// เช้า = haze, บ่าย = sun-high, ดึก = moon (ไม่มีดาว — ผู้ใช้ขอเอาดาวออก) · แหล่งเดียวของไอคอนเวรทั้งระบบ
+export const SHIFT_ICON: Record<ShiftKind, string> = { morning: 'haze', afternoon: 'sun', night: 'moon-plain' }
 
 /** เดาเวรจากชื่อที่ backend ส่งมา (เช่น "เช้า (08:00-16:00)") — ไม่รู้จัก = เช้า */
 export function shiftKindOf(name: string): ShiftKind {

@@ -102,17 +102,18 @@ type Punch = {
   late: boolean; early: boolean; late_min: number; early_min: number
   no_out: boolean; out_area: boolean; dist_m: number | null; absent: boolean
 }
+// อัตราผิดปกติรวมราว 15% ของรอบ (เดิม ~30% — ตารางลงเวลารายวันแดงทั้งตาราง ไม่สมจริง)
 function punchOf(e: MockEmp, date: string, empIdx: number, dayIdx: number, seq = 1, shift: Shift = e.shift): Punch {
   const r = rand(empIdx * 977 + dayIdx * 31 + 7 + (seq - 1) * 5003)
   const absent = r() < 0.06                       // ~6% ไม่มาสแกน
   const lateRoll = r()
-  const late = lateRoll < 0.17                    // ~17% มาสาย
+  const late = lateRoll < 0.08                    // ~8% มาสาย
   const late_min = late ? int(r(), 3, 47) : 0
   const earlyRoll = r()
-  const early = earlyRoll < 0.09
+  const early = earlyRoll < 0.04                  // ~4% ออกก่อน
   const early_min = early ? int(r(), 5, 35) : 0
-  const no_out = r() < 0.07                       // ลืมสแกนออก
-  const out_area = r() < 0.05                     // สแกนนอกพื้นที่
+  const no_out = r() < 0.03                       // ~3% ลืมสแกนออก
+  const out_area = r() < 0.02                     // ~2% สแกนนอกพื้นที่
   const inMin = shift.start + (late ? late_min : -int(r(), 0, 18))
   const outMin = shift.start + 8 * 60 - (early ? early_min : -int(r(), 0, 25))
   return {
